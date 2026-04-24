@@ -1,9 +1,9 @@
-import typescriptLogo from "./assets/typescript.svg";
-import viteLogo from "./assets/vite.svg";
-import heroImg from "./assets/hero.png";
-import { Counter } from "./Counter.tsx";
+import typescriptLogo from '../assets/typescript.svg'
+import viteLogo from '../assets/vite.svg'
+import heroImg from '../assets/hero.png'
+import { Counter } from '../Counter.tsx'
 
-export function App() {
+export default function Home() {
   return (
     <>
       <section id="center">
@@ -15,7 +15,7 @@ export function App() {
         <div>
           <h1>Get started</h1>
           <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
+            Edit <code>src/pages/Home.tsx</code> and save to test <code>HMR</code>
           </p>
         </div>
         <Counter />
@@ -91,5 +91,5 @@ export function App() {
       <div className="ticks" />
       <section id="spacer" />
     </>
-  );
+  )
 }
