@@ -8,74 +8,74 @@ export default function RootLayout() {
   const { sidebarOpen, openSidebar, closeSidebar, breakpoint } = useSidebar()
 
   const isMobile = breakpoint === 'mobile'
-  const isModalOpen = sidebarOpen && isMobile // 移动端模态显示
+  const isModalOpen = sidebarOpen && isMobile
+
+  // 避免重复 JSX 的按钮封装
+  const OpenSidebarButton = ({ className }: { className?: string }) => (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={openSidebar}
+      className={className}
+      aria-label="Open sidebar"
+    >
+      <PanelLeftOpenIcon />
+    </Button>
+  )
+
+  const NewChatButton = ({ className }: { className?: string }) => (
+    <Button variant="ghost" size="icon" asChild className={className}>
+      <Link to="/" aria-label="New chat">
+        <PlusIcon />
+      </Link>
+    </Button>
+  )
 
   return (
     <div id="app" className="flex h-svh">
-      {/* Desktop sidebar */}
+      {/* 桌面端侧边栏（常驻，通过宽度过渡显隐） */}
       <aside
         data-state={sidebarOpen ? 'open' : 'closed'}
         className="hidden h-full shrink-0 overflow-hidden border-r bg-sidebar transition-all duration-300 md:block data-[state=closed]:w-0 data-[state=open]:w-60"
       >
-        <div className="w-60 h-full">
-          <Sidebar onClose={closeSidebar} />
-        </div>
+        <Sidebar onClose={closeSidebar} />
       </aside>
 
-      {/* Main area */}
+      {/* 主区域 */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Header */}
         <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
-          {/* Mobile: hamburger */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={openSidebar}
-            className="md:hidden"
-            aria-label="Open sidebar"
-          >
-            <PanelLeftOpenIcon />
-          </Button>
+          {/* 移动端始终显示打开侧边栏按钮 */}
+          <OpenSidebarButton className="md:hidden" />
 
-          {/* Desktop: Open Sidebar + New Chat (when sidebar closed) */}
+          {/* 桌面端侧边栏关闭时，显示打开侧边栏和新建聊天按钮 */}
           {!sidebarOpen && (
             <div className="hidden items-center gap-2 md:flex">
-              <Button variant="ghost" size="icon" onClick={openSidebar} aria-label="Open sidebar">
-                <PanelLeftOpenIcon />
-              </Button>
-              <Button variant="ghost" size="icon" asChild>
-                <Link to="/" aria-label="New chat">
-                  <PlusIcon />
-                </Link>
-              </Button>
+              <OpenSidebarButton />
+              <NewChatButton />
             </div>
           )}
 
           <div className="flex-1" />
 
-          {/* New Chat — always visible on mobile; on desktop only shown when sidebar is open */}
-          <Button variant="ghost" size="icon" asChild className={!sidebarOpen ? 'md:hidden' : ''}>
-            <Link to="/" aria-label="New chat">
-              <PlusIcon />
-            </Link>
-          </Button>
+          {/* 移动端始终显示新建聊天；桌面端仅在侧边栏打开时显示（靠右放置） */}
+          <NewChatButton className={!sidebarOpen ? 'md:hidden' : ''} />
         </header>
 
-        {/* Main content */}
         <main className="flex-1 overflow-y-auto">
           <Outlet />
         </main>
 
-        {/* Footer */}
         <footer className="flex h-12 shrink-0 items-center border-t px-4" />
       </div>
 
-      {/* Mobile sidebar (modal overlay) */}
+      {/* 移动端侧边栏：遮罩层 */}
       <div
         data-state={isModalOpen ? 'open' : 'closed'}
         className="fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 md:hidden data-[state=closed]:pointer-events-none data-[state=closed]:opacity-0 data-[state=open]:opacity-100"
         onClick={closeSidebar}
       />
+
+      {/* 移动端侧边栏：抽屉面板 */}
       <div
         data-state={isModalOpen ? 'open' : 'closed'}
         className="fixed inset-y-0 left-0 z-50 w-72 bg-sidebar shadow-lg transition-transform duration-300 md:hidden data-[state=closed]:-translate-x-full data-[state=open]:translate-x-0"
