@@ -1,11 +1,11 @@
 import { Link, Outlet } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { PanelLeftOpenIcon, PlusIcon } from 'lucide-react'
-import { SidebarContent } from './SidebarContent'
-import { useSidebarController } from '@/hooks/useSidebarController'
+import { Sidebar } from './Sidebar'
+import { useSidebar } from '@/hooks/useSidebar'
 
 export default function RootLayout() {
-  const { sidebarOpen, openSidebar, closeSidebar, breakpoint } = useSidebarController()
+  const { sidebarOpen, openSidebar, closeSidebar, breakpoint } = useSidebar()
 
   const isMobile = breakpoint === 'mobile'
   const isModalOpen = sidebarOpen && isMobile // 移动端模态显示
@@ -18,7 +18,7 @@ export default function RootLayout() {
         className="hidden h-full shrink-0 overflow-hidden border-r bg-sidebar transition-all duration-300 md:block data-[state=closed]:w-0 data-[state=open]:w-60"
       >
         <div className="w-60 h-full">
-          <SidebarContent onClose={closeSidebar} />
+          <Sidebar onClose={closeSidebar} />
         </div>
       </aside>
 
@@ -80,7 +80,7 @@ export default function RootLayout() {
         data-state={isModalOpen ? 'open' : 'closed'}
         className="fixed inset-y-0 left-0 z-50 w-72 bg-sidebar shadow-lg transition-transform duration-300 md:hidden data-[state=closed]:-translate-x-full data-[state=open]:translate-x-0"
       >
-        <SidebarContent onClose={closeSidebar} />
+        <Sidebar onClose={closeSidebar} />
       </div>
     </div>
   )

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 type Breakpoint = 'mobile' | 'tablet' | 'desktop'
 
-export function useResponsiveBreakpoints(): Breakpoint {
+export function useBreakpoint(): Breakpoint {
   const [breakpoint, setBreakpoint] = useState<Breakpoint>(() => getBreakpoint(window.innerWidth))
 
   useEffect(() => {

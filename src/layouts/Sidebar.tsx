@@ -3,12 +3,12 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { PanelLeftCloseIcon, PlusIcon, SettingsIcon } from 'lucide-react'
 
-interface SidebarContentProps {
+interface SidebarProps {
   onClose?: () => void
   className?: string
 }
 
-export function SidebarContent({ onClose, className }: SidebarContentProps) {
+export function Sidebar({ onClose, className }: SidebarProps) {
   return (
     <div className={cn('flex h-full flex-col', className)}>
       <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
