@@ -12,6 +12,10 @@ export default defineConfig({
       '@': resolve(__dirname, 'src'),
     },
   },
+  test: {
+    environment: 'jsdom',
+    setupFiles: [],
+  },
   staged: {
     '*': 'vp check --fix',
   },
