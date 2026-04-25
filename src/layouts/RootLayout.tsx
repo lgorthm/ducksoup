@@ -2,20 +2,23 @@ import { Link, Outlet } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { PanelLeftOpenIcon, PlusIcon } from 'lucide-react'
 import { SidebarContent } from './SidebarContent'
-import { useSidebar } from '@/hooks/useSidebar'
+import { useSidebarController } from '@/hooks/useSidebarController'
 
 export default function RootLayout() {
-  const { isOpen, open, close } = useSidebar()
+  const { sidebarOpen, openSidebar, closeSidebar, breakpoint } = useSidebarController()
+
+  const isMobile = breakpoint === 'mobile'
+  const isModalOpen = sidebarOpen && isMobile // 移动端模态显示
 
   return (
     <div id="app" className="flex h-svh">
       {/* Desktop sidebar */}
       <aside
-        data-state={isOpen ? 'open' : 'closed'}
+        data-state={sidebarOpen ? 'open' : 'closed'}
         className="hidden h-full shrink-0 overflow-hidden border-r bg-sidebar transition-all duration-300 md:block data-[state=closed]:w-0 data-[state=open]:w-60"
       >
         <div className="w-60 h-full">
-          <SidebarContent onClose={close} />
+          <SidebarContent onClose={closeSidebar} />
         </div>
       </aside>
 
@@ -27,7 +30,7 @@ export default function RootLayout() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={open}
+            onClick={openSidebar}
             className="md:hidden"
             aria-label="Open sidebar"
           >
@@ -35,9 +38,9 @@ export default function RootLayout() {
           </Button>
 
           {/* Desktop: Open Sidebar + New Chat (when sidebar closed) */}
-          {!isOpen && (
+          {!sidebarOpen && (
             <div className="hidden items-center gap-2 md:flex">
-              <Button variant="ghost" size="icon" onClick={open} aria-label="Open sidebar">
+              <Button variant="ghost" size="icon" onClick={openSidebar} aria-label="Open sidebar">
                 <PanelLeftOpenIcon />
               </Button>
               <Button variant="ghost" size="icon" asChild>
@@ -51,7 +54,7 @@ export default function RootLayout() {
           <div className="flex-1" />
 
           {/* New Chat — always visible on mobile; on desktop only shown when sidebar is open */}
-          <Button variant="ghost" size="icon" asChild className={!isOpen ? 'md:hidden' : ''}>
+          <Button variant="ghost" size="icon" asChild className={!sidebarOpen ? 'md:hidden' : ''}>
             <Link to="/" aria-label="New chat">
               <PlusIcon />
             </Link>
@@ -69,15 +72,15 @@ export default function RootLayout() {
 
       {/* Mobile sidebar (modal overlay) */}
       <div
-        data-state={isOpen ? 'open' : 'closed'}
+        data-state={isModalOpen ? 'open' : 'closed'}
         className="fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 md:hidden data-[state=closed]:pointer-events-none data-[state=closed]:opacity-0 data-[state=open]:opacity-100"
-        onClick={close}
+        onClick={closeSidebar}
       />
       <div
-        data-state={isOpen ? 'open' : 'closed'}
+        data-state={isModalOpen ? 'open' : 'closed'}
         className="fixed inset-y-0 left-0 z-50 w-72 bg-sidebar shadow-lg transition-transform duration-300 md:hidden data-[state=closed]:-translate-x-full data-[state=open]:translate-x-0"
       >
-        <SidebarContent onClose={close} />
+        <SidebarContent onClose={closeSidebar} />
       </div>
     </div>
   )
