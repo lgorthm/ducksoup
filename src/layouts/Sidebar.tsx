@@ -1,7 +1,7 @@
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { PanelLeftCloseIcon, PlusIcon, SettingsIcon } from 'lucide-react'
+import { PanelLeftCloseIcon, SettingsIcon } from 'lucide-react'
 
 interface SidebarProps {
   onClose?: () => void
@@ -22,14 +22,7 @@ export function Sidebar({ onClose, className }: SidebarProps) {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2">
-        <Button variant="ghost" className="w-full justify-start gap-2 px-3" asChild>
-          <Link to="/">
-            <PlusIcon className="size-4" />
-            New Chat
-          </Link>
-        </Button>
-      </div>
+      <div className="flex-1 overflow-y-auto p-2" />
 
       <div className="border-t p-2">
         <Button variant="ghost" className="w-full justify-start gap-2 px-3" asChild>

@@ -1,6 +1,6 @@
-import { Link, Outlet } from 'react-router'
+import { Outlet } from 'react-router'
 import { Button } from '@/components/ui/button'
-import { PanelLeftOpenIcon, PlusIcon } from 'lucide-react'
+import { PanelLeftOpenIcon } from 'lucide-react'
 import { Sidebar } from './Sidebar'
 import { useSidebar } from '@/hooks/useSidebar'
 
@@ -23,14 +23,6 @@ export default function RootLayout() {
     </Button>
   )
 
-  const NewChatButton = ({ className }: { className?: string }) => (
-    <Button variant="ghost" size="icon" asChild className={className}>
-      <Link to="/" aria-label="New chat">
-        <PlusIcon />
-      </Link>
-    </Button>
-  )
-
   return (
     <div id="app" className="flex h-svh">
       {/* 桌面端侧边栏（常驻，通过宽度过渡显隐） */}
@@ -47,18 +39,14 @@ export default function RootLayout() {
           {/* 移动端始终显示打开侧边栏按钮 */}
           <OpenSidebarButton className="md:hidden" />
 
-          {/* 桌面端侧边栏关闭时，显示打开侧边栏和新建聊天按钮 */}
+          {/* 桌面端侧边栏关闭时，显示打开侧边栏按钮 */}
           {!sidebarOpen && (
             <div className="hidden items-center gap-2 md:flex">
               <OpenSidebarButton />
-              <NewChatButton />
             </div>
           )}
 
           <div className="flex-1" />
-
-          {/* 移动端始终显示新建聊天；桌面端仅在侧边栏打开时显示（靠右放置） */}
-          <NewChatButton className={!sidebarOpen ? 'md:hidden' : ''} />
         </header>
 
         <main className="flex-1 overflow-y-auto">
