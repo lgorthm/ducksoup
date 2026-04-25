@@ -1,6 +1,17 @@
 import { defineConfig } from 'vite-plus'
+import tailwindcss from '@tailwindcss/vite'
+import { fileURLToPath } from 'node:url'
+import { resolve } from 'node:path'
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
 export default defineConfig({
+  plugins: [tailwindcss()],
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, 'src'),
+    },
+  },
   staged: {
     '*': 'vp check --fix',
   },
