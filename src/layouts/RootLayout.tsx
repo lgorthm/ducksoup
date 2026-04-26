@@ -3,9 +3,11 @@ import { Button } from '@/components/ui/button'
 import { PanelLeftOpenIcon } from 'lucide-react'
 import { Sidebar } from './Sidebar'
 import { useSidebar } from '@/hooks/useSidebar'
+import { useTheme } from '@/hooks/useTheme'
 
 export default function RootLayout() {
   const { sidebarOpen, openSidebar, closeSidebar, breakpoint } = useSidebar()
+  const { theme, toggleTheme } = useTheme()
 
   const isMobile = breakpoint === 'mobile'
   const isModalOpen = sidebarOpen && isMobile
@@ -30,7 +32,7 @@ export default function RootLayout() {
         data-state={sidebarOpen ? 'open' : 'closed'}
         className="hidden h-full shrink-0 overflow-hidden border-r bg-sidebar transition-all duration-300 md:block data-[state=closed]:w-0 data-[state=open]:w-60"
       >
-        <Sidebar onClose={closeSidebar} />
+        <Sidebar onClose={closeSidebar} theme={theme} onToggleTheme={toggleTheme} />
       </aside>
 
       {/* 主区域 */}
@@ -68,7 +70,7 @@ export default function RootLayout() {
         data-state={isModalOpen ? 'open' : 'closed'}
         className="fixed inset-y-0 left-0 z-50 w-72 bg-sidebar shadow-lg transition-transform duration-300 md:hidden data-[state=closed]:-translate-x-full data-[state=open]:translate-x-0"
       >
-        <Sidebar onClose={closeSidebar} />
+        <Sidebar onClose={closeSidebar} theme={theme} onToggleTheme={toggleTheme} />
       </div>
     </div>
   )

@@ -2,6 +2,26 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      ;(function () {
+        var dark = false
+        try {
+          var stored = localStorage.getItem('theme')
+          if (stored === 'dark') {
+            dark = true
+          } else if (stored === 'light') {
+            dark = false
+          } else {
+            dark = window.matchMedia('(prefers-color-scheme: dark)').matches
+          }
+        } catch (_) {
+          dark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        }
+        if (dark) {
+          document.documentElement.classList.add('dark')
+        }
+      })()
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ducksoup</title>
