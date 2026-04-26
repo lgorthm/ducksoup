@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vite-plus/test'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { SettingsDialog } from './SettingsDialog'
+import { ApiKeyProvider } from '@/hooks/useApiKey'
+import type { ReactNode } from 'react'
+
+function TestWrapper({ children }: { children: ReactNode }) {
+  return <ApiKeyProvider>{children}</ApiKeyProvider>
+}
 
 const STORAGE_KEY = 'ducksoup-deepseek-apikey'
 
@@ -16,14 +22,14 @@ afterEach(() => {
 describe('SettingsDialog', () => {
   describe('trigger 按钮', () => {
     it('应渲染 Settings 按钮', () => {
-      render(<SettingsDialog />)
+      render(<SettingsDialog />, { wrapper: TestWrapper })
       expect(screen.getByRole('button', { name: 'Settings' })).toBeTruthy()
     })
   })
 
   describe('打开对话框', () => {
     it('点击 Settings 按钮应打开对话框', () => {
-      render(<SettingsDialog />)
+      render(<SettingsDialog />, { wrapper: TestWrapper })
 
       fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
 
@@ -35,7 +41,7 @@ describe('SettingsDialog', () => {
 
     it('打开对话框时应显示当前 API Key', () => {
       localStorage.setItem(STORAGE_KEY, 'sk-test-key-123')
-      render(<SettingsDialog />)
+      render(<SettingsDialog />, { wrapper: TestWrapper })
 
       fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
 
@@ -44,7 +50,7 @@ describe('SettingsDialog', () => {
     })
 
     it('API Key 为空时输入框应为空', () => {
-      render(<SettingsDialog />)
+      render(<SettingsDialog />, { wrapper: TestWrapper })
 
       fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
 
@@ -55,7 +61,7 @@ describe('SettingsDialog', () => {
 
   describe('输入框行为', () => {
     it('默认应显示为密码类型', () => {
-      render(<SettingsDialog />)
+      render(<SettingsDialog />, { wrapper: TestWrapper })
 
       fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
 
@@ -64,7 +70,7 @@ describe('SettingsDialog', () => {
     })
 
     it('应能修改输入框的值', () => {
-      render(<SettingsDialog />)
+      render(<SettingsDialog />, { wrapper: TestWrapper })
 
       fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
 
@@ -76,7 +82,7 @@ describe('SettingsDialog', () => {
 
   describe('显示/隐藏 API Key', () => {
     it('点击眼睛图标应切换输入框类型', () => {
-      render(<SettingsDialog />)
+      render(<SettingsDialog />, { wrapper: TestWrapper })
 
       fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
 
@@ -93,7 +99,7 @@ describe('SettingsDialog', () => {
 
   describe('保存功能', () => {
     it('点击 Save 应保存 API Key 并关闭对话框', () => {
-      render(<SettingsDialog />)
+      render(<SettingsDialog />, { wrapper: TestWrapper })
 
       fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
 
@@ -108,7 +114,7 @@ describe('SettingsDialog', () => {
 
     it('保存空值应清除 localStorage 中的 API Key', () => {
       localStorage.setItem(STORAGE_KEY, 'sk-old-key')
-      render(<SettingsDialog />)
+      render(<SettingsDialog />, { wrapper: TestWrapper })
 
       fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
 
@@ -125,7 +131,7 @@ describe('SettingsDialog', () => {
   describe('关闭对话框', () => {
     it('点击关闭按钮应关闭对话框但不保存', () => {
       localStorage.setItem(STORAGE_KEY, 'sk-original')
-      render(<SettingsDialog />)
+      render(<SettingsDialog />, { wrapper: TestWrapper })
 
       fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
 
@@ -139,7 +145,7 @@ describe('SettingsDialog', () => {
     })
 
     it('再次打开对话框应重置为保存的值', () => {
-      render(<SettingsDialog />)
+      render(<SettingsDialog />, { wrapper: TestWrapper })
 
       // 第一次打开，输入值但不保存，然后关闭
       fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
@@ -154,7 +160,7 @@ describe('SettingsDialog', () => {
     })
 
     it('保存后再次打开应显示已保存的值', () => {
-      render(<SettingsDialog />)
+      render(<SettingsDialog />, { wrapper: TestWrapper })
 
       // 打开 → 输入 → 保存 → 关闭
       fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
@@ -175,7 +181,7 @@ describe('SettingsDialog', () => {
         throw new Error('Storage error')
       })
 
-      render(<SettingsDialog />)
+      render(<SettingsDialog />, { wrapper: TestWrapper })
 
       fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
       const input = screen.getByLabelText('DeepSeek API Key') as HTMLInputElement
@@ -187,7 +193,7 @@ describe('SettingsDialog', () => {
         throw new Error('Storage error')
       })
 
-      render(<SettingsDialog />)
+      render(<SettingsDialog />, { wrapper: TestWrapper })
 
       fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
 

@@ -1,8 +1,13 @@
+import type { ReactNode } from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vite-plus/test'
 import { renderHook, act } from '@testing-library/react'
-import { useApiKey } from './useApiKey'
+import { ApiKeyProvider, useApiKey } from './useApiKey'
 
 const STORAGE_KEY = 'ducksoup-deepseek-apikey'
+
+function wrapper({ children }: { children: ReactNode }) {
+  return <ApiKeyProvider>{children}</ApiKeyProvider>
+}
 
 beforeEach(() => {
   localStorage.clear()
@@ -15,19 +20,19 @@ afterEach(() => {
 describe('useApiKey', () => {
   describe('初始化 API Key', () => {
     it('localStorage 为空时应返回空字符串', () => {
-      const { result } = renderHook(() => useApiKey())
+      const { result } = renderHook(() => useApiKey(), { wrapper })
       expect(result.current.apiKey).toBe('')
     })
 
     it('localStorage 有值时应返回对应值', () => {
       localStorage.setItem(STORAGE_KEY, 'sk-test-key-123')
-      const { result } = renderHook(() => useApiKey())
+      const { result } = renderHook(() => useApiKey(), { wrapper })
       expect(result.current.apiKey).toBe('sk-test-key-123')
     })
 
     it('localStorage 中空字符串应返回空字符串', () => {
       localStorage.setItem(STORAGE_KEY, '')
-      const { result } = renderHook(() => useApiKey())
+      const { result } = renderHook(() => useApiKey(), { wrapper })
       expect(result.current.apiKey).toBe('')
     })
 
@@ -35,14 +40,14 @@ describe('useApiKey', () => {
       vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
         throw new Error('Storage error')
       })
-      const { result } = renderHook(() => useApiKey())
+      const { result } = renderHook(() => useApiKey(), { wrapper })
       expect(result.current.apiKey).toBe('')
     })
   })
 
   describe('setApiKey', () => {
     it('设置后应更新状态', () => {
-      const { result } = renderHook(() => useApiKey())
+      const { result } = renderHook(() => useApiKey(), { wrapper })
 
       act(() => {
         result.current.setApiKey('sk-new-key')
@@ -51,7 +56,7 @@ describe('useApiKey', () => {
     })
 
     it('设置后应持久化到 localStorage', () => {
-      const { result } = renderHook(() => useApiKey())
+      const { result } = renderHook(() => useApiKey(), { wrapper })
 
       act(() => {
         result.current.setApiKey('sk-persist-key')
@@ -61,7 +66,7 @@ describe('useApiKey', () => {
 
     it('设置为空字符串应清除 localStorage 中的值', () => {
       localStorage.setItem(STORAGE_KEY, 'sk-old-key')
-      const { result } = renderHook(() => useApiKey())
+      const { result } = renderHook(() => useApiKey(), { wrapper })
 
       act(() => {
         result.current.setApiKey('')
@@ -71,7 +76,7 @@ describe('useApiKey', () => {
     })
 
     it('连续设置多个值应正确更新', () => {
-      const { result } = renderHook(() => useApiKey())
+      const { result } = renderHook(() => useApiKey(), { wrapper })
 
       act(() => result.current.setApiKey('key-1'))
       expect(result.current.apiKey).toBe('key-1')
@@ -84,7 +89,7 @@ describe('useApiKey', () => {
     })
 
     it('设置新值后重新渲染 hook 应保留最新值', () => {
-      const { result, rerender } = renderHook(() => useApiKey())
+      const { result, rerender } = renderHook(() => useApiKey(), { wrapper })
 
       act(() => {
         result.current.setApiKey('sk-after-rerender')
@@ -101,7 +106,7 @@ describe('useApiKey', () => {
         throw new Error('Storage error')
       })
 
-      const { result } = renderHook(() => useApiKey())
+      const { result } = renderHook(() => useApiKey(), { wrapper })
 
       expect(() => {
         act(() => {
