@@ -54,8 +54,6 @@ export default function RootLayout() {
         <main className="flex-1 overflow-y-auto">
           <Outlet />
         </main>
-
-        <footer className="flex h-12 shrink-0 items-center border-t px-4" />
       </div>
 
       {/* 移动端侧边栏：遮罩层 */}
