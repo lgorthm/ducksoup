@@ -1,8 +1,9 @@
 import { Link } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { MoonIcon, PanelLeftCloseIcon, SettingsIcon, SunIcon } from 'lucide-react'
+import { MoonIcon, PanelLeftCloseIcon, SunIcon } from 'lucide-react'
 import type { Theme } from '@/hooks/useTheme'
+import { SettingsDialog } from '@/components/SettingsDialog'
 
 interface SidebarProps {
   onClose?: () => void
@@ -32,12 +33,7 @@ export function Sidebar({ onClose, className, theme, onToggleTheme }: SidebarPro
           {theme === 'dark' ? <SunIcon className="size-4" /> : <MoonIcon className="size-4" />}
           {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
         </Button>
-        <Button variant="ghost" className="w-full justify-start gap-2 px-3" asChild>
-          <Link to="/settings">
-            <SettingsIcon className="size-4" />
-            Settings
-          </Link>
-        </Button>
+        <SettingsDialog />
       </div>
     </div>
   )
