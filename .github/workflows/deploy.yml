@@ -1,0 +1,28 @@
+name: Deploy to Nginx
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: voidzero-dev/setup-vp@v1
+        with:
+          cache: true
+
+      - name: Build
+        run: vp build
+
+      - name: Deploy to Nginx server
+        uses: easingthemes/ssh-deploy@main
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          ARGS: '-avz --delete'
+          SOURCE: 'dist/'
+          REMOTE_HOST: ${{ secrets.SSH_HOST }}
+          REMOTE_USER: ${{ secrets.SSH_USER }}
+          TARGET: ${{ secrets.SSH_TARGET }}
