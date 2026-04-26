@@ -8,7 +8,7 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: voidzero-dev/setup-vp@v1
         with:
@@ -18,7 +18,7 @@ jobs:
         run: vp build
 
       - name: Deploy to Nginx server
-        uses: easingthemes/ssh-deploy@main
+        uses: easingthemes/ssh-deploy@v5
         with:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           ARGS: '-avz --delete'
