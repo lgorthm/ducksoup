@@ -3,6 +3,15 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
   content: string
   timestamp: number
+  assistantId?: string
+}
+
+export interface Assistant {
+  id: string
+  name: string
+  systemPrompt: string
+  createdAt: number
+  updatedAt: number
 }
 
 export interface DeepSeekMessage {

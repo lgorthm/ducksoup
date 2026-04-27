@@ -1,33 +1,38 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useApiKey } from './useApiKey'
 import { chatCompletionStream } from '@/lib/deepseek'
+import { getMessages, saveMessage, deleteMessagesForAssistant } from '@/lib/db'
 import type { ChatMessage } from '@/types/deepseek'
 
-function createUserMessage(content: string): ChatMessage {
+function createUserMessage(content: string, assistantId?: string | null): ChatMessage {
   return {
     id: crypto.randomUUID(),
     role: 'user',
     content,
     timestamp: Date.now(),
+    assistantId: assistantId ?? undefined,
   }
 }
 
-function createAssistantMessage(): ChatMessage {
+function createAssistantMessage(assistantId?: string | null): ChatMessage {
   return {
     id: crypto.randomUUID(),
     role: 'assistant',
     content: '',
     timestamp: Date.now(),
+    assistantId: assistantId ?? undefined,
   }
 }
 
-export function useChat() {
+export function useChat(options?: { systemPrompt?: string; assistantId?: string | null }) {
+  const { systemPrompt, assistantId } = options ?? {}
   const { apiKey } = useApiKey()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const messagesRef = useRef<ChatMessage[]>([])
+  const sessionRef = useRef(0)
   // Keep ref in sync so sendMessage always has latest messages
   messagesRef.current = messages
 
@@ -38,6 +43,28 @@ export function useChat() {
     }
   }, [])
 
+  // Load messages from IndexDB when assistantId changes
+  useEffect(() => {
+    sessionRef.current += 1
+    abortRef.current?.abort()
+    setIsStreaming(false)
+
+    if (!assistantId) {
+      setMessages([])
+      setError(null)
+      return
+    }
+
+    const capturedId = sessionRef.current
+
+    void getMessages(assistantId).then((loaded) => {
+      if (sessionRef.current === capturedId) {
+        setMessages(loaded)
+        setError(null)
+      }
+    })
+  }, [assistantId])
+
   const abort = useCallback(() => {
     abortRef.current?.abort()
     setIsStreaming(false)
@@ -46,7 +73,10 @@ export function useChat() {
   const clearMessages = useCallback(() => {
     setMessages([])
     setError(null)
-  }, [])
+    if (assistantId) {
+      void deleteMessagesForAssistant(assistantId)
+    }
+  }, [assistantId])
 
   const clearError = useCallback(() => {
     setError(null)
@@ -62,17 +92,26 @@ export function useChat() {
         return
       }
 
-      const userMessage = createUserMessage(trimmed)
-      const assistantPlaceholder = createAssistantMessage()
+      const userMessage = createUserMessage(trimmed, assistantId)
+      const assistantPlaceholder = createAssistantMessage(assistantId)
 
-      // Build API messages from current messages + new user message
-      const apiMessages = [...messagesRef.current, userMessage].map((m) => ({
-        role: m.role as 'user' | 'assistant',
-        content: m.content,
-      }))
+      // Build API messages: prepend system prompt, add history, add new user message
+      const apiMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = []
+      if (systemPrompt) {
+        apiMessages.push({ role: 'system', content: systemPrompt })
+      }
+      for (const m of messagesRef.current) {
+        apiMessages.push({ role: m.role as 'user' | 'assistant', content: m.content })
+      }
+      apiMessages.push({ role: 'user', content: trimmed })
 
       setMessages((prev) => [...prev, userMessage, assistantPlaceholder])
       setError(null)
+
+      // Persist user message to IndexDB
+      if (assistantId) {
+        void saveMessage(userMessage)
+      }
 
       const controller = new AbortController()
       abortRef.current = controller
@@ -99,6 +138,14 @@ export function useChat() {
         }
 
         setIsStreaming(false)
+
+        // Persist assistant response to IndexDB
+        if (assistantId) {
+          void saveMessage({
+            ...assistantPlaceholder,
+            content: accumulated,
+          })
+        }
       } catch (err) {
         setIsStreaming(false)
         if (err instanceof DOMException && err.name === 'AbortError') {
@@ -112,7 +159,7 @@ export function useChat() {
         setMessages((prev) => prev.filter((m) => m.id !== assistantPlaceholder.id))
       }
     },
-    [apiKey, isStreaming],
+    [apiKey, isStreaming, systemPrompt, assistantId],
   )
 
   return {
