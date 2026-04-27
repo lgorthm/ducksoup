@@ -37,7 +37,7 @@ export default function RootLayout() {
 
       {/* 主区域 */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+        <header className="flex h-14 shrink-0 items-center gap-2 px-4">
           {/* 移动端始终显示打开侧边栏按钮 */}
           <OpenSidebarButton className="md:hidden" />
 

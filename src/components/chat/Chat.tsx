@@ -44,7 +44,7 @@ export function Chat() {
       <MessageList messages={messages} isStreaming={isStreaming} />
 
       {/* Input */}
-      <div className="border-t p-4">
+      <div className="p-4">
         <ChatInput onSend={sendMessage} onStop={abort} isStreaming={isStreaming} />
       </div>
     </div>
