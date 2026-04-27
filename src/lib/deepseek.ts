@@ -5,9 +5,12 @@ import type {
   DeepSeekStreamChunk,
 } from '@/types/deepseek'
 import { DeepSeekError } from '@/types/deepseek'
+import { mockChatCompletion, mockChatCompletionStream } from './deepseek.mock'
 
 const BASE_URL = 'https://api.deepseek.com/chat/completions'
 const DEFAULT_MODEL = 'deepseek-v4-flash'
+
+const USE_MOCK = import.meta.env.VITE_MOCK_API === 'true'
 
 function getErrorMessage(status: number): string {
   switch (status) {
@@ -79,6 +82,8 @@ export async function chatCompletion(
     signal?: AbortSignal
   },
 ): Promise<DeepSeekResponse> {
+  if (USE_MOCK) return mockChatCompletion(messages, options)
+
   const body: DeepSeekRequestBody = {
     model: options?.model ?? DEFAULT_MODEL,
     messages,
@@ -117,6 +122,11 @@ export async function* chatCompletionStream(
     signal?: AbortSignal
   },
 ): AsyncGenerator<DeepSeekStreamChunk> {
+  if (USE_MOCK) {
+    yield* mockChatCompletionStream(messages, options)
+    return
+  }
+
   const body: DeepSeekRequestBody = {
     model: options?.model ?? DEFAULT_MODEL,
     messages,
