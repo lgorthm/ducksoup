@@ -1,9 +1,11 @@
+import { useEffect } from 'react'
 import { useChat } from '@/hooks/useChat'
 import { MessageList } from './MessageList'
 import { ChatInput } from './ChatInput'
 import { Button } from '@/components/ui/button'
-import { Trash2Icon, SettingsIcon } from 'lucide-react'
+import { SettingsIcon } from 'lucide-react'
 import { useAssistants } from '@/hooks/useAssistants'
+import { useChatActionsStore } from '@/stores/chat-actions'
 
 export function Chat() {
   const { activeAssistant } = useAssistants()
@@ -12,6 +14,20 @@ export function Chat() {
       systemPrompt: activeAssistant?.systemPrompt,
       assistantId: activeAssistant?.id ?? null,
     })
+
+  // Sync chat actions to layout header
+  useEffect(() => {
+    useChatActionsStore.setState({
+      clearMessages,
+      hasMessages: messages.length > 0,
+    })
+    return () => {
+      useChatActionsStore.setState({
+        clearMessages: () => {},
+        hasMessages: false,
+      })
+    }
+  }, [clearMessages, messages.length])
 
   if (!hasApiKey) {
     return (
@@ -26,21 +42,6 @@ export function Chat() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
-      {messages.length > 0 && (
-        <div className="flex items-center border-b px-4 py-2">
-          {activeAssistant && (
-            <span className="truncate text-xs font-medium text-muted-foreground max-w-[40%]">
-              {activeAssistant.name}
-            </span>
-          )}
-          <div className="flex-1" />
-          <Button variant="ghost" size="icon-xs" onClick={clearMessages} aria-label="Clear chat">
-            <Trash2Icon className="size-4" />
-          </Button>
-        </div>
-      )}
-
       {/* Error banner */}
       {error && (
         <div className="mx-4 mt-2 flex items-center justify-between rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">

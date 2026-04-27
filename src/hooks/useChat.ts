@@ -59,6 +59,7 @@ export function useChat(options?: { systemPrompt?: string; assistantId?: string 
 
     void getMessages(assistantId).then((loaded) => {
       if (sessionRef.current === capturedId) {
+        console.log('messages loaded from db:', loaded)
         setMessages(loaded)
         setError(null)
       }

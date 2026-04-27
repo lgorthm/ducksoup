@@ -1,13 +1,23 @@
+import { useEffect } from 'react'
 import { Outlet } from 'react-router'
 import { Button } from '@/components/ui/button'
-import { PanelLeftOpenIcon } from 'lucide-react'
+import { PanelLeftOpenIcon, Trash2Icon } from 'lucide-react'
 import { Sidebar } from './Sidebar'
 import { useSidebar } from '@/hooks/useSidebar'
 import { useTheme } from '@/hooks/useTheme'
+import { useAssistants, useAssistantsStore } from '@/hooks/useAssistants'
+import { useChatActionsStore } from '@/stores/chat-actions'
 
 export default function RootLayout() {
   const { sidebarOpen, openSidebar, closeSidebar, breakpoint } = useSidebar()
   const { theme, toggleTheme } = useTheme()
+  const { activeAssistant } = useAssistants()
+  const { clearMessages, hasMessages } = useChatActionsStore()
+
+  // Load assistants from IndexedDB on mount
+  useEffect(() => {
+    void useAssistantsStore.getState().refreshAssistants()
+  }, [])
 
   const isMobile = breakpoint === 'mobile'
   const isModalOpen = sidebarOpen && isMobile
@@ -48,7 +58,19 @@ export default function RootLayout() {
             </div>
           )}
 
+          {activeAssistant && (
+            <span className="truncate text-xs font-medium text-muted-foreground max-w-[40%]">
+              {activeAssistant.name}
+            </span>
+          )}
+
           <div className="flex-1" />
+
+          {hasMessages && (
+            <Button variant="ghost" size="icon-xs" onClick={clearMessages} aria-label="Clear chat">
+              <Trash2Icon className="size-4" />
+            </Button>
+          )}
         </header>
 
         <main className="flex-1 overflow-y-auto">

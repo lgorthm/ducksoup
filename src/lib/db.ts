@@ -15,7 +15,7 @@ function getDB(): Promise<IDBPDatabase> {
         }
         if (!db.objectStoreNames.contains('messages')) {
           const store = db.createObjectStore('messages', { keyPath: 'id' })
-          store.createIndex('assistantId', 'assistantId')
+          store.createIndex('byTimestamp', ['assistantId', 'timestamp', '_sortRole'])
         }
       },
     })
@@ -47,8 +47,9 @@ export async function deleteAssistant(id: string): Promise<void> {
     const db = await getDB()
     const tx = db.transaction(['assistants', 'messages'], 'readwrite')
     await tx.objectStore('assistants').delete(id)
-    const messages = await tx.objectStore('messages').index('assistantId').getAllKeys(id)
-    for (const key of messages) {
+    const range = IDBKeyRange.bound([id], [id, []], false, true)
+    const keys = await tx.objectStore('messages').index('byTimestamp').getAllKeys(range)
+    for (const key of keys) {
       await tx.objectStore('messages').delete(key)
     }
     await tx.done
@@ -60,7 +61,12 @@ export async function deleteAssistant(id: string): Promise<void> {
 export async function getMessages(assistantId: string): Promise<ChatMessage[]> {
   try {
     const db = await getDB()
-    return await db.getAllFromIndex('messages', 'assistantId', assistantId)
+    const range = IDBKeyRange.bound([assistantId], [assistantId, []], false, true)
+    const results = await db.getAllFromIndex('messages', 'byTimestamp', range)
+    return results.map((r: any) => {
+      const { _sortRole, ...msg } = r
+      return msg as ChatMessage
+    })
   } catch (err) {
     console.warn('IndexDB: failed to get messages', err)
     return []
@@ -70,7 +76,7 @@ export async function getMessages(assistantId: string): Promise<ChatMessage[]> {
 export async function saveMessage(message: ChatMessage): Promise<void> {
   try {
     const db = await getDB()
-    await db.put('messages', message)
+    await db.put('messages', { ...message, _sortRole: message.role === 'user' ? '0' : '1' })
   } catch (err) {
     console.warn('IndexDB: failed to save message', err)
   }
@@ -79,7 +85,8 @@ export async function saveMessage(message: ChatMessage): Promise<void> {
 export async function deleteMessagesForAssistant(assistantId: string): Promise<void> {
   try {
     const db = await getDB()
-    const keys = await db.getAllKeysFromIndex('messages', 'assistantId', assistantId)
+    const range = IDBKeyRange.bound([assistantId], [assistantId, []], false, true)
+    const keys = await db.getAllKeysFromIndex('messages', 'byTimestamp', range)
     const tx = db.transaction('messages', 'readwrite')
     for (const key of keys) {
       await tx.objectStore('messages').delete(key)
