@@ -59,7 +59,7 @@ pnpm install
 
 ### 1. Zustand — 状态管理
 
-创建 store 文件，例如 `src/stores/counter.ts`：
+创建 store 文件，例如 `src/features/counter/stores/counter.ts`：
 
 ```typescript
 import { create } from "zustand"
@@ -79,25 +79,33 @@ export const useCounterStore = create<CounterState>((set) => ({
 
 ### 2. React Router — 路由 (Data Mode)
 
-采用 `createBrowserRouter` + `RouterProvider` 的 Data Mode，每个路由可定义 `loader`、`action`、`errorElement` 等数据层逻辑。
+采用 `createBrowserRouter` + `RouterProvider` 的 Data Mode，路由配置集中在 `src/routes/index.tsx`，各 feature 通过 `routes.tsx` 导出子路由。
 
-在 `src/main.tsx` 中配置路由：
+在 `src/routes/index.tsx` 中配置路由：
 
 ```tsx
-import { createBrowserRouter, RouterProvider } from "react-router"
+import { createBrowserRouter } from "react-router"
 
-const router = createBrowserRouter([
+import App from "@/App"
+// import { authRoutes } from "@/features/auth/routes"
+
+export const router = createBrowserRouter([
   {
     path: "/",
     element: <App />,
-    // loader: homepageLoader,   // 路由级数据预取
-    // action: homepageAction,   // 表单提交等变更操作
     errorElement: <ErrorPage />,
     children: [
-      // 嵌套路由
+      // ...authRoutes,
     ],
   },
 ])
+```
+
+在 `src/main.tsx` 中挂载：
+
+```tsx
+import { router } from "@/routes"
+// ...
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -122,11 +130,11 @@ createRoot(document.getElementById("root")!).render(
 **与 Axios 配合的 loader 示例：**
 
 ```typescript
-// src/routes/homepage.ts
+// src/features/posts/loaders.ts
 import type { LoaderFunctionArgs } from "react-router"
-import api from "@/lib/axios"
+import api from "@/shared/lib/axios"
 
-export async function homepageLoader({ request }: LoaderFunctionArgs) {
+export async function postsLoader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url)
   const page = url.searchParams.get("page") || "1"
   const { data } = await api.get(`/posts?page=${page}`)
@@ -159,7 +167,7 @@ function LoginForm() {
 
 ### 4. Axios — HTTP 请求
 
-创建 `src/lib/axios.ts` 实例：
+创建 `src/shared/lib/axios.ts` 实例：
 
 ```typescript
 import axios from "axios"
@@ -188,7 +196,7 @@ VITE_API_BASE_URL=http://localhost:3000/api
 
 ### 5. MSW — API Mock
 
-创建 `src/mocks/handlers.ts`：
+创建 `src/mocks/handlers/index.ts` 汇总所有 mock：
 
 ```typescript
 import { http, HttpResponse } from "msw"
@@ -239,16 +247,10 @@ export default defineConfig({
 })
 ```
 
-创建 `src/tests/setup.ts` 注入 jest-dom 断言：
-
-```typescript
-import "@testing-library/jest-dom/vitest"
-```
-
 **React Testing Library 编写测试示例：**
 
 ```tsx
-// src/components/Counter.test.tsx
+// src/features/counter/components/Counter.test.tsx
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Counter } from "./Counter"
