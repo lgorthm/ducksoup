@@ -1,15 +1,17 @@
-import { createBrowserRouter } from 'react-router';
+import { createBrowserRouter, Outlet } from 'react-router';
 
-import App from '@/App';
 import { MainLayout } from '@/shared/components/layout';
+import { HomePage } from '@/routes/home';
 
 export const router = createBrowserRouter([
   {
-    path: '/',
     element: (
       <MainLayout>
-        <App />
+        <Outlet />
       </MainLayout>
     ),
+    children: [
+      { path: '/', element: <HomePage /> },
+    ],
   },
 ]);
