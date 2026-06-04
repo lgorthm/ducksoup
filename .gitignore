@@ -27,3 +27,4 @@ dist-ssr
 *.sw?
 docs/*
 .playwright-mcp/*
+.trae/rules/中文回复.md
