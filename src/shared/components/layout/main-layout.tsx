@@ -1,3 +1,5 @@
+import logoSvg from '@/assets/logo.svg';
+
 import {
   Sidebar,
   SidebarContent,
@@ -10,7 +12,6 @@ import {
 } from '@/shared/components/ui/sidebar';
 
 interface MainLayoutProps {
-  sidebarHeader?: React.ReactNode;
   sidebarContent?: React.ReactNode;
   sidebarFooter?: React.ReactNode;
   defaultOpen?: boolean;
@@ -18,7 +19,6 @@ interface MainLayoutProps {
 }
 
 export function MainLayout({
-  sidebarHeader,
   sidebarContent,
   sidebarFooter,
   defaultOpen = true,
@@ -27,9 +27,10 @@ export function MainLayout({
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
       <Sidebar collapsible="offcanvas">
-        {sidebarHeader != null && (
-          <SidebarHeader>{sidebarHeader}</SidebarHeader>
-        )}
+        <SidebarHeader className="flex flex-row items-center justify-between px-4">
+          <img src={logoSvg} alt="Logo" className="h-7 w-auto" />
+          <SidebarTrigger />
+        </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
             {sidebarContent ?? (
