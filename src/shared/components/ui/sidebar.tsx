@@ -4,7 +4,7 @@ import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { Slot } from 'radix-ui';
 
-import { useIsMobile } from '@/shared/hooks/use-media-query';
+import { useIsMobile, useIsBelowDesktop } from '@/shared/hooks/use-media-query';
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
@@ -66,11 +66,17 @@ function SidebarProvider({
   onOpenChange?: (open: boolean) => void;
 }) {
   const isMobile = useIsMobile();
+  const isBelowDesktop = useIsBelowDesktop();
   const [openMobile, setOpenMobile] = React.useState(false);
+
+  // 记录用户是否在 >= 768px 时手动折叠了 sidebar
+  const manualCollapseLockRef = React.useRef(false);
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
-  const [_open, _setOpen] = React.useState(defaultOpen);
+  const [_open, _setOpen] = React.useState(
+    () => defaultOpen && !isBelowDesktop,
+  );
   const open = openProp ?? _open;
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
@@ -89,8 +95,47 @@ function SidebarProvider({
 
   // Helper to toggle the sidebar.
   const toggleSidebar = React.useCallback(() => {
-    return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open);
+    if (isMobile) {
+      setOpenMobile((prev) => !prev);
+      return;
+    }
+    // 非移动端：记录手动折叠/展开状态
+    setOpen((prev) => {
+      const newOpen = !prev;
+      if (newOpen) {
+        manualCollapseLockRef.current = false;
+      } else {
+        manualCollapseLockRef.current = true;
+      }
+      return newOpen;
+    });
   }, [isMobile, setOpen, setOpenMobile]);
+
+  // 根据屏幕宽度自动展开/折叠 sidebar
+  // 仅在屏幕宽度跨越 1024px 断点时响应
+  const prevBelowDesktop = React.useRef(isBelowDesktop);
+  /* eslint-disable react-hooks/set-state-in-effect */
+  React.useEffect(() => {
+    if (isMobile) return;
+
+    if (prevBelowDesktop.current === isBelowDesktop) return;
+    prevBelowDesktop.current = isBelowDesktop;
+
+    if (manualCollapseLockRef.current) {
+      // 用户手动折叠过，保持折叠
+      if (open) setOpen(false);
+      return;
+    }
+
+    if (isBelowDesktop) {
+      // < 1024px：自动折叠
+      if (open) setOpen(false);
+    } else {
+      // >= 1024px：自动展开
+      if (!open) setOpen(true);
+    }
+  }, [isBelowDesktop, isMobile, open, setOpen]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
