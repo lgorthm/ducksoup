@@ -111,6 +111,19 @@ function SidebarProvider({
     });
   }, [isMobile, setOpen, setOpenMobile]);
 
+  // 从桌面端切换回移动端时，关闭移动端侧边栏抽屉
+  const prevIsMobile = React.useRef(isMobile);
+  /* eslint-disable react-hooks/set-state-in-effect */
+  React.useEffect(() => {
+    if (prevIsMobile.current === isMobile) return;
+    prevIsMobile.current = isMobile;
+
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  }, [isMobile]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
   // 根据屏幕宽度自动展开/折叠 sidebar
   // 仅在屏幕宽度跨越 1024px 断点时响应
   const prevBelowDesktop = React.useRef(isBelowDesktop);
@@ -231,7 +244,7 @@ function Sidebar({
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
-          className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+          className="!w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground sm:!max-w-(--sidebar-width) [&>button]:hidden"
           style={
             {
               '--sidebar-width': SIDEBAR_WIDTH_MOBILE,
