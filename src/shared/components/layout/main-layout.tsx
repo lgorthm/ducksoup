@@ -74,8 +74,12 @@ function MainLayoutInner({
       </Sidebar>
       <SidebarInset>
         <div
-          className="pointer-events-none fixed top-0 left-0 z-10000 flex h-full -translate-x-full pt-2 pl-4 transition-all duration-300 md:translate-x-0 md:opacity-100 lg:opacity-0"
-          style={{ width: 'var(--sidebar-width)' }}
+          className="fixed top-0 left-0 z-10000 flex h-full -translate-x-full pt-2 pl-4 transition-all duration-300 md:translate-x-0"
+          style={{
+            width: 'var(--sidebar-width)',
+            opacity: open ? 0 : 1,
+            pointerEvents: open ? 'none' : 'auto',
+          }}
         >
           <img src={duckSvg} alt="Duck" className="h-7 w-auto" />{' '}
           <SidebarTrigger />
