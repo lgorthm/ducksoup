@@ -86,10 +86,10 @@ function MainLayoutInner({
           {buttonGroup}
         </div>
         <header
-          className="flex h-12 shrink-0 items-center gap-2 px-4"
+          className="flex h-12 shrink-0 items-center gap-2 px-2"
           style={{ marginLeft: showFixed ? fixedWidth : 0 }}
         >
-          {isMobile && <SidebarTrigger />}
+          {isMobile && <SidebarTrigger isMobile />}
         </header>
         <main className="flex flex-1 flex-col">{children}</main>
       </SidebarInset>
