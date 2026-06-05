@@ -74,7 +74,7 @@ function MainLayoutInner({
       </Sidebar>
       <SidebarInset>
         <div
-          className="fixed top-0 left-0 z-10000 flex h-full -translate-x-full pt-2 pl-4 transition-all duration-300 md:translate-x-0"
+          className="fixed top-0 left-0 z-10000 flex h-full -translate-x-full pt-2 pl-4 transition-all duration-200 ease-linear md:translate-x-0"
           style={{
             width: 'var(--sidebar-width)',
             opacity: open ? 0 : 1,
