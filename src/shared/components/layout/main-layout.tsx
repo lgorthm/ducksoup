@@ -1,4 +1,5 @@
 import duckSvg from '@/assets/duck.svg';
+import logoSvg from '@/assets/logo.svg';
 
 import {
   Sidebar,
@@ -55,7 +56,7 @@ function MainLayoutInner({
     <>
       <Sidebar collapsible="offcanvas">
         <SidebarHeader className="flex flex-row items-center justify-between px-4">
-          <img src={duckSvg} alt="Logo" className="h-7 w-auto" />
+          <img src={logoSvg} alt="Logo" className="h-7 w-auto" />
           <SidebarTrigger />
         </SidebarHeader>
         <SidebarContent>
@@ -72,16 +73,11 @@ function MainLayoutInner({
         )}
       </Sidebar>
       <SidebarInset>
-        {/* 非移动端：fixed 定位的 logo + 按钮组，带滑入/滑出动画 */}
         <div
-          className="fixed top-0 left-0 z-30 flex h-12 items-center gap-2 bg-background px-4 transition-transform duration-300 ease-in-out"
-          style={{
-            width: fixedWidth,
-            transform: showFixed ? 'translateX(0)' : 'translateX(-100%)',
-            pointerEvents: showFixed ? 'auto' : 'none',
-          }}
+          className="pointer-events-none fixed top-0 left-0 z-10000 flex h-full -translate-x-full pt-2 pl-4 transition-all duration-300 md:translate-x-0 md:opacity-100 lg:opacity-0"
+          style={{ width: 'var(--sidebar-width)' }}
         >
-          <img src={duckSvg} alt="Logo" className="h-7 w-auto" />
+          <img src={duckSvg} alt="Duck" className="h-7 w-auto" />{' '}
           <SidebarTrigger />
           {buttonGroup}
         </div>
