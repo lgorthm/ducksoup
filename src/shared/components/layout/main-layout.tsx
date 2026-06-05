@@ -91,7 +91,7 @@ function MainLayoutInner({
         >
           {isMobile && <SidebarTrigger />}
         </header>
-        <div className="flex flex-1 flex-col">{children}</div>
+        <main className="flex flex-1 flex-col">{children}</main>
       </SidebarInset>
     </>
   );

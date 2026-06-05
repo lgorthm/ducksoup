@@ -2,7 +2,7 @@ import { Button } from '@/shared/components/ui/button';
 
 export function HomePage() {
   return (
-    <div className="flex flex-1 flex-col gap-4 p-6 text-sm leading-loose">
+    <div className="mx-auto flex max-w-[776px] w-full flex-1 flex-col gap-4 p-6 text-sm leading-loose">
       <div>
         <h1 className="font-medium">Project ready!</h1>
         <p>You may now add components and start building.</p>
