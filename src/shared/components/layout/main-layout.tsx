@@ -74,7 +74,7 @@ function MainLayoutInner({
           </SidebarMenu>
           <SidebarMenu className="mt-auto border-t p-2">
             <div
-              className="group flex cursor-pointer items-center rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-sidebar-accent/50"
+              className="group flex cursor-pointer items-center rounded-none px-2 py-1.5 text-sm transition-colors hover:bg-sidebar-accent/50"
               onClick={onSettingsClick}
             >
               <Settings className="mr-2 size-4" />

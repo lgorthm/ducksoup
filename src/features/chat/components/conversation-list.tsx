@@ -13,7 +13,9 @@ export function ConversationList() {
   return (
     <div className="flex flex-col gap-1 p-2">
       <div className="mb-2 flex items-center justify-between px-2">
-        <span className="text-xs font-medium text-muted-foreground">对话列表</span>
+        <span className="text-xs font-medium text-muted-foreground">
+          对话列表
+        </span>
         <Button
           variant="ghost"
           size="icon"
@@ -33,7 +35,7 @@ export function ConversationList() {
           <div
             key={conv.id}
             className={cn(
-              'group flex cursor-pointer items-center rounded-md px-2 py-1.5 text-sm transition-colors',
+              'group flex cursor-pointer items-center rounded-none px-2 py-1.5 text-sm transition-colors',
               conv.id === currentId
                 ? 'bg-sidebar-accent text-sidebar-accent-foreground'
                 : 'hover:bg-sidebar-accent/50',

@@ -40,7 +40,7 @@ export function ChatArea() {
               </div>
             )}
             {error && (
-              <div className="rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive">
+              <div className="rounded-none bg-destructive/10 px-4 py-2 text-sm text-destructive">
                 {error}
               </div>
             )}
