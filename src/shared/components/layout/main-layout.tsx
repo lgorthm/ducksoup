@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Settings } from 'lucide-react';
 import duckSvg from '@/assets/duck.svg';
 import logoSvg from '@/assets/logo.svg';
@@ -13,6 +14,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from '@/shared/components/ui/sidebar';
+import { SettingsDialog } from '@/features/settings/settings-dialog';
 
 interface MainLayoutProps {
   sidebarContent?: React.ReactNode;
@@ -53,9 +55,12 @@ function MainLayoutInner({
   children,
 }: Omit<MainLayoutProps, 'defaultOpen'>) {
   const { isMobile, open } = useSidebar();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const fixedWidth = 'var(--sidebar-width)';
   const showFixed = !isMobile && !open;
+
+  const handleSettingsClick = onSettingsClick ?? (() => setSettingsOpen(true));
 
   return (
     <>
@@ -75,7 +80,7 @@ function MainLayoutInner({
           <SidebarMenu className="mt-auto border-t p-2">
             <div
               className="group flex cursor-pointer items-center rounded-none px-2 py-1.5 text-sm transition-colors hover:bg-sidebar-accent/50"
-              onClick={onSettingsClick}
+              onClick={handleSettingsClick}
             >
               <Settings className="mr-2 size-4" />
               <span>系统设置</span>
@@ -107,6 +112,11 @@ function MainLayoutInner({
         </header>
         <main className="flex flex-1 flex-col">{children}</main>
       </SidebarInset>
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        isMobile={isMobile}
+      />
     </>
   );
 }
