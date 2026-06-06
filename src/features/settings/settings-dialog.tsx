@@ -16,6 +16,7 @@ import {
 import { Input } from '@/shared/components/ui/input';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
+import { useChatStore } from '@/features/chat/store/chat-store';
 
 type Theme = 'dark' | 'light' | 'system';
 
@@ -66,21 +67,21 @@ function GeneralSettings() {
 }
 
 function ApiKeySettings() {
-  const [apiKey, setApiKey] = useState(
-    () => localStorage.getItem('api-key') ?? '',
-  );
+  const apiKeyFromStore = useChatStore((s) => s.apiKey);
+  const setApiKeyInStore = useChatStore((s) => s.setApiKey);
+  const [apiKey, setApiKey] = useState(apiKeyFromStore);
   const [saved, setSaved] = useState(false);
   const [showKey, setShowKey] = useState(false);
 
   const handleSave = useCallback(() => {
     if (apiKey.trim()) {
-      localStorage.setItem('api-key', apiKey.trim());
+      setApiKeyInStore(apiKey.trim());
     } else {
-      localStorage.removeItem('api-key');
+      setApiKeyInStore('');
     }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-  }, [apiKey]);
+  }, [apiKey, setApiKeyInStore]);
 
   return (
     <div className="space-y-3">
