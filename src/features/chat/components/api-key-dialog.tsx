@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/shared/components/ui/button';
 import {
   Dialog,
@@ -28,19 +29,22 @@ export function ApiKeyDialog({ open, onOpenChange }: ApiKeyDialogProps) {
     onOpenChange(false);
   };
 
-  // 已经有 key 时不强制显示（可通过设置按钮打开）
   const handleOpenChange = (open: boolean) => {
-    if (!open && !hasApiKey) return; // 防止没有 key 时关闭
+    if (!open && !hasApiKey) {
+      toast.warning('请先设置 API Key 后再关闭此窗口');
+      return;
+    }
     onOpenChange(open);
   };
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
+      <DialogContent showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>设置 API Key</DialogTitle>
           <DialogDescription>
-            请输入您的 DeepSeek API Key。Key 将存储在本地浏览器中，不会上传到任何服务器。
+            请输入您的 DeepSeek API Key。Key
+            将存储在本地浏览器中，不会上传到任何服务器。
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3">

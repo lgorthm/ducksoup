@@ -1,6 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Settings } from 'lucide-react';
-import { Button } from '@/shared/components/ui/button';
 import { ApiKeyDialog } from '@/features/chat/components/api-key-dialog';
 import { ChatArea } from '@/features/chat/components/chat-area';
 import { useChatStore } from '@/features/chat/store/chat-store';
@@ -29,15 +27,6 @@ export function ChatPage() {
 
   return (
     <>
-      {/* 顶部设置栏 */}
-      {hasApiKey && (
-        <div className="flex items-center justify-end border-b px-4 py-1.5">
-          <Button variant="ghost" size="sm" onClick={() => setDialogOpen(true)}>
-            <Settings className="mr-1 size-3.5" />
-            设置 API Key
-          </Button>
-        </div>
-      )}
       <ChatArea />
       <ApiKeyDialog open={dialogIsOpen} onOpenChange={setDialogOpen} />
     </>
