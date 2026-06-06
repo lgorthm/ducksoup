@@ -1,3 +1,4 @@
+import { Settings } from 'lucide-react';
 import duckSvg from '@/assets/duck.svg';
 import logoSvg from '@/assets/logo.svg';
 
@@ -18,6 +19,7 @@ interface MainLayoutProps {
   sidebarFooter?: React.ReactNode;
   defaultOpen?: boolean;
   buttonGroup?: React.ReactNode;
+  onSettingsClick?: () => void;
   children: React.ReactNode;
 }
 
@@ -26,6 +28,7 @@ export function MainLayout({
   sidebarFooter,
   defaultOpen = true,
   buttonGroup,
+  onSettingsClick,
   children,
 }: MainLayoutProps) {
   return (
@@ -34,6 +37,7 @@ export function MainLayout({
         sidebarContent={sidebarContent}
         sidebarFooter={sidebarFooter}
         buttonGroup={buttonGroup}
+        onSettingsClick={onSettingsClick}
       >
         {children}
       </MainLayoutInner>
@@ -45,6 +49,7 @@ function MainLayoutInner({
   sidebarContent,
   sidebarFooter,
   buttonGroup,
+  onSettingsClick,
   children,
 }: Omit<MainLayoutProps, 'defaultOpen'>) {
   const { isMobile, open } = useSidebar();
@@ -66,6 +71,15 @@ function MainLayoutInner({
                 暂无对话
               </div>
             )}
+          </SidebarMenu>
+          <SidebarMenu className="mt-auto border-t p-2">
+            <div
+              className="group flex cursor-pointer items-center rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-sidebar-accent/50"
+              onClick={onSettingsClick}
+            >
+              <Settings className="mr-2 size-4" />
+              <span>系统设置</span>
+            </div>
           </SidebarMenu>
         </SidebarContent>
         {sidebarFooter != null && (
