@@ -1,7 +1,7 @@
 import { apiClient } from '@/shared/lib/api';
 import type { ChatCompletionRequest, ChatCompletionResponse, ChatMessage } from '@/shared/types/deepseek';
 
-const DEFAULT_MODEL = 'deepseek-v4-pro';
+const DEFAULT_MODEL = 'deepseek-v4-flash';
 
 interface SendMessageOptions {
   model?: string;

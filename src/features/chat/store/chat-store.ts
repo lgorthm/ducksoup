@@ -6,10 +6,15 @@ import * as db from '@/shared/utils/db';
 
 const API_KEY_STORAGE_KEY = 'deepseek-api-key';
 
+export type ModelName = 'deepseek-v4-flash' | 'deepseek-v4-pro';
+
 interface ChatState {
   // API Key
   apiKey: string;
   hasApiKey: boolean;
+
+  // 模型
+  selectedModel: ModelName;
 
   // 会话
   conversations: Conversation[];
@@ -24,6 +29,7 @@ interface ChatState {
   init: () => Promise<void>;
   setApiKey: (key: string) => void;
   clearApiKey: () => void;
+  setModel: (model: ModelName) => void;
 
   createConversation: () => Promise<void>;
   switchConversation: (id: string) => Promise<void>;
@@ -45,6 +51,7 @@ function buildSystemPrompt(): string {
 export const useChatStore = create<ChatState>((set, get) => ({
   apiKey: '',
   hasApiKey: false,
+  selectedModel: 'deepseek-v4-flash',
   conversations: [],
   currentConversationId: null,
   messages: [],
@@ -77,7 +84,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         currentId = conv.id;
       }
 
-      const messages = currentId ? await db.getMessagesByConversation(currentId) : [];
+      const messages = currentId
+        ? await db.getMessagesByConversation(currentId)
+        : [];
 
       set({
         apiKey: storedKey,
@@ -99,6 +108,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   clearApiKey() {
     localStorage.removeItem(API_KEY_STORAGE_KEY);
     set({ apiKey: '', hasApiKey: false });
+  },
+
+  setModel(model: ModelName) {
+    set({ selectedModel: model });
   },
 
   async createConversation() {
@@ -169,7 +182,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         { role: 'user' as const, content },
       ];
 
-      const response = await sendChatMessage(apiMessages);
+      const response = await sendChatMessage(apiMessages, {
+        model: get().selectedModel,
+      });
       const assistantContent = response.choices[0]?.message?.content ?? '';
 
       const assistantMsg: StoredMessage = {
@@ -190,21 +205,33 @@ export const useChatStore = create<ChatState>((set, get) => ({
           const firstUserMsg = get().messages.length === 1 ? content : c.title;
           return {
             ...c,
-            title: firstUserMsg.length > 20 ? firstUserMsg.slice(0, 20) + '...' : firstUserMsg,
+            title:
+              firstUserMsg.length > 20
+                ? firstUserMsg.slice(0, 20) + '...'
+                : firstUserMsg,
             updatedAt: Date.now(),
             messageCount: c.messageCount + 2,
           };
         }
         return c;
       });
-      const updatedConv = conversations.find((c) => c.id === currentConversationId);
+      const updatedConv = conversations.find(
+        (c) => c.id === currentConversationId,
+      );
       if (updatedConv) {
         await db.updateConversation(updatedConv);
       }
 
-      set({ messages: [...get().messages, assistantMsg], isLoading: false, conversations });
+      set({
+        messages: [...get().messages, assistantMsg],
+        isLoading: false,
+        conversations,
+      });
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : '请求失败，请检查 API Key 是否正确';
+      const errorMsg =
+        err instanceof Error
+          ? err.message
+          : '请求失败，请检查 API Key 是否正确';
       set({ isLoading: false, error: errorMsg });
     }
   },
@@ -212,7 +239,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   async retryLastMessage() {
     const { messages } = get();
     // 找到最后一条 user 消息
-    const lastUserIdx = [...messages].reverse().findIndex((m) => m.role === 'user');
+    const lastUserIdx = [...messages]
+      .reverse()
+      .findIndex((m) => m.role === 'user');
     if (lastUserIdx === -1) return;
 
     const originalIdx = messages.length - 1 - lastUserIdx;
