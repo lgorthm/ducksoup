@@ -1,7 +1,7 @@
 import duckSvg from '@/assets/duck.svg';
 import { ChatInput } from '@/features/chat/components/chat-input';
 import { useChatStore, type ModelName } from '@/features/chat/store/chat-store';
-import { cn } from '@/shared/lib/utils';
+import { RadioGroupButton } from '@/shared/components/ui';
 
 const MODELS: { id: ModelName; label: string }[] = [
   { id: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash' },
@@ -29,23 +29,11 @@ export function ChatWelcome() {
         </div>
 
         {/* 第二行：模型选择按钮 */}
-        <div className="flex items-center gap-2">
-          {MODELS.map((model) => (
-            <button
-              key={model.id}
-              type="button"
-              className={cn(
-                'rounded-none border px-4 py-2 text-sm font-medium transition-colors',
-                selectedModel === model.id
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground',
-              )}
-              onClick={() => setModel(model.id)}
-            >
-              {model.label}
-            </button>
-          ))}
-        </div>
+        <RadioGroupButton
+          options={MODELS.map((m) => ({ label: m.label, value: m.id }))}
+          value={selectedModel}
+          onValueChange={setModel}
+        />
 
         {/* 第三行：输入组件 */}
         <div className="w-full">
