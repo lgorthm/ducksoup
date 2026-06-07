@@ -1,9 +1,11 @@
+import { useTranslation } from 'react-i18next';
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { useChatStore } from '@/features/chat/store/chat-store';
 
 export function ConversationList() {
+  const { t } = useTranslation();
   const conversations = useChatStore((s) => s.conversations);
   const currentId = useChatStore((s) => s.currentConversationId);
   const createConversation = useChatStore((s) => s.createConversation);
@@ -14,21 +16,21 @@ export function ConversationList() {
     <div className="flex flex-col gap-1 p-2">
       <div className="mb-2 flex items-center justify-between px-2">
         <span className="text-xs font-medium text-muted-foreground">
-          对话列表
+          {t('conversation.title')}
         </span>
         <Button
           variant="ghost"
           size="icon"
           className="size-7"
           onClick={createConversation}
-          title="新建对话"
+          title={t('conversation.new')}
         >
           <Plus className="size-4" />
         </Button>
       </div>
       {conversations.length === 0 ? (
         <div className="px-2 py-4 text-center text-xs text-muted-foreground">
-          暂无对话
+          {t('conversation.empty')}
         </div>
       ) : (
         conversations.map((conv) => (
@@ -51,7 +53,7 @@ export function ConversationList() {
                 e.stopPropagation();
                 deleteConversation(conv.id);
               }}
-              title="删除对话"
+              title={t('conversation.delete')}
             >
               <Trash2 className="size-3" />
             </Button>

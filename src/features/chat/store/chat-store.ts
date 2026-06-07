@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import i18n from '@/shared/i18n';
 import type { ChatMessage } from '@/shared/types/deepseek';
 import type { Conversation, StoredMessage } from '@/shared/types/deepseek';
 import { sendMessage as sendChatMessage } from '@/shared/utils/chat-api';
@@ -74,7 +75,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const now = Date.now();
         const conv: Conversation = {
           id: generateId(),
-          title: '新对话',
+          title: i18n.t('conversation.defaultName'),
           createdAt: now,
           updatedAt: now,
           messageCount: 0,

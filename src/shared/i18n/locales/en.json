@@ -1,0 +1,44 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "saved": "Saved"
+  },
+  "chat": {
+    "input": {
+      "placeholder": "Type a message... (Enter to send, Shift+Enter for new line)"
+    },
+    "area": {
+      "thinking": "Thinking..."
+    },
+    "welcome": {
+      "startChat": "Start chatting with {{model}}"
+    },
+    "page": {
+      "loading": "Loading..."
+    }
+  },
+  "conversation": {
+    "title": "Conversations",
+    "new": "New Chat",
+    "delete": "Delete Chat",
+    "empty": "No conversations",
+    "defaultName": "New Chat"
+  },
+  "apiKey": {
+    "dialogTitle": "Set API Key",
+    "description": "Please enter your DeepSeek API Key. The key will be stored locally in your browser and will not be uploaded to any server.",
+    "placeholder": "Enter your DeepSeek API Key",
+    "closeWarning": "Please set an API Key before closing this window",
+    "storageNotice": "The key will be stored locally in your browser and will not be uploaded to any server."
+  },
+  "settings": {
+    "title": "Settings",
+    "tabGeneral": "General",
+    "tabApiKey": "API Key",
+    "themeDescription": "Choose a theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeSystem": "System"
+  }
+}

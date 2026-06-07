@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Settings } from 'lucide-react';
 import duckSvg from '@/assets/duck.svg';
 import logoSvg from '@/assets/logo.svg';
@@ -54,6 +55,7 @@ function MainLayoutInner({
   onSettingsClick,
   children,
 }: Omit<MainLayoutProps, 'defaultOpen'>) {
+  const { t } = useTranslation();
   const { isMobile, open } = useSidebar();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -65,7 +67,7 @@ function MainLayoutInner({
   return (
     <>
       <Sidebar collapsible="offcanvas">
-        <SidebarHeader className="flex flex-row items-center justify-between pl-1 ">
+        <SidebarHeader className="flex flex-row items-center justify-between pl-1">
           <img src={logoSvg} alt="Logo" className="h-7 w-auto" />
           <SidebarTrigger />
         </SidebarHeader>
@@ -73,7 +75,7 @@ function MainLayoutInner({
           <SidebarMenu>
             {sidebarContent ?? (
               <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
-                暂无对话
+                {t('conversation.empty')}
               </div>
             )}
           </SidebarMenu>
@@ -83,7 +85,7 @@ function MainLayoutInner({
               onClick={handleSettingsClick}
             >
               <Settings className="mr-2 size-4" />
-              <span>系统设置</span>
+              <span>{t('settings.title')}</span>
             </div>
           </SidebarMenu>
         </SidebarContent>

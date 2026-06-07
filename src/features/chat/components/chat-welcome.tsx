@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import duckSvg from '@/assets/duck.svg';
 import { ChatInput } from '@/features/chat/components/chat-input';
 import { useChatStore, type ModelName } from '@/features/chat/store/chat-store';
@@ -9,6 +10,7 @@ const MODELS: { id: ModelName; label: string }[] = [
 ];
 
 export function ChatWelcome() {
+  const { t } = useTranslation();
   const selectedModel = useChatStore((s) => s.selectedModel);
   const setModel = useChatStore((s) => s.setModel);
   const sendMessage = useChatStore((s) => s.sendMessage);
@@ -20,15 +22,14 @@ export function ChatWelcome() {
   return (
     <div className="flex h-full flex-col items-center justify-center px-4">
       <div className="flex w-full max-w-[776px] flex-col items-center gap-8">
-        {/* 第一行：duck SVG + 使用模型名称开始对话 */}
         <div className="flex items-center gap-2">
           <img src={duckSvg} alt="Duck" className="h-10 w-auto" />
           <span className="text-xl font-semibold">
-            使用 {currentLabel} 开始对话
+            {t('chat.welcome.startChat', { model: currentLabel })}
           </span>
         </div>
 
-        {/* 第二行：模型选择按钮 */}
+        {/* 模型选择按钮 */}
         <RadioGroupButton
           options={MODELS.map((m) => ({ label: m.label, value: m.id }))}
           value={selectedModel}

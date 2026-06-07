@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Sun, Moon, Monitor, Check, Eye, EyeOff } from 'lucide-react';
 import { useTheme } from '@/shared/components/theme-provider';
 import {
@@ -18,8 +19,6 @@ import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { useChatStore } from '@/features/chat/store/chat-store';
 
-type Theme = 'dark' | 'light' | 'system';
-
 type SettingsTab = 'general' | 'api-key';
 
 interface SettingsDialogProps {
@@ -28,20 +27,27 @@ interface SettingsDialogProps {
   isMobile?: boolean;
 }
 
-const THEME_OPTIONS: { value: Theme; label: string; icon: typeof Sun }[] = [
-  { value: 'light', label: '浅色', icon: Sun },
-  { value: 'dark', label: '深色', icon: Moon },
-  { value: 'system', label: '跟随系统', icon: Monitor },
-];
-
 function GeneralSettings() {
+  const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
+
+  const themeOptions = [
+    { value: 'light' as const, label: t('settings.themeLight'), icon: Sun },
+    { value: 'dark' as const, label: t('settings.themeDark'), icon: Moon },
+    {
+      value: 'system' as const,
+      label: t('settings.themeSystem'),
+      icon: Monitor,
+    },
+  ];
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-muted-foreground">选择界面主题</p>
+      <p className="text-xs text-muted-foreground">
+        {t('settings.themeDescription')}
+      </p>
       <div className="grid grid-cols-3 gap-2">
-        {THEME_OPTIONS.map((option) => {
+        {themeOptions.map((option) => {
           const isActive = theme === option.value;
           return (
             <button
@@ -67,6 +73,7 @@ function GeneralSettings() {
 }
 
 function ApiKeySettings() {
+  const { t } = useTranslation();
   const apiKeyFromStore = useChatStore((s) => s.apiKey);
   const setApiKeyInStore = useChatStore((s) => s.setApiKey);
   const [apiKey, setApiKey] = useState(apiKeyFromStore);
@@ -86,7 +93,7 @@ function ApiKeySettings() {
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        Key 将存储在本地浏览器中，不会上传到任何服务器。
+        {t('apiKey.storageNotice')}
       </p>
       <div className="relative">
         <Input
@@ -96,7 +103,7 @@ function ApiKeySettings() {
             setApiKey(e.target.value);
             setSaved(false);
           }}
-          placeholder="请输入您的 DeepSeek API Key"
+          placeholder={t('apiKey.placeholder')}
           className="w-full pr-8"
         />
         <button
@@ -112,7 +119,7 @@ function ApiKeySettings() {
         </button>
       </div>
       <Button onClick={handleSave} size="sm" className="w-full sm:w-auto">
-        {saved ? '已保存' : '保存'}
+        {saved ? t('common.saved') : t('common.save')}
       </Button>
     </div>
   );
@@ -125,11 +132,12 @@ function TabButtons({
   active: SettingsTab;
   onChange: (tab: SettingsTab) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex border-b">
       {[
-        { key: 'general' as const, label: '通用设置' },
-        { key: 'api-key' as const, label: 'API KEY 设置' },
+        { key: 'general' as const, label: t('settings.tabGeneral') },
+        { key: 'api-key' as const, label: t('settings.tabApiKey') },
       ].map((tab) => (
         <button
           key={tab.key}
@@ -170,6 +178,7 @@ export function SettingsDialog({
   onOpenChange,
   isMobile = false,
 }: SettingsDialogProps) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
 
   if (isMobile) {
@@ -181,7 +190,7 @@ export function SettingsDialog({
           overlayClassName="z-[10001]"
         >
           <SheetHeader>
-            <SheetTitle>系统设置</SheetTitle>
+            <SheetTitle>{t('settings.title')}</SheetTitle>
           </SheetHeader>
           <SettingsContent activeTab={activeTab} onTabChange={setActiveTab} />
         </SheetContent>
@@ -196,7 +205,7 @@ export function SettingsDialog({
         overlayClassName="z-[10001]"
       >
         <DialogHeader>
-          <DialogTitle>系统设置</DialogTitle>
+          <DialogTitle>{t('settings.title')}</DialogTitle>
         </DialogHeader>
         <SettingsContent activeTab={activeTab} onTabChange={setActiveTab} />
       </DialogContent>

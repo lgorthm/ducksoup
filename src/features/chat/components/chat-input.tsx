@@ -1,4 +1,5 @@
 import { useRef, useCallback, type KeyboardEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Send } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 
@@ -8,6 +9,7 @@ interface ChatInputProps {
 }
 
 export function ChatInput({ onSend, disabled }: ChatInputProps) {
+  const { t } = useTranslation();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSend = useCallback(() => {
@@ -42,7 +44,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
       <textarea
         ref={textareaRef}
         className="max-h-[200px] min-h-[44px] w-full resize-none rounded-none border bg-background px-3 py-2.5 text-base outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-        placeholder="输入消息... (Enter 发送, Shift+Enter 换行)"
+        placeholder={t('chat.input.placeholder')}
         rows={1}
         disabled={disabled}
         onKeyDown={handleKeyDown}

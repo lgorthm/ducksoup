@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { Button } from '@/shared/components/ui/button';
 import {
@@ -17,6 +18,7 @@ interface ApiKeyDialogProps {
 }
 
 export function ApiKeyDialog({ open, onOpenChange }: ApiKeyDialogProps) {
+  const { t } = useTranslation();
   const [inputValue, setInputValue] = useState('');
   const setApiKey = useChatStore((s) => s.setApiKey);
   const hasApiKey = useChatStore((s) => s.hasApiKey);
@@ -31,7 +33,7 @@ export function ApiKeyDialog({ open, onOpenChange }: ApiKeyDialogProps) {
 
   const handleOpenChange = (open: boolean) => {
     if (!open && !hasApiKey) {
-      toast.warning('请先设置 API Key 后再关闭此窗口');
+      toast.warning(t('apiKey.closeWarning'));
       return;
     }
     onOpenChange(open);
@@ -41,10 +43,9 @@ export function ApiKeyDialog({ open, onOpenChange }: ApiKeyDialogProps) {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent showCloseButton={false}>
         <DialogHeader>
-          <DialogTitle>设置 API Key</DialogTitle>
+          <DialogTitle>{t('apiKey.dialogTitle')}</DialogTitle>
           <DialogDescription>
-            请输入您的 DeepSeek API Key。Key
-            将存储在本地浏览器中，不会上传到任何服务器。
+            {t('apiKey.description')}
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3">
@@ -60,11 +61,11 @@ export function ApiKeyDialog({ open, onOpenChange }: ApiKeyDialogProps) {
           <div className="flex justify-end gap-2">
             {hasApiKey && (
               <Button variant="outline" onClick={() => onOpenChange(false)}>
-                取消
+                {t('common.cancel')}
               </Button>
             )}
             <Button onClick={handleSave} disabled={!inputValue.trim()}>
-              保存
+              {t('common.save')}
             </Button>
           </div>
         </div>

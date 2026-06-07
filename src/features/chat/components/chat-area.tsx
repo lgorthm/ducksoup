@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import { ChatMessage } from '@/features/chat/components/chat-message';
 import { ChatInput } from '@/features/chat/components/chat-input';
@@ -6,6 +7,7 @@ import { ChatWelcome } from '@/features/chat/components/chat-welcome';
 import { useChatStore } from '@/features/chat/store/chat-store';
 
 export function ChatArea() {
+  const { t } = useTranslation();
   const messages = useChatStore((s) => s.messages);
   const isLoading = useChatStore((s) => s.isLoading);
   const error = useChatStore((s) => s.error);
@@ -34,7 +36,7 @@ export function ChatArea() {
           {isLoading && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" />
-              思考中...
+              {t('chat.area.thinking')}
             </div>
           )}
           {error && (

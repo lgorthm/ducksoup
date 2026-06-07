@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ApiKeyDialog } from '@/features/chat/components/api-key-dialog';
 import { ChatArea } from '@/features/chat/components/chat-area';
 import { useChatStore } from '@/features/chat/store/chat-store';
 
 export function ChatPage() {
+  const { t } = useTranslation();
   const init = useChatStore((s) => s.init);
   const hasApiKey = useChatStore((s) => s.hasApiKey);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -20,7 +22,7 @@ export function ChatPage() {
   if (!ready) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-sm text-muted-foreground">加载中...</p>
+        <p className="text-sm text-muted-foreground">{t('chat.page.loading')}</p>
       </div>
     );
   }
