@@ -8,15 +8,15 @@ export function ConversationList() {
   const { t } = useTranslation();
   const conversations = useChatStore((s) => s.conversations);
   const currentId = useChatStore((s) => s.currentConversationId);
-  const createConversation = useChatStore((s) => s.createConversation);
+  const startNewConversation = useChatStore((s) => s.startNewConversation);
   const switchConversation = useChatStore((s) => s.switchConversation);
   const deleteConversation = useChatStore((s) => s.deleteConversation);
 
   return (
     <div className="flex flex-col gap-1 p-2">
       <Button
-        className="mb-2 w-full border-border shadow-sm hover:shadow-md"
-        onClick={createConversation}
+        className="mb-2 w-full transition-transform hover:-translate-y-px hover:shadow-md"
+        onClick={startNewConversation}
       >
         {t('conversation.startNew')}
       </Button>

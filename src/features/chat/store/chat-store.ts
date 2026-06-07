@@ -33,6 +33,7 @@ interface ChatState {
   setModel: (model: ModelName) => void;
 
   createConversation: () => Promise<void>;
+  startNewConversation: () => void;
   switchConversation: (id: string) => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
 
@@ -133,6 +134,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }));
   },
 
+  startNewConversation() {
+    set({ currentConversationId: null, messages: [], error: null });
+  },
+
   async switchConversation(id: string) {
     const messages = await db.getMessagesByConversation(id);
     set({ currentConversationId: id, messages, error: null });
@@ -160,11 +165,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   async sendMessage(content: string) {
     const { apiKey, currentConversationId, messages } = get();
-    if (!apiKey || !currentConversationId) return;
+    if (!apiKey) return;
+
+    // 如果没有当前会话，自动创建一个
+    let conversationId = currentConversationId;
+    if (!conversationId) {
+      const now = Date.now();
+      const conv: Conversation = {
+        id: generateId(),
+        title: content.length > 20 ? content.slice(0, 20) + '...' : content,
+        createdAt: now,
+        updatedAt: now,
+        messageCount: 0,
+      };
+      await db.addConversation(conv);
+      conversationId = conv.id;
+      set((state) => ({
+        conversations: [...state.conversations, conv],
+        currentConversationId: conv.id,
+      }));
+    }
 
     const userMsg: StoredMessage = {
       id: generateId(),
-      conversationId: currentConversationId,
+      conversationId,
       role: 'user',
       content,
       createdAt: Date.now(),
@@ -190,7 +214,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       const assistantMsg: StoredMessage = {
         id: generateId(),
-        conversationId: currentConversationId,
+        conversationId,
         role: 'assistant',
         content: assistantContent,
         createdAt: Date.now(),
@@ -202,7 +226,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       // 更新会话
       const conversations = get().conversations.map((c) => {
-        if (c.id === currentConversationId) {
+        if (c.id === conversationId) {
           const firstUserMsg = get().messages.length === 1 ? content : c.title;
           return {
             ...c,
@@ -216,9 +240,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
         return c;
       });
-      const updatedConv = conversations.find(
-        (c) => c.id === currentConversationId,
-      );
+      const updatedConv = conversations.find((c) => c.id === conversationId);
       if (updatedConv) {
         await db.updateConversation(updatedConv);
       }
