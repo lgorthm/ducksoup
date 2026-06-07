@@ -21,6 +21,7 @@
   "conversation": {
     "title": "对话列表",
     "new": "新建对话",
+    "startNew": "开启新对话",
     "delete": "删除对话",
     "empty": "暂无对话",
     "defaultName": "新对话"

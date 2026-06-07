@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Plus, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { useChatStore } from '@/features/chat/store/chat-store';
@@ -14,20 +14,12 @@ export function ConversationList() {
 
   return (
     <div className="flex flex-col gap-1 p-2">
-      <div className="mb-2 flex items-center justify-between px-2">
-        <span className="text-xs font-medium text-muted-foreground">
-          {t('conversation.title')}
-        </span>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-7"
-          onClick={createConversation}
-          title={t('conversation.new')}
-        >
-          <Plus className="size-4" />
-        </Button>
-      </div>
+      <Button
+        className="mb-2 w-full border-border shadow-sm hover:shadow-md"
+        onClick={createConversation}
+      >
+        {t('conversation.startNew')}
+      </Button>
       {conversations.length === 0 ? (
         <div className="px-2 py-4 text-center text-xs text-muted-foreground">
           {t('conversation.empty')}
