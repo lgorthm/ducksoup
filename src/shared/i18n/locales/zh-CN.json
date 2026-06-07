@@ -39,6 +39,9 @@
     "themeDescription": "选择界面主题",
     "themeLight": "浅色",
     "themeDark": "深色",
-    "themeSystem": "跟随系统"
+    "themeSystem": "跟随系统",
+    "languageDescription": "选择界面语言",
+    "languageZhCN": "中文",
+    "languageEn": "English"
   }
 }

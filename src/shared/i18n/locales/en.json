@@ -39,6 +39,9 @@
     "themeDescription": "Choose a theme",
     "themeLight": "Light",
     "themeDark": "Dark",
-    "themeSystem": "System"
+    "themeSystem": "System",
+    "languageDescription": "Choose language",
+    "languageZhCN": "中文",
+    "languageEn": "English"
   }
 }

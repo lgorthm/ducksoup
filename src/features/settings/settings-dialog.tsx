@@ -1,6 +1,14 @@
 import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Sun, Moon, Monitor, Check, Eye, EyeOff } from 'lucide-react';
+import {
+  Sun,
+  Moon,
+  Monitor,
+  Check,
+  Eye,
+  EyeOff,
+  Languages,
+} from 'lucide-react';
 import { useTheme } from '@/shared/components/theme-provider';
 import {
   Dialog,
@@ -28,7 +36,7 @@ interface SettingsDialogProps {
 }
 
 function GeneralSettings() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { theme, setTheme } = useTheme();
 
   const themeOptions = [
@@ -41,32 +49,67 @@ function GeneralSettings() {
     },
   ];
 
+  const languageOptions = [
+    { value: 'zh-CN' as const, label: t('settings.languageZhCN') },
+    { value: 'en' as const, label: t('settings.languageEn') },
+  ];
+
   return (
-    <div className="space-y-3">
-      <p className="text-xs text-muted-foreground">
-        {t('settings.themeDescription')}
-      </p>
-      <div className="grid grid-cols-3 gap-2">
-        {themeOptions.map((option) => {
-          const isActive = theme === option.value;
-          return (
-            <button
-              key={option.value}
-              onClick={() => setTheme(option.value)}
-              className={cn(
-                'flex flex-col items-center gap-1.5 rounded-none border p-3 text-xs transition-colors',
-                'min-h-18 justify-center active:translate-y-px',
-                isActive
-                  ? 'border-foreground bg-foreground/5'
-                  : 'border-border hover:bg-muted/50',
-              )}
-            >
-              <option.icon className="size-4" />
-              <span>{option.label}</span>
-              {isActive && <Check className="size-3 text-foreground" />}
-            </button>
-          );
-        })}
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <p className="text-xs text-muted-foreground">
+          {t('settings.themeDescription')}
+        </p>
+        <div className="grid grid-cols-3 gap-2">
+          {themeOptions.map((option) => {
+            const isActive = theme === option.value;
+            return (
+              <button
+                key={option.value}
+                onClick={() => setTheme(option.value)}
+                className={cn(
+                  'flex flex-col items-center gap-1.5 rounded-none border p-3 text-xs transition-colors',
+                  'min-h-18 justify-center active:translate-y-px',
+                  isActive
+                    ? 'border-foreground bg-foreground/5'
+                    : 'border-border hover:bg-muted/50',
+                )}
+              >
+                <option.icon className="size-4" />
+                <span>{option.label}</span>
+                {isActive && <Check className="size-3 text-foreground" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <p className="text-xs text-muted-foreground">
+          {t('settings.languageDescription')}
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {languageOptions.map((option) => {
+            const isActive = i18n.language === option.value;
+            return (
+              <button
+                key={option.value}
+                onClick={() => i18n.changeLanguage(option.value)}
+                className={cn(
+                  'flex items-center gap-2 rounded-none border p-3 text-xs transition-colors',
+                  'min-h-11 justify-center active:translate-y-px',
+                  isActive
+                    ? 'border-foreground bg-foreground/5'
+                    : 'border-border hover:bg-muted/50',
+                )}
+              >
+                <Languages className="size-4" />
+                <span>{option.label}</span>
+                {isActive && <Check className="size-3 text-foreground" />}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -166,7 +209,7 @@ function SettingsContent({
   return (
     <div>
       <TabButtons active={activeTab} onChange={onTabChange} />
-      <div className="min-h-38 p-4">
+      <div className="min-h-140 p-4">
         {activeTab === 'general' ? <GeneralSettings /> : <ApiKeySettings />}
       </div>
     </div>
