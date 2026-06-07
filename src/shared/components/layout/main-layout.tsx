@@ -65,7 +65,7 @@ function MainLayoutInner({
   return (
     <>
       <Sidebar collapsible="offcanvas">
-        <SidebarHeader className="flex flex-row items-center justify-between px-4">
+        <SidebarHeader className="flex flex-row items-center justify-between pl-1 ">
           <img src={logoSvg} alt="Logo" className="h-7 w-auto" />
           <SidebarTrigger />
         </SidebarHeader>
