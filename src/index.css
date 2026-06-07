@@ -131,11 +131,4 @@
   html {
     @apply font-sans;
   }
-  @media (max-width: 767px) {
-    input,
-    textarea,
-    select {
-      font-size: 16px;
-    }
-  }
 }

@@ -41,7 +41,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
     <div className="flex items-end gap-2 border-t bg-background p-3">
       <textarea
         ref={textareaRef}
-        className="max-h-[200px] min-h-[44px] w-full resize-none rounded-none border bg-background px-3 py-2.5 text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+        className="max-h-[200px] min-h-[44px] w-full resize-none rounded-none border bg-background px-3 py-2.5 text-base outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
         placeholder="输入消息... (Enter 发送, Shift+Enter 换行)"
         rows={1}
         disabled={disabled}

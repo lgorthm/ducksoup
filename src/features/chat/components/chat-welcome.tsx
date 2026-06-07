@@ -23,7 +23,7 @@ export function ChatWelcome() {
         {/* 第一行：duck SVG + 使用模型名称开始对话 */}
         <div className="flex items-center gap-2">
           <img src={duckSvg} alt="Duck" className="h-10 w-auto" />
-          <span className="text-2xl font-semibold">
+          <span className="text-xl font-semibold">
             使用 {currentLabel} 开始对话
           </span>
         </div>
