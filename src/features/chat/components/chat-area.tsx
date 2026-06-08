@@ -28,8 +28,11 @@ export function ChatArea() {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* 消息区域 */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
-        <div className="mx-auto px-4 flex w-full max-w-[776px] flex-col gap-4">
+      <div
+        ref={scrollRef}
+        className="chat-scrollbar flex-1 overflow-y-auto px-4 py-4"
+      >
+        <div className="mx-auto flex w-full max-w-[776px] flex-col gap-4 px-4">
           {messages.map((msg) => (
             <ChatMessage key={msg.id} message={msg} />
           ))}
