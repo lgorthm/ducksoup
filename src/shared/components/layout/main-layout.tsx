@@ -93,7 +93,7 @@ function MainLayoutInner({
           <SidebarFooter>{sidebarFooter}</SidebarFooter>
         )}
       </Sidebar>
-      <SidebarInset>
+      <SidebarInset className="max-h-svh">
         <div
           className="fixed top-0 left-0 z-10000 flex h-full -translate-x-full pt-2 pl-4 transition-all duration-300 ease-in-out md:translate-x-0"
           style={{
@@ -112,7 +112,9 @@ function MainLayoutInner({
         >
           {isMobile && <SidebarTrigger isMobile />}
         </header>
-        <main className="flex flex-1 flex-col">{children}</main>
+        <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          {children}
+        </main>
       </SidebarInset>
       <SettingsDialog
         open={settingsOpen}

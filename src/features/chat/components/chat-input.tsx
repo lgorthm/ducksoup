@@ -1,29 +1,31 @@
-import { useRef, useCallback, type KeyboardEvent } from 'react';
+import { useRef, useCallback, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Send } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
+import { cn } from '@/shared/lib/utils';
 
 interface ChatInputProps {
-  onSend: (content: string) => void;
+  onSend: (content: string, deepThink: boolean) => void;
   disabled?: boolean;
 }
 
 export function ChatInput({ onSend, disabled }: ChatInputProps) {
   const { t } = useTranslation();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
+  const [deepThink, setDeepThink] = useState(false);
+  const [isEmpty, setIsEmpty] = useState(true);
 
   const handleSend = useCallback(() => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const content = textarea.value.trim();
+    const editor = editorRef.current;
+    if (!editor) return;
+    const content = editor.innerText.trim();
     if (!content || disabled) return;
-    onSend(content);
-    textarea.value = '';
-    textarea.style.height = 'auto';
-  }, [onSend, disabled]);
+    onSend(content, deepThink);
+    editor.innerText = '';
+    setIsEmpty(true);
+  }, [onSend, disabled, deepThink]);
 
   const handleKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    (e: KeyboardEvent<HTMLDivElement>) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleSend();
@@ -33,31 +35,44 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
   );
 
   const handleInput = useCallback(() => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    textarea.style.height = 'auto';
-    textarea.style.height = `${textarea.scrollHeight}px`;
+    const editor = editorRef.current;
+    if (!editor) return;
+    setIsEmpty(!editor.innerText.trim());
   }, []);
 
   return (
-    <div className="flex items-end gap-2 border-t bg-background p-3">
-      <textarea
-        ref={textareaRef}
-        className="max-h-[200px] min-h-[44px] w-full resize-none rounded-none border bg-background px-3 py-2.5 text-base outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-        placeholder={t('chat.input.placeholder')}
-        rows={1}
-        disabled={disabled}
+    <div className="border bg-background p-3 shadow-sm">
+      <div
+        ref={editorRef}
+        contentEditable={!disabled}
+        className={cn(
+          'max-h-[200px] min-h-[44px] w-full overflow-y-auto rounded-none bg-background px-0.5 py-0.5 text-base outline-none',
+          'empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)]',
+          disabled && 'cursor-not-allowed opacity-50',
+        )}
+        data-placeholder={t('chat.input.placeholder')}
+        role="textbox"
+        aria-multiline="true"
         onKeyDown={handleKeyDown}
         onInput={handleInput}
       />
-      <Button
-        size="icon"
-        className="shrink-0"
-        disabled={disabled}
-        onClick={handleSend}
-      >
-        <Send className="size-4" />
-      </Button>
+      <div className="mt-2 flex items-center justify-between">
+        <Button
+          variant={deepThink ? 'default' : 'outline'}
+          size="default"
+          disabled={disabled}
+          onClick={() => setDeepThink((prev) => !prev)}
+        >
+          {t('chat.input.deepThink')}
+        </Button>
+        <Button
+          size="default"
+          disabled={disabled || isEmpty}
+          onClick={handleSend}
+        >
+          {t('chat.input.send')}
+        </Button>
+      </div>
     </div>
   );
 }

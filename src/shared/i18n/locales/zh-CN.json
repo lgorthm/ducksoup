@@ -6,11 +6,14 @@
   },
   "chat": {
     "input": {
-      "placeholder": "输入消息... (Enter 发送, Shift+Enter 换行)"
+      "placeholder": "输入消息... (Enter 发送, Shift+Enter 换行)",
+      "deepThink": "深度思考",
+      "send": "发送"
     },
     "area": {
       "thinking": "思考中..."
     },
+    "disclaimer": "内容由AI生成，请仔细甄别",
     "welcome": {
       "startChat": "使用 {{model}} 开始对话"
     },

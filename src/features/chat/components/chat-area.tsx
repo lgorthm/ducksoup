@@ -26,10 +26,10 @@ export function ChatArea() {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col overflow-hidden">
       {/* 消息区域 */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
-        <div className="mx-auto flex w-full max-w-[776px] flex-col gap-4">
+        <div className="mx-auto px-4 flex w-full max-w-[776px] flex-col gap-4">
           {messages.map((msg) => (
             <ChatMessage key={msg.id} message={msg} />
           ))}
@@ -49,7 +49,13 @@ export function ChatArea() {
 
       {/* 输入区域 */}
       <div className="mx-auto w-full max-w-[776px] px-4">
-        <ChatInput onSend={sendMessage} disabled={isLoading} />
+        <ChatInput
+          onSend={(content) => sendMessage(content)}
+          disabled={isLoading}
+        />
+        <p className="py-2 text-center text-xs text-muted-foreground">
+          {t('chat.disclaimer')}
+        </p>
       </div>
     </div>
   );

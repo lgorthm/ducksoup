@@ -38,7 +38,7 @@ export function ChatWelcome() {
 
         {/* 第三行：输入组件 */}
         <div className="w-full">
-          <ChatInput onSend={sendMessage} disabled={isLoading} />
+          <ChatInput onSend={(content) => sendMessage(content)} disabled={isLoading} />
         </div>
       </div>
     </div>
