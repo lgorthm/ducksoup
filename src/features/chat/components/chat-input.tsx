@@ -1,14 +1,22 @@
 import { useRef, useCallback, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Square } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
 
 interface ChatInputProps {
   onSend: (content: string, deepThink: boolean) => void;
   disabled?: boolean;
+  isStreaming?: boolean;
+  onCancel?: () => void;
 }
 
-export function ChatInput({ onSend, disabled }: ChatInputProps) {
+export function ChatInput({
+  onSend,
+  disabled,
+  isStreaming,
+  onCancel,
+}: ChatInputProps) {
   const { t } = useTranslation();
   const editorRef = useRef<HTMLDivElement>(null);
   const [deepThink, setDeepThink] = useState(false);
@@ -28,10 +36,12 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
     (e: KeyboardEvent<HTMLDivElement>) => {
       if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
         e.preventDefault();
-        handleSend();
+        if (!isStreaming) {
+          handleSend();
+        }
       }
     },
-    [handleSend],
+    [handleSend, isStreaming],
   );
 
   const handleInput = useCallback(() => {
@@ -40,15 +50,17 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
     setIsEmpty(!editor.innerText.trim());
   }, []);
 
+  const inputDisabled = disabled || isStreaming;
+
   return (
     <div className="border bg-background p-3 shadow-sm">
       <div
         ref={editorRef}
-        contentEditable={!disabled}
+        contentEditable={!inputDisabled}
         className={cn(
           'max-h-[200px] min-h-[44px] w-full overflow-y-auto rounded-none bg-background px-0.5 py-0.5 text-base outline-none',
           'empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)]',
-          disabled && 'cursor-not-allowed opacity-50',
+          inputDisabled && 'cursor-not-allowed opacity-50',
         )}
         data-placeholder={t('chat.input.placeholder')}
         role="textbox"
@@ -60,18 +72,25 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
         <Button
           variant={deepThink ? 'default' : 'outline'}
           size="default"
-          disabled={disabled}
+          disabled={inputDisabled}
           onClick={() => setDeepThink((prev) => !prev)}
         >
           {t('chat.input.deepThink')}
         </Button>
-        <Button
-          size="default"
-          disabled={disabled || isEmpty}
-          onClick={handleSend}
-        >
-          {t('chat.input.send')}
-        </Button>
+        {isStreaming ? (
+          <Button size="default" onClick={onCancel} className="gap-1.5">
+            <Square className="size-3" />
+            {t('chat.area.stop')}
+          </Button>
+        ) : (
+          <Button
+            size="default"
+            disabled={disabled || isEmpty}
+            onClick={handleSend}
+          >
+            {t('chat.input.send')}
+          </Button>
+        )}
       </div>
     </div>
   );

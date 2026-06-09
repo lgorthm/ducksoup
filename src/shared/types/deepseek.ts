@@ -153,6 +153,27 @@ export interface Conversation {
   messageCount: number;
 }
 
+// ========== 流式消息状态 ==========
+
+/** 思考步骤记录 */
+export interface ThinkingStep {
+  index: number;
+  content: string;
+  timestamp: number;
+}
+
+/** 流式传输中的消息状态 */
+export interface StreamingMessage {
+  id: string;
+  conversationId: string;
+  role: 'assistant';
+  /** 已接收的内容片段（累积） */
+  content: string;
+  /** 已接收的思考步骤（累积） */
+  thinkingSteps: ThinkingStep[];
+  createdAt: number;
+}
+
 // ========== 应用层消息类型（扩展，用于存储） ==========
 
 export interface StoredMessage {
@@ -160,6 +181,10 @@ export interface StoredMessage {
   conversationId: string;
   role: ChatRole;
   content: string;
+  /** 深度思考模式的推理过程内容 */
+  reasoningContent?: string;
+  /** 推理过程的步骤记录 */
+  thinkingSteps?: ThinkingStep[];
   createdAt: number;
 }
 

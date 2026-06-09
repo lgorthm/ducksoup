@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import { ChatMessageList } from '@/features/chat/components/chat-message-list';
@@ -8,18 +9,27 @@ import { useChatStore } from '@/features/chat/store/chat-store';
 export function ChatArea() {
   const { t } = useTranslation();
   const messages = useChatStore((s) => s.messages);
+  const streamingMessage = useChatStore((s) => s.streamingMessage);
   const isLoading = useChatStore((s) => s.isLoading);
   const error = useChatStore((s) => s.error);
   const sendMessage = useChatStore((s) => s.sendMessage);
+  const cancelStream = useChatStore((s) => s.cancelStream);
 
-  if (messages.length === 0) {
+  const handleSend = useCallback(
+    (content: string, deepThink: boolean) => {
+      sendMessage(content, deepThink);
+    },
+    [sendMessage],
+  );
+
+  if (messages.length === 0 && !streamingMessage) {
     return <ChatWelcome />;
   }
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <ChatMessageList messages={messages}>
-        {isLoading && (
+      <ChatMessageList messages={messages} streamingMessage={streamingMessage}>
+        {isLoading && !streamingMessage && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
             {t('chat.area.thinking')}
@@ -34,8 +44,10 @@ export function ChatArea() {
 
       <div className="mx-auto w-full max-w-[776px] px-4">
         <ChatInput
-          onSend={(content) => sendMessage(content)}
+          onSend={handleSend}
           disabled={isLoading}
+          isStreaming={!!streamingMessage}
+          onCancel={cancelStream}
         />
         <p className="py-2 text-center text-xs text-muted-foreground">
           {t('chat.disclaimer')}

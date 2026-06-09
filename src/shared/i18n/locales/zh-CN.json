@@ -11,7 +11,8 @@
       "send": "发送"
     },
     "area": {
-      "thinking": "思考中..."
+      "thinking": "思考中...",
+      "stop": "停止"
     },
     "disclaimer": "内容由AI生成，请仔细甄别",
     "welcome": {
