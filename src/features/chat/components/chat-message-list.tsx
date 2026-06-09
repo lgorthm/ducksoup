@@ -55,7 +55,7 @@ export function ChatMessageList({ messages, children }: ChatMessageListProps) {
               key={msg.id}
               data-index={virtualItem.index}
               ref={virtualizer.measureElement}
-              className="absolute top-0 left-0 w-full pl-4 pr-4 pb-4"
+              className="absolute top-0 left-0 w-full pr-4 pb-4 pl-4"
               style={{ transform: `translateY(${virtualItem.start}px)` }}
             >
               <div>
