@@ -45,15 +45,26 @@ export function ChatMessageList({
     prevLength.current = totalCount;
   }, [totalCount, virtualizer]);
 
-  // 流式消息内容变化时也自动滚动
+  // 流式消息内容变化时也自动滚动（防抖）
+  const scrollTimeoutRef = useRef<number | undefined>(undefined);
   const streamingContent = streamingMessage?.content ?? '';
   const thinkingCount = streamingMessage?.thinkingSteps.length ?? 0;
   useEffect(() => {
     if (isAtBottomRef.current) {
-      requestAnimationFrame(() => {
+      // 清除之前的定时器
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      // 防抖滚动，避免流式更新过于频繁
+      scrollTimeoutRef.current = setTimeout(() => {
         virtualizer.scrollToIndex(totalCount - 1, { align: 'end' });
-      });
+      }, 50);
     }
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
   }, [streamingContent, thinkingCount, totalCount, virtualizer]);
 
   // 监听用户手动滚动，记录是否在底部

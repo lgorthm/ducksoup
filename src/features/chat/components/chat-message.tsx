@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { cn } from '@/shared/lib/utils';
 import type { StoredMessage } from '@/shared/types/deepseek';
 import { MarkdownRenderer } from '@/shared/components/markdown-renderer';
@@ -10,7 +10,7 @@ interface ChatMessageProps {
   isStreaming?: boolean;
 }
 
-export function ChatMessage({
+export const ChatMessage = memo(function ChatMessage({
   message,
   isStreaming = false,
 }: ChatMessageProps) {
@@ -53,7 +53,7 @@ export function ChatMessage({
       </div>
     </div>
   );
-}
+});
 
 // ========== 思考过程组件 ==========
 
