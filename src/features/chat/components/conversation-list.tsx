@@ -45,34 +45,44 @@ export function ConversationList() {
             onClick={() => switchConversation(conv.id)}
           >
             <span className="min-w-0 flex-1 truncate">{conv.title}</span>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className={cn(
-                    'inline-flex size-6 shrink-0 items-center justify-center rounded-none hover:bg-sidebar-accent',
-                    isMobile && conv.id === currentId
-                      ? 'opacity-100'
-                      : 'opacity-0 group-hover:opacity-100',
-                  )}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <MoreHorizontal className="size-3.5" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="w-36"
+            {isMobile && conv.id !== currentId ? (
+              <button
+                disabled
+                className="inline-flex size-6 shrink-0 items-center justify-center rounded-none opacity-30"
                 onClick={(e) => e.stopPropagation()}
               >
-                <DropdownMenuItem
-                  variant="destructive"
-                  onClick={() => deleteConversation(conv.id)}
+                <MoreHorizontal className="size-3.5" />
+              </button>
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className={cn(
+                      'inline-flex size-6 shrink-0 items-center justify-center rounded-none hover:bg-sidebar-accent',
+                      isMobile
+                        ? 'opacity-100'
+                        : 'opacity-0 group-hover:opacity-100',
+                    )}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <MoreHorizontal className="size-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="w-36"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <Trash2 />
-                  {t('conversation.delete')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => deleteConversation(conv.id)}
+                  >
+                    <Trash2 />
+                    {t('conversation.delete')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         ))
       )}
