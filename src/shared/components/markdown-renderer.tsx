@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useMemo, memo, type ComponentPropsWithoutRef } from 'react';
-import ReactMarkdown, { type Components } from 'react-markdown';
+import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -79,9 +80,11 @@ function getExt(lang: string): string {
 const CodeBlock = memo(function CodeBlock({
   language,
   code,
+  isStreaming = false,
 }: {
   language: string;
   code: string;
+  isStreaming?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const { theme } = useTheme();
@@ -109,6 +112,42 @@ const CodeBlock = memo(function CodeBlock({
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  // 流式传输期间跳过语法高亮，只显示纯文本
+  if (isStreaming) {
+    return (
+      <div className="my-4 overflow-hidden rounded-md border">
+        <div className="flex items-center justify-between bg-muted px-4 py-2 text-xs text-muted-foreground">
+          <span>{language || 'text'}</span>
+          <div className="flex items-center gap-0.5">
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="inline-flex items-center justify-center rounded p-1 transition-colors hover:bg-accent hover:text-accent-foreground"
+              aria-label="复制代码"
+            >
+              {copied ? (
+                <Check className="size-3.5" />
+              ) : (
+                <Copy className="size-3.5" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={handleDownload}
+              className="inline-flex items-center justify-center rounded p-1 transition-colors hover:bg-accent hover:text-accent-foreground"
+              aria-label="下载代码"
+            >
+              <Download className="size-3.5" />
+            </button>
+          </div>
+        </div>
+        <pre className="overflow-x-auto bg-muted/50 p-4 text-[0.8125rem] leading-relaxed">
+          <code className="font-mono">{code}</code>
+        </pre>
+      </div>
+    );
+  }
 
   return (
     <div className="my-4 overflow-hidden rounded-md border">
@@ -180,11 +219,14 @@ function InlineCode({ children, ...props }: ComponentPropsWithoutRef<'code'>) {
 interface MarkdownRendererProps {
   children: string;
   className?: string;
+  /** 是否流式传输中（跳过语法高亮以提升性能） */
+  isStreaming?: boolean;
 }
 
 export function MarkdownRenderer({
   children,
   className,
+  isStreaming = false,
 }: MarkdownRendererProps) {
   const components = useMemo(
     () => ({
@@ -206,7 +248,13 @@ export function MarkdownRenderer({
           );
         }
 
-        return <CodeBlock language={match ? match[1] : ''} code={raw} />;
+        return (
+          <CodeBlock
+            language={match ? match[1] : ''}
+            code={raw}
+            isStreaming={isStreaming}
+          />
+        );
       },
 
       // 标题
@@ -354,7 +402,7 @@ export function MarkdownRenderer({
         />
       ),
     }),
-    [],
+    [isStreaming],
   );
 
   return (

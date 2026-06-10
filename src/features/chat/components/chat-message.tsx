@@ -42,7 +42,9 @@ export const ChatMessage = memo(function ChatMessage({
 
             {/* 输出内容 */}
             {message.content ? (
-              <MarkdownRenderer>{message.content}</MarkdownRenderer>
+              <MarkdownRenderer isStreaming={isStreaming}>
+                {message.content}
+              </MarkdownRenderer>
             ) : isStreaming && !hasThinking ? (
               <span className="animate-pulse text-muted-foreground">▊</span>
             ) : hasThinking ? (
