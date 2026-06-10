@@ -58,7 +58,13 @@ export async function addMessage(msg: StoredMessage): Promise<void> {
 
 export async function getMessagesByConversation(conversationId: string): Promise<StoredMessage[]> {
   const db = await getDB();
-  return db.getAllFromIndex('messages', 'by-conversationId', conversationId);
+  const messages = await db.getAllFromIndex('messages', 'by-conversationId', conversationId);
+  return messages.sort((a, b) => {
+    const timeDiff = a.createdAt - b.createdAt;
+    if (timeDiff !== 0) return timeDiff;
+    // 相同时间戳时，user 消息排在前面
+    return a.role === 'user' ? -1 : b.role === 'user' ? 1 : 0;
+  });
 }
 
 export async function deleteMessage(id: string): Promise<void> {
