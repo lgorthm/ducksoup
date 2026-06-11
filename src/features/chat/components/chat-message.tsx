@@ -1,8 +1,13 @@
-import { memo, useState } from 'react';
+import { lazy, memo, Suspense, useState } from 'react';
 import { cn } from '@/shared/lib/utils';
 import type { StoredMessage } from '@/shared/types/deepseek';
-import { MarkdownRenderer } from '@/shared/components/markdown-renderer';
 import { ChevronDown } from 'lucide-react';
+
+const MarkdownRenderer = lazy(() =>
+  import('@/shared/components/markdown-renderer').then((m) => ({
+    default: m.MarkdownRenderer,
+  })),
+);
 
 interface ChatMessageProps {
   message: StoredMessage;
@@ -42,12 +47,16 @@ export const ChatMessage = memo(function ChatMessage({
 
             {/* 输出内容 */}
             {message.content ? (
-              <MarkdownRenderer isStreaming={isStreaming}>
-                {message.content}
-              </MarkdownRenderer>
-            ) : isStreaming && !hasThinking ? (
-              <span className="animate-pulse text-muted-foreground">▊</span>
-            ) : hasThinking ? (
+              <Suspense
+                fallback={
+                  <span className="animate-pulse text-muted-foreground">▊</span>
+                }
+              >
+                <MarkdownRenderer isStreaming={isStreaming}>
+                  {message.content}
+                </MarkdownRenderer>
+              </Suspense>
+            ) : isStreaming || hasThinking ? (
               <span className="animate-pulse text-muted-foreground">▊</span>
             ) : null}
           </>

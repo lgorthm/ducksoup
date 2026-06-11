@@ -10,6 +10,9 @@ interface ChatMessageListProps {
   children?: ReactNode;
 }
 
+/** 消息数超过此阈值时启用虚拟列表 */
+const VIRTUALIZE_THRESHOLD = 50;
+
 export function ChatMessageList({
   messages,
   streamingMessage,
@@ -19,10 +22,11 @@ export function ChatMessageList({
 
   // 总条目数 = 历史消息 + 可能存在的流式消息
   const totalCount = messages.length + (streamingMessage ? 1 : 0);
+  const shouldVirtualize = totalCount > VIRTUALIZE_THRESHOLD;
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
-    count: totalCount,
+    count: shouldVirtualize ? totalCount : 0,
     getScrollElement: useCallback(() => scrollContainerRef.current, []),
     estimateSize: useCallback(() => 80, []),
     overscan: 5,
@@ -31,19 +35,29 @@ export function ChatMessageList({
   // 记录上一次是否在底部
   const isAtBottomRef = useRef(true);
 
+  // 滚动到底部
+  const scrollToBottom = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    if (shouldVirtualize) {
+      requestAnimationFrame(() => {
+        virtualizer.scrollToIndex(totalCount - 1, { align: 'end' });
+      });
+    } else {
+      container.scrollTop = container.scrollHeight;
+    }
+  }, [shouldVirtualize, totalCount, virtualizer]);
+
   // 新消息到来时自动滚动到底部
   const prevLength = useRef(totalCount);
   useEffect(() => {
     if (totalCount > 0 && prevLength.current !== totalCount) {
       if (prevLength.current === 0 || isAtBottomRef.current) {
-        // 延迟到下一帧，等 virtualizer 的 measureElement 完成测量
-        requestAnimationFrame(() => {
-          virtualizer.scrollToIndex(totalCount - 1, { align: 'end' });
-        });
+        scrollToBottom();
       }
     }
     prevLength.current = totalCount;
-  }, [totalCount, virtualizer]);
+  }, [totalCount, scrollToBottom]);
 
   // 流式消息内容变化时也自动滚动（防抖）
   const scrollTimeoutRef = useRef<number | undefined>(undefined);
@@ -51,13 +65,11 @@ export function ChatMessageList({
   const thinkingCount = streamingMessage?.thinkingSteps.length ?? 0;
   useEffect(() => {
     if (isAtBottomRef.current) {
-      // 清除之前的定时器
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current);
       }
-      // 防抖滚动，避免流式更新过于频繁
       scrollTimeoutRef.current = setTimeout(() => {
-        virtualizer.scrollToIndex(totalCount - 1, { align: 'end' });
+        scrollToBottom();
       }, 50);
     }
     return () => {
@@ -65,7 +77,7 @@ export function ChatMessageList({
         clearTimeout(scrollTimeoutRef.current);
       }
     };
-  }, [streamingContent, thinkingCount, totalCount, virtualizer]);
+  }, [streamingContent, thinkingCount, scrollToBottom]);
 
   // 监听用户手动滚动，记录是否在底部
   useEffect(() => {
@@ -82,63 +94,97 @@ export function ChatMessageList({
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const virtualItems = virtualizer.getVirtualItems();
+  const virtualItems = shouldVirtualize ? virtualizer.getVirtualItems() : null;
 
   return (
     <div
       ref={scrollContainerRef}
       className="chat-scrollbar flex-1 overflow-y-auto"
     >
-      <div
-        className="relative mx-auto w-full max-w-[776px]"
-        style={{ height: `${virtualizer.getTotalSize()}px` }}
-      >
-        {virtualItems.map((virtualItem) => {
-          // 流式消息占据最后一个索引
-          const isStreaming =
-            streamingMessage != null && virtualItem.index === messages.length;
+      {shouldVirtualize && virtualItems ? (
+        <div
+          className="relative mx-auto w-full max-w-[776px]"
+          style={{ height: `${virtualizer.getTotalSize()}px` }}
+        >
+          {virtualItems.map((virtualItem) => {
+            const isStreaming =
+              streamingMessage != null && virtualItem.index === messages.length;
 
-          if (isStreaming) {
+            if (isStreaming) {
+              return (
+                <div
+                  key={`streaming-${streamingMessage.id}`}
+                  data-index={virtualItem.index}
+                  ref={virtualizer.measureElement}
+                  className="absolute top-0 left-0 w-full pr-4 pb-4 pl-4"
+                  style={{
+                    transform: `translateY(${virtualItem.start}px)`,
+                  }}
+                >
+                  <ChatMessage
+                    message={{
+                      id: streamingMessage.id,
+                      conversationId: streamingMessage.conversationId,
+                      role: 'assistant',
+                      content: streamingMessage.content,
+                      reasoningContent: streamingMessage.thinkingSteps
+                        .map((s) => s.content)
+                        .join(''),
+                      thinkingSteps: streamingMessage.thinkingSteps,
+                      createdAt: streamingMessage.createdAt,
+                    }}
+                    isStreaming
+                  />
+                </div>
+              );
+            }
+
+            const msg = messages[virtualItem.index];
             return (
               <div
-                key={`streaming-${streamingMessage.id}`}
+                key={msg.id}
                 data-index={virtualItem.index}
                 ref={virtualizer.measureElement}
                 className="absolute top-0 left-0 w-full pr-4 pb-4 pl-4"
-                style={{ transform: `translateY(${virtualItem.start}px)` }}
+                style={{
+                  transform: `translateY(${virtualItem.start}px)`,
+                }}
               >
-                <ChatMessage
-                  message={{
-                    id: streamingMessage.id,
-                    conversationId: streamingMessage.conversationId,
-                    role: 'assistant',
-                    content: streamingMessage.content,
-                    reasoningContent: streamingMessage.thinkingSteps
-                      .map((s) => s.content)
-                      .join(''),
-                    thinkingSteps: streamingMessage.thinkingSteps,
-                    createdAt: streamingMessage.createdAt,
-                  }}
-                  isStreaming
-                />
+                <ChatMessage message={msg} />
               </div>
             );
-          }
-
-          const msg = messages[virtualItem.index];
-          return (
-            <div
-              key={msg.id}
-              data-index={virtualItem.index}
-              ref={virtualizer.measureElement}
-              className="absolute top-0 left-0 w-full pr-4 pb-4 pl-4"
-              style={{ transform: `translateY(${virtualItem.start}px)` }}
-            >
+          })}
+        </div>
+      ) : (
+        <div className="mx-auto w-full max-w-[776px]">
+          {messages.map((msg) => (
+            <div key={msg.id} className="pr-4 pb-4 pl-4">
               <ChatMessage message={msg} />
             </div>
-          );
-        })}
-      </div>
+          ))}
+          {streamingMessage && (
+            <div
+              key={`streaming-${streamingMessage.id}`}
+              className="pr-4 pb-4 pl-4"
+            >
+              <ChatMessage
+                message={{
+                  id: streamingMessage.id,
+                  conversationId: streamingMessage.conversationId,
+                  role: 'assistant',
+                  content: streamingMessage.content,
+                  reasoningContent: streamingMessage.thinkingSteps
+                    .map((s) => s.content)
+                    .join(''),
+                  thinkingSteps: streamingMessage.thinkingSteps,
+                  createdAt: streamingMessage.createdAt,
+                }}
+                isStreaming
+              />
+            </div>
+          )}
+        </div>
+      )}
       {children && (
         <div className="mx-auto w-full max-w-[776px] px-4">{children}</div>
       )}

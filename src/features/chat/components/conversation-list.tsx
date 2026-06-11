@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { useShallow } from 'zustand/react/shallow';
 import { MoreHorizontal, Trash2 } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/components/ui/button';
@@ -13,11 +14,21 @@ import { useChatStore } from '@/features/chat/store/chat-store';
 
 export function ConversationList() {
   const { t } = useTranslation();
-  const conversations = useChatStore((s) => s.conversations);
-  const currentId = useChatStore((s) => s.currentConversationId);
-  const startNewConversation = useChatStore((s) => s.startNewConversation);
-  const switchConversation = useChatStore((s) => s.switchConversation);
-  const deleteConversation = useChatStore((s) => s.deleteConversation);
+  const {
+    conversations,
+    currentConversationId,
+    startNewConversation,
+    switchConversation,
+    deleteConversation,
+  } = useChatStore(
+    useShallow((s) => ({
+      conversations: s.conversations,
+      currentConversationId: s.currentConversationId,
+      startNewConversation: s.startNewConversation,
+      switchConversation: s.switchConversation,
+      deleteConversation: s.deleteConversation,
+    })),
+  );
   const isMobile = useIsMobile();
 
   return (
@@ -38,14 +49,14 @@ export function ConversationList() {
             key={conv.id}
             className={cn(
               'group flex cursor-pointer items-center rounded-none px-2 py-1.5 text-sm transition-colors',
-              conv.id === currentId
+              conv.id === currentConversationId
                 ? 'bg-sidebar-accent text-sidebar-accent-foreground'
                 : 'hover:bg-sidebar-accent/50',
             )}
             onClick={() => switchConversation(conv.id)}
           >
             <span className="min-w-0 flex-1 truncate">{conv.title}</span>
-            {isMobile && conv.id !== currentId ? (
+            {isMobile && conv.id !== currentConversationId ? (
               <button
                 disabled
                 className="inline-flex size-6 shrink-0 items-center justify-center rounded-none opacity-30"

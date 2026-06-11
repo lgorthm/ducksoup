@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { useShallow } from 'zustand/react/shallow';
 import duckSvg from '@/assets/duck.svg';
 import { ChatInput } from '@/features/chat/components/chat-input';
 import {
@@ -17,10 +18,14 @@ const MODEL_OPTIONS = (
 
 export function ChatWelcome() {
   const { t } = useTranslation();
-  const selectedModel = useChatStore((s) => s.selectedModel);
-  const setModel = useChatStore((s) => s.setModel);
-  const sendMessage = useChatStore((s) => s.sendMessage);
-  const isLoading = useChatStore((s) => s.isLoading);
+  const { selectedModel, setModel, sendMessage, isLoading } = useChatStore(
+    useShallow((s) => ({
+      selectedModel: s.selectedModel,
+      setModel: s.setModel,
+      sendMessage: s.sendMessage,
+      isLoading: s.isLoading,
+    })),
+  );
 
   const currentLabel = MODEL_LABELS[selectedModel];
 

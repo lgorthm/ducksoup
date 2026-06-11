@@ -374,16 +374,20 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     async retryLastMessage() {
       const { messages } = get();
-      // 找到最后一条 user 消息
-      const reversed = [...messages].reverse();
-      const lastUserIdx = reversed.findIndex((m) => m.role === 'user');
+      // 反向查找最后一条 user 消息
+      let lastUserIdx = -1;
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].role === 'user') {
+          lastUserIdx = i;
+          break;
+        }
+      }
       if (lastUserIdx === -1) return;
 
-      const originalIdx = messages.length - 1 - lastUserIdx;
-      const lastUserContent = messages[originalIdx].content;
+      const lastUserContent = messages[lastUserIdx].content;
 
       // 移除 user 消息及之后的 assistant 消息
-      const trimmed = messages.slice(0, originalIdx);
+      const trimmed = messages.slice(0, lastUserIdx);
       set({ messages: trimmed });
 
       await get().sendMessage(lastUserContent);

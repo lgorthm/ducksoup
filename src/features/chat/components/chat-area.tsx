@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useShallow } from 'zustand/react/shallow';
 import { Loader2 } from 'lucide-react';
 import { ChatMessageList } from '@/features/chat/components/chat-message-list';
 import { ChatInput } from '@/features/chat/components/chat-input';
@@ -8,12 +9,23 @@ import { useChatStore } from '@/features/chat/store/chat-store';
 
 export function ChatArea() {
   const { t } = useTranslation();
-  const messages = useChatStore((s) => s.messages);
-  const streamingMessage = useChatStore((s) => s.streamingMessage);
-  const isLoading = useChatStore((s) => s.isLoading);
-  const error = useChatStore((s) => s.error);
-  const sendMessage = useChatStore((s) => s.sendMessage);
-  const cancelStream = useChatStore((s) => s.cancelStream);
+  const {
+    messages,
+    streamingMessage,
+    isLoading,
+    error,
+    sendMessage,
+    cancelStream,
+  } = useChatStore(
+    useShallow((s) => ({
+      messages: s.messages,
+      streamingMessage: s.streamingMessage,
+      isLoading: s.isLoading,
+      error: s.error,
+      sendMessage: s.sendMessage,
+      cancelStream: s.cancelStream,
+    })),
+  );
 
   const handleSend = useCallback(
     (content: string, deepThink: boolean) => {
