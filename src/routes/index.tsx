@@ -1,18 +1,11 @@
-import { createBrowserRouter, Outlet } from 'react-router';
+import { createBrowserRouter } from 'react-router';
 
-import { MainLayout } from '@/shared/components/layout';
-import { ConversationList } from '@/features/chat/components/conversation-list';
+import { LayoutWrapper } from '@/routes/layout-wrapper';
 import { HomePage } from '@/routes/home';
 
 export const router = createBrowserRouter([
   {
-    element: (
-      <MainLayout sidebarContent={<ConversationList />}>
-        <Outlet />
-      </MainLayout>
-    ),
-    children: [
-      { path: '/', element: <HomePage /> },
-    ],
+    element: <LayoutWrapper />,
+    children: [{ path: '/', element: <HomePage /> }],
   },
 ]);

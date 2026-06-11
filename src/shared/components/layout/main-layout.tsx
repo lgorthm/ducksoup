@@ -23,6 +23,8 @@ interface MainLayoutProps {
   defaultOpen?: boolean;
   buttonGroup?: React.ReactNode;
   onSettingsClick?: () => void;
+  conversationTitle?: string;
+  modelName?: string;
   children: React.ReactNode;
 }
 
@@ -32,6 +34,8 @@ export function MainLayout({
   defaultOpen = true,
   buttonGroup,
   onSettingsClick,
+  conversationTitle,
+  modelName,
   children,
 }: MainLayoutProps) {
   return (
@@ -41,6 +45,8 @@ export function MainLayout({
         sidebarFooter={sidebarFooter}
         buttonGroup={buttonGroup}
         onSettingsClick={onSettingsClick}
+        conversationTitle={conversationTitle}
+        modelName={modelName}
       >
         {children}
       </MainLayoutInner>
@@ -53,13 +59,15 @@ function MainLayoutInner({
   sidebarFooter,
   buttonGroup,
   onSettingsClick,
+  conversationTitle,
+  modelName,
   children,
 }: Omit<MainLayoutProps, 'defaultOpen'>) {
   const { t } = useTranslation();
   const { isMobile, open } = useSidebar();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  const fixedWidth = 'var(--sidebar-width)';
+  // const fixedWidth = 'var(--sidebar-width)';
   const showFixed = !isMobile && !open;
 
   const handleSettingsClick = onSettingsClick ?? (() => setSettingsOpen(true));
@@ -97,20 +105,32 @@ function MainLayoutInner({
         <div
           className="fixed top-0 left-0 z-10000 flex h-full -translate-x-full pt-2 pl-4 transition-all duration-300 ease-in-out md:translate-x-0"
           style={{
-            width: 'var(--sidebar-width)',
+            width: '100px',
             opacity: open ? 0 : 1,
             pointerEvents: open ? 'none' : 'auto',
           }}
         >
-          <img src={duckSvg} alt="Duck" className="h-7 w-auto" />{' '}
+          <img src={duckSvg} alt="Duck" className="mr-4 h-7 w-auto" />{' '}
           <SidebarTrigger />
           {buttonGroup}
         </div>
         <header
           className="flex h-12 shrink-0 items-center gap-2 px-2"
-          style={{ marginLeft: showFixed ? fixedWidth : 0 }}
+          style={{ marginLeft: showFixed ? '100px' : 0 }}
         >
           {isMobile && <SidebarTrigger isMobile />}
+          {conversationTitle != null && (
+            <div className="flex min-w-0 flex-col">
+              <span className="truncate text-sm font-medium">
+                {conversationTitle}
+              </span>
+              {modelName != null && (
+                <span className="truncate text-xs text-muted-foreground">
+                  {modelName}
+                </span>
+              )}
+            </div>
+          )}
         </header>
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {children}

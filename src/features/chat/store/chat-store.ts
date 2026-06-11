@@ -16,6 +16,11 @@ const API_KEY_STORAGE_KEY = 'deepseek-api-key';
 
 export type ModelName = 'deepseek-v4-flash' | 'deepseek-v4-pro';
 
+export const MODEL_LABELS: Record<ModelName, string> = {
+  'deepseek-v4-flash': 'DeepSeek V4 Flash',
+  'deepseek-v4-pro': 'DeepSeek V4 Pro',
+};
+
 interface ChatState {
   // API Key
   apiKey: string;
