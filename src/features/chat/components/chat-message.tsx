@@ -73,7 +73,10 @@ interface ThinkingSectionProps {
   isStreaming: boolean;
 }
 
-function ThinkingSection({ message, isStreaming }: ThinkingSectionProps) {
+const ThinkingSection = memo(function ThinkingSection({
+  message,
+  isStreaming,
+}: ThinkingSectionProps) {
   const [expanded, setExpanded] = useState(false);
 
   const steps = message.thinkingSteps;
@@ -130,4 +133,4 @@ function ThinkingSection({ message, isStreaming }: ThinkingSectionProps) {
       )}
     </div>
   );
-}
+});

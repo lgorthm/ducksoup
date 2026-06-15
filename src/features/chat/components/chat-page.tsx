@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useShallow } from 'zustand/react/shallow';
 import { ApiKeyDialog } from '@/features/chat/components/api-key-dialog';
 import { ChatArea } from '@/features/chat/components/chat-area';
 import { useChatStore } from '@/features/chat/store/chat-store';
 
 export function ChatPage() {
   const { t } = useTranslation();
-  const init = useChatStore((s) => s.init);
-  const hasApiKey = useChatStore((s) => s.hasApiKey);
+  const { init, hasApiKey } = useChatStore(
+    useShallow((s) => ({ init: s.init, hasApiKey: s.hasApiKey })),
+  );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [ready, setReady] = useState(false);
 

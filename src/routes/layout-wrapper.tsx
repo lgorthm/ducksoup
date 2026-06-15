@@ -1,7 +1,7 @@
 import { Outlet } from 'react-router';
 import { useShallow } from 'zustand/react/shallow';
 
-import { MainLayout } from '@/shared/components/layout';
+import { MainLayout } from '@/shared/components/layout/main-layout';
 import { ConversationList } from '@/features/chat/components/conversation-list';
 import { useChatStore, MODEL_LABELS } from '@/features/chat/store/chat-store';
 

@@ -75,6 +75,9 @@ function getExt(lang: string): string {
   return langToExt[lang.toLowerCase()] ?? `.${lang}`;
 }
 
+/** 代码块语言检测正则，提升到模块级别避免重复创建 */
+const LANGUAGE_RE = /language-(\w+)/;
+
 // ---- 代码块（含工具栏） ----
 
 const CodeBlock = memo(function CodeBlock({
@@ -214,6 +217,153 @@ function InlineCode({ children, ...props }: ComponentPropsWithoutRef<'code'>) {
   );
 }
 
+// ---- 静态 Markdown 组件（不依赖 isStreaming，模块级别避免重复创建） ----
+
+const STATIC_MARKDOWN_COMPONENTS = {
+  // 标题
+  h1: ({ children, ...props }: any) => (
+    <h1 className="mt-6 mb-2 text-xl font-semibold" {...props}>
+      {children}
+    </h1>
+  ),
+  h2: ({ children, ...props }: any) => (
+    <h2 className="mt-5 mb-2 text-lg font-semibold" {...props}>
+      {children}
+    </h2>
+  ),
+  h3: ({ children, ...props }: any) => (
+    <h3 className="mt-4 mb-1.5 text-base font-semibold" {...props}>
+      {children}
+    </h3>
+  ),
+  h4: ({ children, ...props }: any) => (
+    <h4 className="mt-3 mb-1 text-sm font-semibold" {...props}>
+      {children}
+    </h4>
+  ),
+  h5: ({ children, ...props }: any) => (
+    <h5 className="mt-3 mb-1 text-sm font-medium" {...props}>
+      {children}
+    </h5>
+  ),
+  h6: ({ children, ...props }: any) => (
+    <h6
+      className="mt-3 mb-1 text-sm font-medium text-muted-foreground"
+      {...props}
+    >
+      {children}
+    </h6>
+  ),
+
+  // 段落
+  p: ({ children, ...props }: any) => (
+    <p className="mb-2 last:mb-0" {...props}>
+      {children}
+    </p>
+  ),
+
+  // 列表
+  ul: ({ children, ...props }: any) => (
+    <ul className="mb-2 list-disc space-y-1 pl-6" {...props}>
+      {children}
+    </ul>
+  ),
+  ol: ({ children, ...props }: any) => (
+    <ol className="mb-2 list-decimal space-y-1 pl-6" {...props}>
+      {children}
+    </ol>
+  ),
+  li: ({ children, ...props }: any) => (
+    <li className="pl-0.5" {...props}>
+      {children}
+    </li>
+  ),
+
+  // 引用
+  blockquote: ({ children, ...props }: any) => (
+    <blockquote
+      className="my-2 border-l-2 border-muted-foreground/30 pl-4 text-muted-foreground italic"
+      {...props}
+    >
+      {children}
+    </blockquote>
+  ),
+
+  // 表格
+  table: ({ children, ...props }: any) => (
+    <div className="my-3 overflow-x-auto">
+      <table className="w-full border-collapse text-sm" {...props}>
+        {children}
+      </table>
+    </div>
+  ),
+  thead: ({ children, ...props }: any) => (
+    <thead className="border-b-2" {...props}>
+      {children}
+    </thead>
+  ),
+  tbody: ({ children, ...props }: any) => (
+    <tbody {...props}>{children}</tbody>
+  ),
+  tr: ({ children, ...props }: any) => (
+    <tr className="border-b" {...props}>
+      {children}
+    </tr>
+  ),
+  th: ({ children, ...props }: any) => (
+    <th className="px-3 py-2 text-left font-semibold" {...props}>
+      {children}
+    </th>
+  ),
+  td: ({ children, ...props }: any) => (
+    <td className="px-3 py-2" {...props}>
+      {children}
+    </td>
+  ),
+
+  // 链接
+  a: ({ children, href, ...props }: any) => (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-primary underline underline-offset-2 hover:opacity-80"
+      {...props}
+    >
+      {children}
+    </a>
+  ),
+
+  // 分割线
+  hr: (props: any) => <hr className="my-4" {...props} />,
+
+  // 强调
+  strong: ({ children, ...props }: any) => (
+    <strong className="font-semibold" {...props}>
+      {children}
+    </strong>
+  ),
+  em: ({ children, ...props }: any) => <em {...props}>{children}</em>,
+
+  // 删除线
+  del: ({ children, ...props }: any) => (
+    <del className="text-muted-foreground line-through" {...props}>
+      {children}
+    </del>
+  ),
+
+  // 图片
+  img: ({ alt, src, ...props }: any) => (
+    <img
+      alt={alt}
+      src={src}
+      className="my-3 max-w-full rounded-md"
+      loading="lazy"
+      {...props}
+    />
+  ),
+} as const;
+
 // ---- react-markdown 语言组件映射 ----
 
 interface MarkdownRendererProps {
@@ -228,15 +378,16 @@ export function MarkdownRenderer({
   className,
   isStreaming = false,
 }: MarkdownRendererProps) {
+  // 只有 code 组件依赖 isStreaming，其余组件由模块级静态对象复用
   const components = useMemo(
     () => ({
-      // 代码块 + 内联代码
+      ...STATIC_MARKDOWN_COMPONENTS,
       code({
         className: codeClassName,
         children: codeChildren,
         ...props
       }: any) {
-        const match = /language-(\w+)/.exec(codeClassName || '');
+        const match = LANGUAGE_RE.exec(codeClassName || '');
         const raw = String(codeChildren).replace(/\n$/, '');
 
         // 内联代码（无 language- 前缀且无换行）
@@ -256,151 +407,6 @@ export function MarkdownRenderer({
           />
         );
       },
-
-      // 标题
-      h1: ({ children: hChildren, ...props }: any) => (
-        <h1 className="mt-6 mb-2 text-xl font-semibold" {...props}>
-          {hChildren}
-        </h1>
-      ),
-      h2: ({ children: hChildren, ...props }: any) => (
-        <h2 className="mt-5 mb-2 text-lg font-semibold" {...props}>
-          {hChildren}
-        </h2>
-      ),
-      h3: ({ children: hChildren, ...props }: any) => (
-        <h3 className="mt-4 mb-1.5 text-base font-semibold" {...props}>
-          {hChildren}
-        </h3>
-      ),
-      h4: ({ children: hChildren, ...props }: any) => (
-        <h4 className="mt-3 mb-1 text-sm font-semibold" {...props}>
-          {hChildren}
-        </h4>
-      ),
-      h5: ({ children: hChildren, ...props }: any) => (
-        <h5 className="mt-3 mb-1 text-sm font-medium" {...props}>
-          {hChildren}
-        </h5>
-      ),
-      h6: ({ children: hChildren, ...props }: any) => (
-        <h6
-          className="mt-3 mb-1 text-sm font-medium text-muted-foreground"
-          {...props}
-        >
-          {hChildren}
-        </h6>
-      ),
-
-      // 段落
-      p: ({ children: pChildren, ...props }: any) => (
-        <p className="mb-2 last:mb-0" {...props}>
-          {pChildren}
-        </p>
-      ),
-
-      // 列表
-      ul: ({ children: ulChildren, ...props }: any) => (
-        <ul className="mb-2 list-disc space-y-1 pl-6" {...props}>
-          {ulChildren}
-        </ul>
-      ),
-      ol: ({ children: olChildren, ...props }: any) => (
-        <ol className="mb-2 list-decimal space-y-1 pl-6" {...props}>
-          {olChildren}
-        </ol>
-      ),
-      li: ({ children: liChildren, ...props }: any) => (
-        <li className="pl-0.5" {...props}>
-          {liChildren}
-        </li>
-      ),
-
-      // 引用
-      blockquote: ({ children: bqChildren, ...props }: any) => (
-        <blockquote
-          className="my-2 border-l-2 border-muted-foreground/30 pl-4 text-muted-foreground italic"
-          {...props}
-        >
-          {bqChildren}
-        </blockquote>
-      ),
-
-      // 表格
-      table: ({ children: tChildren, ...props }: any) => (
-        <div className="my-3 overflow-x-auto">
-          <table className="w-full border-collapse text-sm" {...props}>
-            {tChildren}
-          </table>
-        </div>
-      ),
-      thead: ({ children: thChildren, ...props }: any) => (
-        <thead className="border-b-2" {...props}>
-          {thChildren}
-        </thead>
-      ),
-      tbody: ({ children: tbChildren, ...props }: any) => (
-        <tbody {...props}>{tbChildren}</tbody>
-      ),
-      tr: ({ children: trChildren, ...props }: any) => (
-        <tr className="border-b" {...props}>
-          {trChildren}
-        </tr>
-      ),
-      th: ({ children: thCellChildren, ...props }: any) => (
-        <th className="px-3 py-2 text-left font-semibold" {...props}>
-          {thCellChildren}
-        </th>
-      ),
-      td: ({ children: tdChildren, ...props }: any) => (
-        <td className="px-3 py-2" {...props}>
-          {tdChildren}
-        </td>
-      ),
-
-      // 链接
-      a: ({ children: aChildren, href, ...props }: any) => (
-        <a
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-primary underline underline-offset-2 hover:opacity-80"
-          {...props}
-        >
-          {aChildren}
-        </a>
-      ),
-
-      // 分割线
-      hr: (props: any) => <hr className="my-4" {...props} />,
-
-      // 强调
-      strong: ({ children: sChildren, ...props }: any) => (
-        <strong className="font-semibold" {...props}>
-          {sChildren}
-        </strong>
-      ),
-      em: ({ children: emChildren, ...props }: any) => (
-        <em {...props}>{emChildren}</em>
-      ),
-
-      // 删除线
-      del: ({ children: delChildren, ...props }: any) => (
-        <del className="text-muted-foreground line-through" {...props}>
-          {delChildren}
-        </del>
-      ),
-
-      // 图片（基本样式，会由 Tailwind 处理响应式）
-      img: ({ alt, src, ...props }: any) => (
-        <img
-          alt={alt}
-          src={src}
-          className="my-3 max-w-full rounded-md"
-          loading="lazy"
-          {...props}
-        />
-      ),
     }),
     [isStreaming],
   );

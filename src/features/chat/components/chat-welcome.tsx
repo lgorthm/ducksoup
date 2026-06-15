@@ -7,7 +7,7 @@ import {
   MODEL_LABELS,
   type ModelName,
 } from '@/features/chat/store/chat-store';
-import { RadioGroupButton } from '@/shared/components/ui';
+import { RadioGroupButton } from '@/shared/components/ui/radio-group-button';
 
 const MODEL_OPTIONS = (
   Object.entries(MODEL_LABELS) as [ModelName, string][]
