@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Settings } from 'lucide-react';
-import duckSvg from '@/assets/duck.svg';
 import logoSvg from '@/assets/logo.svg';
+import { FixedToolbar } from './fixed-toolbar';
 
 import {
   Sidebar,
@@ -75,7 +75,7 @@ function MainLayoutInner({
   return (
     <>
       <Sidebar collapsible="offcanvas">
-        <SidebarHeader className="flex flex-row items-center justify-between pl-1">
+        <SidebarHeader className="flex flex-row items-center justify-between pl-4">
           <img src={logoSvg} alt="Logo" className="h-7 w-auto" />
           <SidebarTrigger />
         </SidebarHeader>
@@ -102,20 +102,9 @@ function MainLayoutInner({
         )}
       </Sidebar>
       <SidebarInset className="max-h-svh">
-        <div
-          className="fixed top-0 left-0 z-10000 flex h-full -translate-x-full pt-2 pl-4 transition-all duration-300 ease-in-out md:translate-x-0"
-          style={{
-            width: '100px',
-            opacity: open ? 0 : 1,
-            pointerEvents: open ? 'none' : 'auto',
-          }}
-        >
-          <img src={duckSvg} alt="Duck" className="mr-4 h-7 w-auto" />{' '}
-          <SidebarTrigger />
-          {buttonGroup}
-        </div>
+        <FixedToolbar open={open} buttonGroup={buttonGroup} />
         <header
-          className="flex h-12 shrink-0 items-center gap-2 px-2"
+          className="flex h-12 shrink-0 items-center gap-2 px-2 transition-[margin-left] duration-300 ease-in-out"
           style={{ marginLeft: showFixed ? '100px' : 0 }}
         >
           {isMobile && <SidebarTrigger isMobile />}
