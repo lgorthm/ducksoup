@@ -6,20 +6,23 @@ const DUCK_LOGO = <img src={duckSvg} alt="Duck" className="mr-4 h-7 w-auto" />;
 
 interface FixedToolbarProps {
   open: boolean;
+  isMobile: boolean;
   buttonGroup?: React.ReactNode;
 }
 
 export const FixedToolbar = memo(function FixedToolbar({
   open,
+  isMobile,
   buttonGroup,
 }: FixedToolbarProps) {
   return (
     <div
-      className="fixed top-0 left-0 z-10000 flex w-[100px] -translate-x-full pt-2 pl-4 md:translate-x-0"
+      className="fixed top-0 left-0 z-10000 flex w-[100px] pt-2 pl-4"
       style={{
+        transform: isMobile ? 'translateX(-100%)' : 'translateX(0)',
         opacity: open ? 0 : 1,
         pointerEvents: open ? 'none' : 'auto',
-        transition: 'opacity .2s ease-in-out',
+        transition: 'transform .3s ease-in-out, opacity .2s ease-in-out',
       }}
     >
       {DUCK_LOGO}

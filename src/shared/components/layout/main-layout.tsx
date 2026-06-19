@@ -108,9 +108,13 @@ function MainLayoutInner({
         ) : null}
       </Sidebar>
       <SidebarInset className="max-h-svh">
-        <FixedToolbar open={open} buttonGroup={buttonGroup} />
+        <FixedToolbar
+          open={open}
+          isMobile={isMobile}
+          buttonGroup={buttonGroup}
+        />
         <header
-          className="flex h-12 shrink-0 items-center gap-2 px-2 transition-[margin-left] duration-300 ease-in-out"
+          className={`flex h-12 shrink-0 items-center gap-2 px-2 ${!isMobile ? 'transition-[margin-left] duration-300 ease-in-out' : ''}`}
           style={showFixed ? HEADER_STYLE_FIXED : HEADER_STYLE_DEFAULT}
         >
           {isMobile && <SidebarTrigger isMobile />}
