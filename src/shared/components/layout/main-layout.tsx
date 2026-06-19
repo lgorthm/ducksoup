@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Settings } from 'lucide-react';
 import logoSvg from '@/assets/logo.svg';
 import { FixedToolbar } from './fixed-toolbar';
+import { useIsBelowDesktop } from '@/shared/hooks/use-media-query';
 
 const LOGO_IMG = <img src={logoSvg} alt="Logo" className="h-7 w-auto" />;
 
@@ -70,6 +71,7 @@ function MainLayoutInner({
 }: Omit<MainLayoutProps, 'defaultOpen'>) {
   const { t } = useTranslation();
   const { isMobile, open } = useSidebar();
+  const isBelowDesktop = useIsBelowDesktop();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   // const fixedWidth = 'var(--sidebar-width)';
@@ -114,7 +116,7 @@ function MainLayoutInner({
           buttonGroup={buttonGroup}
         />
         <header
-          className={`flex h-12 shrink-0 items-center gap-2 px-2 ${!isMobile ? 'transition-[margin-left] duration-300 ease-in-out' : ''}`}
+          className={`flex h-12 shrink-0 items-center gap-2 px-2 ${!isBelowDesktop ? 'transition-[margin-left] duration-300 ease-in-out' : ''}`}
           style={showFixed ? HEADER_STYLE_FIXED : HEADER_STYLE_DEFAULT}
         >
           {isMobile ? <SidebarTrigger isMobile /> : null}
