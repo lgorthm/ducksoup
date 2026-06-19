@@ -1,6 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Settings } from 'lucide-react';
+import { cn } from '@/shared/lib/utils';
 import logoSvg from '@/assets/logo.svg';
 import { FixedToolbar } from './fixed-toolbar';
 import { useIsBelowDesktop } from '@/shared/hooks/use-media-query';
@@ -77,7 +78,7 @@ function MainLayoutInner({
   // const fixedWidth = 'var(--sidebar-width)';
   const showFixed = !isMobile && !open;
 
-  const defaultSettingsClick = useCallback(() => setSettingsOpen(true), []);
+  const defaultSettingsClick = () => setSettingsOpen(true);
   const handleSettingsClick = onSettingsClick ?? defaultSettingsClick;
 
   return (
@@ -116,7 +117,11 @@ function MainLayoutInner({
           buttonGroup={buttonGroup}
         />
         <header
-          className={`flex h-12 shrink-0 items-center gap-2 px-2 ${!isBelowDesktop ? 'transition-[margin-left] duration-300 ease-in-out' : ''}`}
+          className={cn(
+            'flex h-12 shrink-0 items-center gap-2 px-2',
+            !isBelowDesktop &&
+              'transition-[margin-left] duration-300 ease-in-out',
+          )}
           style={showFixed ? HEADER_STYLE_FIXED : HEADER_STYLE_DEFAULT}
         >
           {isMobile ? <SidebarTrigger isMobile /> : null}
