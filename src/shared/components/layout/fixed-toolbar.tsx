@@ -2,6 +2,8 @@ import { memo } from 'react';
 import duckSvg from '@/assets/duck.svg';
 import { SidebarTrigger } from '@/shared/components/ui/sidebar';
 
+const DUCK_LOGO = <img src={duckSvg} alt="Duck" className="mr-4 h-7 w-auto" />;
+
 interface FixedToolbarProps {
   open: boolean;
   buttonGroup?: React.ReactNode;
@@ -20,7 +22,7 @@ export const FixedToolbar = memo(function FixedToolbar({
         transition: 'opacity .2s ease-in-out',
       }}
     >
-      <img src={duckSvg} alt="Duck" className="mr-4 h-7 w-auto" />
+      {DUCK_LOGO}
       <SidebarTrigger />
       {buttonGroup}
     </div>

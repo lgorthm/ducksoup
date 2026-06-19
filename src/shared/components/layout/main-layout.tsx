@@ -4,6 +4,8 @@ import { Settings } from 'lucide-react';
 import logoSvg from '@/assets/logo.svg';
 import { FixedToolbar } from './fixed-toolbar';
 
+const LOGO_IMG = <img src={logoSvg} alt="Logo" className="h-7 w-auto" />;
+
 import {
   Sidebar,
   SidebarContent,
@@ -80,7 +82,7 @@ function MainLayoutInner({
     <>
       <Sidebar collapsible="offcanvas">
         <SidebarHeader className="flex flex-row items-center justify-between pl-4">
-          <img src={logoSvg} alt="Logo" className="h-7 w-auto" />
+          {LOGO_IMG}
           <SidebarTrigger />
         </SidebarHeader>
         <SidebarContent>
