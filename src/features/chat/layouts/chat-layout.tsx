@@ -5,7 +5,7 @@ import { MainLayout } from '@/shared/components/layout/main-layout';
 import { ConversationList } from '@/features/chat/components/conversation-list';
 import { useChatStore, MODEL_LABELS } from '@/features/chat/store/chat-store';
 
-export function LayoutWrapper() {
+export function ChatLayout() {
   const { conversations, currentConversationId, selectedModel } = useChatStore(
     useShallow((s) => ({
       conversations: s.conversations,

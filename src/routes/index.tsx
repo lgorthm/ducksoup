@@ -1,11 +1,11 @@
 import { createBrowserRouter } from 'react-router';
 
-import { LayoutWrapper } from '@/routes/layout-wrapper';
-import { HomePage } from '@/routes/home';
+import { ChatLayout } from '@/features/chat/layouts/chat-layout';
+import { ChatPage } from '@/features/chat/components/chat-page';
 
 export const router = createBrowserRouter([
   {
-    element: <LayoutWrapper />,
-    children: [{ path: '/', element: <HomePage /> }],
+    element: <ChatLayout />,
+    children: [{ path: '/', element: <ChatPage /> }],
   },
 ]);
