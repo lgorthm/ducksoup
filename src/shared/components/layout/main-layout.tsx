@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, memo, Suspense, useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Settings } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
@@ -19,7 +19,12 @@ import {
   SidebarTrigger,
   useSidebar,
 } from '@/shared/components/ui/sidebar';
-import { SettingsDialog } from '@/features/settings/settings-dialog';
+
+const SettingsDialog = lazy(() =>
+  import('@/features/settings/settings-dialog').then((m) => ({
+    default: m.SettingsDialog,
+  })),
+);
 
 const HEADER_STYLE_FIXED = { marginLeft: '100px' } as const;
 const HEADER_STYLE_DEFAULT = { marginLeft: 0 } as const;
@@ -61,7 +66,7 @@ export function MainLayout({
   );
 }
 
-function MainLayoutInner({
+const MainLayoutInner = memo(function MainLayoutInner({
   sidebarContent,
   sidebarFooter,
   buttonGroup,
@@ -75,11 +80,15 @@ function MainLayoutInner({
   const isBelowDesktop = useIsBelowDesktop();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // const fixedWidth = 'var(--sidebar-width)';
   const showFixed = !isMobile && !open;
 
-  const defaultSettingsClick = () => setSettingsOpen(true);
-  const handleSettingsClick = onSettingsClick ?? defaultSettingsClick;
+  const handleSettingsClick = useCallback(() => {
+    if (onSettingsClick) {
+      onSettingsClick();
+    } else {
+      setSettingsOpen(true);
+    }
+  }, [onSettingsClick]);
 
   return (
     <>
@@ -142,11 +151,13 @@ function MainLayoutInner({
           {children}
         </main>
       </SidebarInset>
-      <SettingsDialog
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        isMobile={isMobile}
-      />
+      <Suspense fallback={null}>
+        <SettingsDialog
+          open={settingsOpen}
+          onOpenChange={setSettingsOpen}
+          isMobile={isMobile}
+        />
+      </Suspense>
     </>
   );
-}
+});
