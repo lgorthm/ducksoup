@@ -117,7 +117,7 @@ function MainLayoutInner({
           className={`flex h-12 shrink-0 items-center gap-2 px-2 ${!isMobile ? 'transition-[margin-left] duration-300 ease-in-out' : ''}`}
           style={showFixed ? HEADER_STYLE_FIXED : HEADER_STYLE_DEFAULT}
         >
-          {isMobile && <SidebarTrigger isMobile />}
+          {isMobile ? <SidebarTrigger isMobile /> : null}
           {conversationTitle != null ? (
             <div className="flex min-w-0 flex-col">
               <span className="truncate text-sm font-medium">
