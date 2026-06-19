@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Settings } from 'lucide-react';
 import logoSvg from '@/assets/logo.svg';
@@ -16,6 +16,9 @@ import {
   useSidebar,
 } from '@/shared/components/ui/sidebar';
 import { SettingsDialog } from '@/features/settings/settings-dialog';
+
+const HEADER_STYLE_FIXED = { marginLeft: '100px' } as const;
+const HEADER_STYLE_DEFAULT = { marginLeft: 0 } as const;
 
 interface MainLayoutProps {
   sidebarContent?: React.ReactNode;
@@ -70,7 +73,8 @@ function MainLayoutInner({
   // const fixedWidth = 'var(--sidebar-width)';
   const showFixed = !isMobile && !open;
 
-  const handleSettingsClick = onSettingsClick ?? (() => setSettingsOpen(true));
+  const defaultSettingsClick = useCallback(() => setSettingsOpen(true), []);
+  const handleSettingsClick = onSettingsClick ?? defaultSettingsClick;
 
   return (
     <>
@@ -97,15 +101,15 @@ function MainLayoutInner({
             </div>
           </SidebarMenu>
         </SidebarContent>
-        {sidebarFooter != null && (
+        {sidebarFooter != null ? (
           <SidebarFooter>{sidebarFooter}</SidebarFooter>
-        )}
+        ) : null}
       </Sidebar>
       <SidebarInset className="max-h-svh">
         <FixedToolbar open={open} buttonGroup={buttonGroup} />
         <header
           className="flex h-12 shrink-0 items-center gap-2 px-2 transition-[margin-left] duration-300 ease-in-out"
-          style={{ marginLeft: showFixed ? '100px' : 0 }}
+          style={showFixed ? HEADER_STYLE_FIXED : HEADER_STYLE_DEFAULT}
         >
           {isMobile && <SidebarTrigger isMobile />}
           {conversationTitle != null ? (
