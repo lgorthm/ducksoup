@@ -7,7 +7,7 @@ import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Check, Copy, Download } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
-import { useTheme } from '@/shared/components/theme-provider';
+import { useTheme } from '@/shared/providers/theme-provider';
 
 /** 语言名 → 文件扩展名映射 */
 const langToExt: Record<string, string> = {

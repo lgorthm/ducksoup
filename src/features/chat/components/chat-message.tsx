@@ -1,6 +1,6 @@
 import { lazy, memo, Suspense, useState } from 'react';
 import { cn } from '@/shared/lib/utils';
-import type { StoredMessage } from '@/shared/types/deepseek';
+import type { StoredMessage } from '@/features/chat/types/deepseek';
 import { ChevronDown } from 'lucide-react';
 
 const MarkdownRenderer = lazy(() =>

@@ -5,11 +5,11 @@
  * 支持深度思考模式的结构化思考过程输出。
  */
 
-import type { ChatMessage, StreamChunk } from '@/shared/types/deepseek';
+import type { ChatMessage, StreamChunk } from '@/features/chat/types/deepseek';
 import {
   createSSEConnection,
   type SSEConnection,
-} from '@/shared/utils/sse-client';
+} from '@/features/chat/utils/sse-client';
 
 // ========== 流式事件类型 ==========
 

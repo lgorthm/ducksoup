@@ -1,5 +1,5 @@
 import { openDB } from 'idb';
-import type { Conversation, DuckSoupDBSchema, StoredMessage } from '@/shared/types/deepseek';
+import type { Conversation, DuckSoupDBSchema, StoredMessage } from '@/features/chat/types/deepseek';
 
 const DB_NAME = 'ducksoup-chat';
 const DB_VERSION = 1;

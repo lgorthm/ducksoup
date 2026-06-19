@@ -5,12 +5,12 @@ import type {
   Conversation,
   StoredMessage,
   StreamingMessage,
-} from '@/shared/types/deepseek';
+} from '@/features/chat/types/deepseek';
 import {
   createChatStream,
   type ChatStreamController,
-} from '@/shared/utils/chat-stream';
-import * as db from '@/shared/utils/db';
+} from '@/features/chat/utils/chat-stream';
+import * as db from '@/features/chat/utils/db';
 
 const API_KEY_STORAGE_KEY = 'deepseek-api-key';
 

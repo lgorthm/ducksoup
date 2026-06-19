@@ -9,7 +9,7 @@ import {
   EyeOff,
   Languages,
 } from 'lucide-react';
-import { useTheme } from '@/shared/components/theme-provider';
+import { useTheme } from '@/shared/providers/theme-provider';
 import {
   Dialog,
   DialogContent,

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChatMessage } from '@/features/chat/components/chat-message';
-import type { StoredMessage, StreamingMessage } from '@/shared/types/deepseek';
+import type { StoredMessage, StreamingMessage } from '@/features/chat/types/deepseek';
 
 interface ChatMessageListProps {
   messages: StoredMessage[];
