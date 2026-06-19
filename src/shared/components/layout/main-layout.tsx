@@ -108,18 +108,18 @@ function MainLayoutInner({
           style={{ marginLeft: showFixed ? '100px' : 0 }}
         >
           {isMobile && <SidebarTrigger isMobile />}
-          {conversationTitle != null && (
+          {conversationTitle != null ? (
             <div className="flex min-w-0 flex-col">
               <span className="truncate text-sm font-medium">
                 {conversationTitle}
               </span>
-              {modelName != null && (
+              {modelName != null ? (
                 <span className="truncate text-xs text-muted-foreground">
                   {modelName}
                 </span>
-              )}
+              ) : null}
             </div>
-          )}
+          ) : null}
         </header>
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {children}
