@@ -31,3 +31,8 @@ docs/*
 
 # Git worktrees
 .worktrees/
+
+# Performance tracking
+.lighthouseci/
+perf/stats.html
+perf/stats-*.json

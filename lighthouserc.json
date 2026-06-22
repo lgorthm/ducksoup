@@ -1,0 +1,18 @@
+{
+  "ci": {
+    "collect": {
+      "url": ["http://localhost:4173"],
+      "startServerCommand": "pnpm exec vite preview --port 4173 --strictPort",
+      "startServerReadyPattern": "Local:",
+      "numberOfRuns": 3,
+      "settings": {
+        "preset": "desktop"
+      }
+    },
+    "upload": {
+      "target": "filesystem",
+      "outputDir": ".lighthouseci",
+      "reportFilenamePattern": "%%DATETIME%%-%%HOSTNAME%%-%%URL%%.%%EXTENSION%%"
+    }
+  }
+}

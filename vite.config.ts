@@ -2,7 +2,10 @@ import path from 'path';
 import tailwindcss from '@tailwindcss/vite';
 import react, { reactCompilerPreset } from '@vitejs/plugin-react';
 import babel from '@rolldown/plugin-babel';
-import { defineConfig } from 'vite';
+import { visualizer } from 'rollup-plugin-visualizer';
+import { defineConfig, type PluginOption } from 'vite';
+
+const enablePerf = process.env.PERF === '1';
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -10,6 +13,15 @@ export default defineConfig({
     react(),
     babel({ presets: [reactCompilerPreset()] }),
     tailwindcss(),
+    ...(enablePerf
+      ? [
+          visualizer({
+            filename: 'perf/stats.html',
+            gzipSize: true,
+            brotliSize: true,
+          }) as PluginOption,
+        ]
+      : []),
   ],
   resolve: {
     alias: {
