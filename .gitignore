@@ -36,3 +36,9 @@ docs/*
 .lighthouseci/
 perf/stats.html
 perf/stats-*.json
+
+# Test artifacts
+coverage/
+test-results/
+playwright-report/
+blob-report/

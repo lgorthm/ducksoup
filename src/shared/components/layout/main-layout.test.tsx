@@ -1,36 +1,10 @@
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { MainLayout } from './main-layout';
 
-// shadcn sidebar 组件依赖 window.matchMedia
-const originalMatchMedia = window.matchMedia;
-
-function setupMatchMediaMock() {
-  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  }));
-}
-
-function restoreMatchMedia() {
-  window.matchMedia = originalMatchMedia;
-}
+// matchMedia mock 已在 src/tests/setup.ts 中全局注册
 
 describe('MainLayout', () => {
-  beforeAll(() => {
-    setupMatchMediaMock();
-  });
-
-  afterAll(() => {
-    restoreMatchMedia();
-  });
-
   it('应该渲染 children 内容', () => {
     render(
       <MainLayout>
