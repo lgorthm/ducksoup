@@ -11,19 +11,29 @@ DeepSeek-powered chat web app: streaming chat, conversation history persisted to
 ## Commands
 
 ```bash
-pnpm dev          # Vite dev server (press d to toggle dark/light theme)
-pnpm build        # tsc -b (project references) then vite build
-pnpm typecheck    # tsc --noEmit
-pnpm lint         # eslint .
-pnpm format       # prettier --write **/*.{ts,tsx}
-pnpm test         # vitest run
-pnpm test:watch   # vitest watch
-pnpm preview      # vite preview
-pnpm perf         # full measurement: build → bundle sizes → Lighthouse CI → compare vs history
-pnpm perf:bundle  # bundle-only (faster, no browser): build → sizes → compare
+pnpm dev            # Vite dev server (press d to toggle dark/light theme)
+pnpm build          # tsc -b (project references) then vite build
+pnpm typecheck      # tsc --noEmit
+pnpm lint           # eslint .
+pnpm format         # prettier --write **/*.{ts,tsx}
+pnpm test           # vitest run (unit + integration, 205 tests)
+pnpm test:watch     # vitest watch
+pnpm test:coverage  # vitest run --coverage (thresholds: 75/65/70/75)
+pnpm test:ui        # vitest --ui (browser UI)
+pnpm test:e2e       # playwright test (E2E, 46 tests desktop + mobile)
+pnpm test:e2e:ui    # playwright test --ui (interactive mode)
+pnpm preview        # vite preview
+pnpm perf           # full measurement: build → bundle sizes → Lighthouse CI → compare vs history
+pnpm perf:bundle    # bundle-only (faster, no browser): build → sizes → compare
 ```
 
 `build` already typechecks. Run `pnpm lint` before committing. Single test: `pnpm test <path-or-pattern>`.
+
+## Git hooks (husky + lint-staged)
+
+- **pre-commit**: `pnpm lint-staged && pnpm typecheck && pnpm test` — formats/lints staged files, typechecks, runs unit tests.
+- **pre-push**: `pnpm exec playwright test` — runs full E2E suite (requires dev server, auto-started by Playwright).
+- Bypass with `--no-verify` in emergencies.
 
 ## Deploy
 
@@ -51,8 +61,9 @@ src/
     i18n/                        # i18next init + locales/
     lib/utils.ts                 # cn() = clsx + tailwind-merge
     hooks/ constants/ types/ utils/ styles/
-  mocks/handlers/                # MSW handlers (worker bootstrap not wired yet)
-  tests/setup.ts                 # registers @testing-library/jest-dom matchers
+  mocks/handlers/                # MSW handlers (DeepSeek SSE mock)
+  mocks/server.ts                # MSW setupServer (Node env, used by vitest)
+  tests/setup.ts                 # jest-dom matchers, fake-indexeddb, matchMedia/ResizeObserver/IntersectionObserver mocks, MSW lifecycle, i18n init
 ```
 
 State: Zustand stores live at `src/features/<name>/store/` (see `features/chat/store/chat-store.ts`, which owns streaming, IndexedDB persistence, and the DeepSeek API key under localStorage key `deepseek-api-key`).
@@ -69,13 +80,44 @@ State: Zustand stores live at `src/features/<name>/store/` (see `features/chat/s
 
 ## Testing
 
+### Unit & integration (Vitest)
+
 - Vitest: `jsdom`, `globals: true`, setup `src/tests/setup.ts`. Test files match `src/**/*.{test,spec}.{ts,tsx}` and are co-located with source.
-- **shadcn sidebar/dialog components need `window.matchMedia` mocked** in jsdom — copy the mock from `src/shared/components/layout/main-layout.test.tsx` when testing components that render the sidebar.
-- MSW is installed for API mocking; handlers belong in `src/mocks/handlers/`. Playwright is installed but no `playwright.config.ts` or `e2e/` dir exists yet.
+- **`src/tests/setup.ts` provides global mocks**: `fake-indexeddb/auto` (real IDB API in-memory), `window.matchMedia`, `ResizeObserver`, `IntersectionObserver`, `window.scrollTo`, MSW server lifecycle (`beforeAll`/`afterEach`/`afterAll`), i18n init (zh-CN), and `localStorage`/`sessionStorage` cleanup per test. No need to manually mock these in individual test files.
+- **IDB testing strategy**: `db.ts` tests use `fake-indexeddb` (real IDB integration); `chat-store.ts` tests mock the `db` module (isolated unit tests). Both strategies run in parallel.
+- **MSW handlers** live in `src/mocks/handlers/`. `deepseek.ts` exports `mockDeepSeekStream`/`mockDeepSeekError`/`mockDeepSeekNetworkError` factory functions for custom responses. The default handler returns a streaming SSE response.
+- **Coverage**: `pnpm test:coverage` — thresholds at 75/65/70/75 (statements/branches/functions/lines). shadcn UI components, type definitions, prism, markdown-renderer, and routes are excluded from coverage.
+- **`tsconfig.app.json`** includes `"vitest/globals"` in `types` — no need to explicitly import `describe`/`it`/`expect` from vitest (but existing tests do so for clarity).
+
+### E2E (Playwright)
+
+- `playwright.config.ts` — 2 projects: `desktop-chromium` (1440×900) and `mobile-iphone` (iPhone 15). WebServer auto-starts `pnpm dev`. Trace/screenshot/video on failure.
+- **`e2e/helpers/setup.ts`** — `setupApp()` handles the 3-phase load: (1) start app + set localStorage, (2) clear IDB + seed data, (3) reload. Mobile viewport-aware waiting (sidebar hidden → wait for `sidebar-trigger` instead of `settings-button`).
+- **`e2e/fixtures/db-seed.ts`** — `seedIndexedDB()`/`clearIndexedDB()`/`getIndexedDBData()` via `page.evaluate`. Uses `clear()` on stores (not `deleteDatabase`) to avoid connection blocking.
+- **`e2e/fixtures/test-data.ts`** — data factories: `generateConversations(n)`, `generateMessages(convId, n, { contentLength, withThinking })`.
+- **`e2e/helpers/sse-mock.ts`** — `page.route` based SSE mock. No-delay mode uses string body (reliable); delay mode uses `ReadableStream` + `setTimeout`.
+- **`data-testid` attributes** are added to key components for E2E selectors. See `e2e/helpers/selectors.ts` for the full list.
+- **Visual regression**: `e2e/visual/*.spec.ts` — screenshots with 1% pixel diff tolerance. Baselines in `*.spec.ts-snapshots/` (committed). Update with `pnpm exec playwright test e2e/visual/ -u`.
+- **Performance**: `e2e/performance/large-dataset.spec.ts` — multi-tier benchmarks: 1K msgs <300ms, 5K <350ms, 10K <500ms, 500 conversations sidebar render, 10× sequential switch no degradation.
+- **Accessibility**: `e2e/a11y/a11y.spec.ts` — `@axe-core/playwright` audits for WCAG 2.0/2.1 A/AA. Excludes `[data-slot="dropdown-menu-trigger"]` (known a11y issue: buttons without discernible text).
+
+### Test directory structure
+
+```
+e2e/
+  fixtures/          # db-seed.ts, test-data.ts
+  helpers/           # setup.ts, selectors.ts, performance.ts, sse-mock.ts
+  flows/             # chat-flow.spec.ts, conversation-switch.spec.ts
+  position/          # layout.spec.ts (z-index, FixedToolbar visibility, header margin)
+  performance/       # large-dataset.spec.ts (multi-tier benchmarks)
+  visual/            # chat-page.spec.ts, settings.spec.ts, sidebar.spec.ts
+  a11y/              # a11y.spec.ts (axe-core audits)
+  smoke.spec.ts      # smoke tests (app load, sidebar, settings, theme toggle, input)
+```
 
 ## Local-only (gitignored)
 
-`docs/*`, `.playwright-mcp/*`, `.superpowers/`, `.worktrees/`, `.trae/` are gitignored — don't assume they exist for other contributors. Note: the local `docs/dependencies-setup.md` documents *intended* conventions for axios / zod / MSW worker / Playwright that are **not yet implemented** — verify against actual code before following it.
+`docs/*`, `.playwright-mcp/*`, `.superpowers/`, `.worktrees/`, `.trae/` are gitignored — don't assume they exist for other contributors. `coverage/`, `test-results/`, `playwright-report/`, `blob-report/` are also gitignored (test artifacts).
 
 ## Performance & bundle tracking
 
