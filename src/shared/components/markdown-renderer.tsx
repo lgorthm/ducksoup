@@ -2,12 +2,9 @@
 import { useState, useMemo, memo, type ComponentPropsWithoutRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Check, Copy, Download } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
-import { useTheme } from '@/shared/providers/theme-provider';
+import { Prism, getGrammar } from '@/shared/lib/prism';
 
 /** 语言名 → 文件扩展名映射 */
 const langToExt: Record<string, string> = {
@@ -75,6 +72,11 @@ function getExt(lang: string): string {
   return langToExt[lang.toLowerCase()] ?? `.${lang}`;
 }
 
+/** HTML-escape plain text (used when no grammar is registered or during streaming) */
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 /** 代码块语言检测正则，提升到模块级别避免重复创建 */
 const LANGUAGE_RE = /language-(\w+)/;
 
@@ -90,13 +92,6 @@ const CodeBlock = memo(function CodeBlock({
   isStreaming?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
-  const { theme } = useTheme();
-
-  const isDark = useMemo(() => {
-    if (theme === 'dark') return true;
-    if (theme === 'light') return false;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
-  }, [theme]);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(code);
@@ -152,6 +147,13 @@ const CodeBlock = memo(function CodeBlock({
     );
   }
 
+  // 非 流式：用 prismjs 高亮
+  const result = getGrammar(language);
+  const highlighted = result
+    ? Prism.highlight(code, result.grammar, result.id)
+    : escapeHtml(code);
+  const langClass = result ? `language-${result.id}` : 'language-text';
+
   return (
     <div className="my-4 overflow-hidden rounded-md border">
       {/* 工具栏 */}
@@ -181,25 +183,12 @@ const CodeBlock = memo(function CodeBlock({
         </div>
       </div>
       {/* 代码 */}
-      <SyntaxHighlighter
-        style={isDark ? oneDark : oneLight}
-        language={language || 'text'}
-        PreTag="div"
-        customStyle={{
-          margin: 0,
-          borderRadius: 0,
-          fontSize: '0.8125rem',
-          lineHeight: '1.6',
-        }}
-        codeTagProps={{
-          style: {
-            fontFamily:
-              '"JetBrains Mono", "Fira Code", "Cascadia Code", Consolas, Monaco, monospace',
-          },
-        }}
-      >
-        {code}
-      </SyntaxHighlighter>
+      <pre className="overflow-x-auto bg-muted/50 p-4 text-[0.8125rem] leading-relaxed">
+        <code
+          className={cn('font-mono', langClass)}
+          dangerouslySetInnerHTML={{ __html: highlighted }}
+        />
+      </pre>
     </div>
   );
 });

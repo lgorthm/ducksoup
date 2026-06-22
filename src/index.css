@@ -1,7 +1,19 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
-@import '@fontsource-variable/inter';
+
+/* Inter Variable — latin subset only (saves ~155KB vs full 7-subset import) */
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/inter/files/inter-latin-wght-normal.woff2')
+    format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191,
+    U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 
 @custom-variant dark (&:is(.dark *));
 
@@ -153,4 +165,141 @@
   &::-webkit-scrollbar-thumb:hover {
     background: var(--muted-foreground);
   }
+}
+
+/* ---- Prism syntax highlighting theme ---- */
+:root {
+  --prism-text: #1e1e1e;
+  --prism-comment: #6a9955;
+  --prism-keyword: #569cd6;
+  --prism-string: #ce9178;
+  --prism-number: #b5cea8;
+  --prism-function: #dcdcaa;
+  --prism-class: #4ec9b0;
+  --prism-tag: #569cd6;
+  --prism-attr: #9cdcfe;
+  --prism-punct: #808080;
+  --prism-op: #d4d4d4;
+  --prism-deleted: #f44747;
+  --prism-inserted: #6a9955;
+  --prism-regex: #d16969;
+  --prism-variable: #9cdcfe;
+  --prism-boolean: #569cd6;
+  --prism-constant: #4fc1ff;
+}
+
+.dark {
+  --prism-text: #ccc;
+  --prism-comment: #999;
+  --prism-keyword: #cc99cd;
+  --prism-string: #f08d49;
+  --prism-number: #f08d49;
+  --prism-function: #81a2be;
+  --prism-class: #f8c555;
+  --prism-tag: #e2777a;
+  --prism-attr: #e2777a;
+  --prism-punct: #ccc;
+  --prism-op: #ccc;
+  --prism-deleted: #e2777a;
+  --prism-inserted: #81a2be;
+  --prism-regex: #f08d49;
+  --prism-variable: #81a2be;
+  --prism-boolean: #cc99cd;
+  --prism-constant: #f08d49;
+}
+
+code[class*='language-'],
+pre[class*='language-'] {
+  color: var(--prism-text);
+  background: none;
+  text-align: left;
+  white-space: pre;
+  word-spacing: normal;
+  word-break: normal;
+  word-wrap: normal;
+  line-height: 1.6;
+  tab-size: 2;
+  hyphens: none;
+}
+
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: var(--prism-comment);
+  font-style: italic;
+}
+
+.token.punctuation {
+  color: var(--prism-punct);
+}
+
+.token.namespace {
+  opacity: 0.7;
+}
+
+.token.property,
+.token.symbol,
+.token.deleted {
+  color: var(--prism-deleted);
+}
+
+.token.boolean,
+.token.number,
+.token.constant {
+  color: var(--prism-boolean);
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+  color: var(--prism-string);
+}
+
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string {
+  color: var(--prism-op);
+}
+
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+  color: var(--prism-keyword);
+}
+
+.token.function {
+  color: var(--prism-function);
+}
+
+.token.class-name {
+  color: var(--prism-class);
+}
+
+.token.regex,
+.token.important,
+.token.variable {
+  color: var(--prism-regex);
+}
+
+.token.tag {
+  color: var(--prism-tag);
+}
+
+.token.attr-name {
+  color: var(--prism-attr);
+}
+
+.token.important,
+.token.bold {
+  font-weight: bold;
+}
+
+.token.italic {
+  font-style: italic;
 }

@@ -151,5 +151,121 @@
         }
       ]
     }
+  },
+  {
+    "timestamp": "2026-06-22T12:50:33.628Z",
+    "commit": "ae62438",
+    "branch": "main",
+    "bundle": {
+      "total": {
+        "raw": 1022009,
+        "gzip": 347715,
+        "brotli": 304666,
+        "fileCount": 8
+      },
+      "byExt": {
+        "js": {
+          "raw": 837190,
+          "gzip": 262266,
+          "brotli": 225324,
+          "count": 4
+        },
+        "svg": {
+          "raw": 70500,
+          "gzip": 25603,
+          "brotli": 21043,
+          "count": 2
+        },
+        "css": {
+          "raw": 66063,
+          "gzip": 11592,
+          "brotli": 10039,
+          "count": 1
+        },
+        "woff2": {
+          "raw": 48256,
+          "gzip": 48254,
+          "brotli": 48260,
+          "count": 1
+        }
+      },
+      "files": [
+        {
+          "name": "check-BsVr6iuQ.js",
+          "normalized": "check-*.js",
+          "ext": "js",
+          "raw": 113,
+          "gzip": 130,
+          "brotli": 104
+        },
+        {
+          "name": "duck-CKzedv2-.svg",
+          "normalized": "duck-*.svg",
+          "ext": "svg",
+          "raw": 35852,
+          "gzip": 12796,
+          "brotli": 10567
+        },
+        {
+          "name": "index-DVtVuTFk.css",
+          "normalized": "index-*.css",
+          "ext": "css",
+          "raw": 66063,
+          "gzip": 11592,
+          "brotli": 10039
+        },
+        {
+          "name": "index-ruPcYCCB.js",
+          "normalized": "index-*.js",
+          "ext": "js",
+          "raw": 564979,
+          "gzip": 176609,
+          "brotli": 150645
+        },
+        {
+          "name": "inter-latin-wght-normal-Dx4kXJAl.woff2",
+          "normalized": "inter-latin-wght-normal-*.woff2",
+          "ext": "woff2",
+          "raw": 48256,
+          "gzip": 48254,
+          "brotli": 48260
+        },
+        {
+          "name": "logo-Bl3Xq0B8.svg",
+          "normalized": "logo-*.svg",
+          "ext": "svg",
+          "raw": 34648,
+          "gzip": 12807,
+          "brotli": 10476
+        },
+        {
+          "name": "markdown-renderer-BcVABwIW.js",
+          "normalized": "markdown-renderer-*.js",
+          "ext": "js",
+          "raw": 263891,
+          "gzip": 82186,
+          "brotli": 71750
+        },
+        {
+          "name": "settings-dialog-NPiKnv_2.js",
+          "normalized": "settings-dialog-*.js",
+          "ext": "js",
+          "raw": 8207,
+          "gzip": 3341,
+          "brotli": 2825
+        }
+      ]
+    },
+    "lighthouse": {
+      "performance": 100,
+      "fcp": 468.686,
+      "lcp": 534.0232,
+      "tbt": 0,
+      "cls": 0,
+      "inp": null,
+      "ttfb": 0.775,
+      "url": "http://localhost:4173/",
+      "runs": 3
+    }
   }
 ]
