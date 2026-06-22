@@ -73,10 +73,46 @@ export async function clearIndexedDB(page: Page): Promise<void> {
   await page.evaluate(
     (dbName) =>
       new Promise<void>((resolve) => {
-        const req = indexedDB.deleteDatabase(dbName);
-        req.onsuccess = () => resolve();
-        req.onerror = () => resolve();
-        req.onblocked = () => resolve();
+        const request = indexedDB.open(dbName, 1);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains('conversations')) {
+            const convStore = db.createObjectStore('conversations', {
+              keyPath: 'id',
+            });
+            convStore.createIndex('by-updatedAt', 'updatedAt');
+          }
+          if (!db.objectStoreNames.contains('messages')) {
+            const msgStore = db.createObjectStore('messages', {
+              keyPath: 'id',
+            });
+            msgStore.createIndex('by-conversationId', 'conversationId');
+            msgStore.createIndex('by-createdAt', 'createdAt');
+          }
+        };
+        request.onsuccess = () => {
+          const db = request.result;
+          if (
+            !db.objectStoreNames.contains('conversations') ||
+            !db.objectStoreNames.contains('messages')
+          ) {
+            db.close();
+            resolve();
+            return;
+          }
+          const tx = db.transaction(['conversations', 'messages'], 'readwrite');
+          tx.objectStore('conversations').clear();
+          tx.objectStore('messages').clear();
+          tx.oncomplete = () => {
+            db.close();
+            resolve();
+          };
+          tx.onerror = () => {
+            db.close();
+            resolve();
+          };
+        };
+        request.onerror = () => resolve();
       }),
     DB_NAME,
   );

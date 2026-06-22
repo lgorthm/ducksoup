@@ -29,6 +29,25 @@ function chunk(
   });
 }
 
+function buildSSEBody(
+  options: Required<Omit<SSEMockOptions, 'status' | 'errorMessage'>>,
+): string {
+  const { thinking, content, usage } = options;
+  const parts: string[] = [
+    ...thinking.map((t) => sseData(chunk({ reasoning_content: t }))),
+    ...content.map((c) => sseData(chunk({ content: c }))),
+    sseData(chunk({}, usage)),
+    sseData('[DONE]'),
+  ];
+  return parts.join('');
+}
+
+const SSE_HEADERS = {
+  'Content-Type': 'text/event-stream',
+  'Cache-Control': 'no-cache',
+  Connection: 'keep-alive',
+};
+
 export async function mockDeepSeekSSE(
   page: Page,
   options: SSEMockOptions = {},
@@ -37,40 +56,45 @@ export async function mockDeepSeekSSE(
     thinking = ['正在思考...', '分析问题中...'],
     content = ['你好', '！我是', 'DeepSeek'],
     usage = { prompt_tokens: 10, completion_tokens: 5 },
-    delayMs = 10,
+    delayMs = 0,
   } = options;
 
-  await page.route(DEEPSEEK_API_URL, async (route: Route) => {
-    const chunks: string[] = [
-      ...thinking.map((t) => sseData(chunk({ reasoning_content: t }))),
-      ...content.map((c) => sseData(chunk({ content: c }))),
-      sseData(chunk({}, usage)),
-      sseData('[DONE]'),
-    ];
+  const body = buildSSEBody({ thinking, content, usage, delayMs });
 
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream({
-      async start(controller) {
-        for (const data of chunks) {
-          controller.enqueue(encoder.encode(data));
-          if (delayMs > 0) {
-            await new Promise((r) => setTimeout(r, delayMs));
-          }
-        }
-        controller.close();
-      },
+  if (delayMs > 0) {
+    await page.route(DEEPSEEK_API_URL, async (route: Route) => {
+      const encoder = new TextEncoder();
+      const parts = body.match(/data:.*\n\n/gs) ?? [body];
+      const stream = new ReadableStream({
+        start(controller) {
+          let i = 0;
+          const sendNext = () => {
+            if (i >= parts.length) {
+              controller.close();
+              return;
+            }
+            controller.enqueue(encoder.encode(parts[i]));
+            i++;
+            setTimeout(sendNext, delayMs);
+          };
+          sendNext();
+        },
+      });
+      await route.fulfill({
+        status: 200,
+        headers: SSE_HEADERS,
+        body: stream,
+      });
     });
-
-    await route.fulfill({
-      status: 200,
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
-      },
-      body: stream,
+  } else {
+    await page.route(DEEPSEEK_API_URL, (route: Route) => {
+      route.fulfill({
+        status: 200,
+        headers: SSE_HEADERS,
+        body,
+      });
     });
-  });
+  }
 }
 
 export async function mockDeepSeekError(
