@@ -95,7 +95,7 @@ const MainLayoutInner = memo(function MainLayoutInner({
       <Sidebar collapsible="offcanvas">
         <SidebarHeader className="flex flex-row items-center justify-between pl-4">
           {LOGO_IMG}
-          <SidebarTrigger />
+          <SidebarTrigger data-testid="sidebar-trigger" />
         </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
@@ -107,6 +107,7 @@ const MainLayoutInner = memo(function MainLayoutInner({
           </SidebarMenu>
           <SidebarMenu className="mt-auto border-t p-2">
             <div
+              data-testid="settings-button"
               className="group flex cursor-pointer items-center rounded-none px-2 py-1.5 text-sm transition-colors hover:bg-sidebar-accent/50"
               onClick={handleSettingsClick}
             >

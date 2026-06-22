@@ -53,9 +53,13 @@ export function ChatInput({
   const inputDisabled = disabled || isStreaming;
 
   return (
-    <div className="border bg-background p-3 shadow-sm">
+    <div
+      data-testid="chat-input"
+      className="border bg-background p-3 shadow-sm"
+    >
       <div
         ref={editorRef}
+        data-testid="chat-input-editor"
         contentEditable={!inputDisabled}
         className={cn(
           'max-h-[200px] min-h-[44px] w-full overflow-y-auto rounded-none bg-background px-0.5 py-0.5 text-base outline-none',
@@ -70,6 +74,7 @@ export function ChatInput({
       />
       <div className="mt-2 flex items-center justify-between">
         <Button
+          data-testid="deep-think-button"
           variant={deepThink ? 'default' : 'outline'}
           size="default"
           disabled={inputDisabled}
@@ -78,12 +83,18 @@ export function ChatInput({
           {t('chat.input.deepThink')}
         </Button>
         {isStreaming ? (
-          <Button size="default" onClick={onCancel} className="gap-1.5">
+          <Button
+            data-testid="stop-button"
+            size="default"
+            onClick={onCancel}
+            className="gap-1.5"
+          >
             <Square className="size-3" />
             {t('chat.area.stop')}
           </Button>
         ) : (
           <Button
+            data-testid="send-button"
             size="default"
             disabled={disabled || isEmpty}
             onClick={handleSend}

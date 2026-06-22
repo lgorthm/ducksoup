@@ -42,13 +42,19 @@ export function ChatArea() {
     <div className="flex h-full flex-col overflow-hidden">
       <ChatMessageList messages={messages} streamingMessage={streamingMessage}>
         {isLoading && !streamingMessage && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div
+            data-testid="loading-indicator"
+            className="flex items-center gap-2 text-sm text-muted-foreground"
+          >
             <Loader2 className="size-4 animate-spin" />
             {t('chat.area.thinking')}
           </div>
         )}
         {error && (
-          <div className="rounded-none bg-destructive/10 px-4 py-2 text-sm text-destructive">
+          <div
+            data-testid="error-message"
+            className="rounded-none bg-destructive/10 px-4 py-2 text-sm text-destructive"
+          >
             {error}
           </div>
         )}
@@ -61,7 +67,10 @@ export function ChatArea() {
           isStreaming={!!streamingMessage}
           onCancel={cancelStream}
         />
-        <p className="py-2 text-center text-xs text-muted-foreground">
+        <p
+          data-testid="chat-disclaimer"
+          className="py-2 text-center text-xs text-muted-foreground"
+        >
           {t('chat.disclaimer')}
         </p>
       </div>

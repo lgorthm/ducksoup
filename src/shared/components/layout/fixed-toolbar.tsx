@@ -21,6 +21,7 @@ export const FixedToolbar = memo(function FixedToolbar({
 }: FixedToolbarProps) {
   return (
     <div
+      data-testid="fixed-toolbar"
       className="fixed top-0 left-0 z-10000 flex w-[100px] pt-2 pl-4"
       style={{
         ...TOOLBAR_TRANSITION,

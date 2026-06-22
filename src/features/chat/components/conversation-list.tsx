@@ -32,8 +32,9 @@ export function ConversationList() {
   const isMobile = useIsMobile();
 
   return (
-    <div className="flex flex-col gap-1 p-2">
+    <div data-testid="conversation-list" className="flex flex-col gap-1 p-2">
       <Button
+        data-testid="new-conversation"
         className="mb-2 w-full transition-transform hover:-translate-y-px hover:shadow-md"
         onClick={startNewConversation}
       >
@@ -47,6 +48,8 @@ export function ConversationList() {
         conversations.map((conv) => (
           <div
             key={conv.id}
+            data-testid="conversation-item"
+            data-conv-id={conv.id}
             className={cn(
               'group flex cursor-pointer items-center rounded-none px-2 py-1.5 text-sm transition-colors',
               conv.id === currentConversationId
@@ -86,6 +89,7 @@ export function ConversationList() {
                 >
                   <DropdownMenuItem
                     variant="destructive"
+                    data-testid="conversation-delete-menu"
                     onClick={() => deleteConversation(conv.id)}
                   >
                     <Trash2 />

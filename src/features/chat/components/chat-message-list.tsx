@@ -2,7 +2,10 @@ import { useCallback, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChatMessage } from '@/features/chat/components/chat-message';
-import type { StoredMessage, StreamingMessage } from '@/features/chat/types/deepseek';
+import type {
+  StoredMessage,
+  StreamingMessage,
+} from '@/features/chat/types/deepseek';
 
 interface ChatMessageListProps {
   messages: StoredMessage[];
@@ -89,6 +92,7 @@ export function ChatMessageList({
   return (
     <div
       ref={scrollContainerRef}
+      data-testid="message-list"
       className="chat-scrollbar flex-1 overflow-y-auto"
     >
       <div
@@ -103,6 +107,7 @@ export function ChatMessageList({
             return (
               <div
                 key={`streaming-${streamingMessage.id}`}
+                data-testid="message-item"
                 data-index={virtualItem.index}
                 ref={virtualizer.measureElement}
                 className="absolute top-0 left-0 w-full pr-4 pb-4 pl-4"
@@ -132,6 +137,7 @@ export function ChatMessageList({
           return (
             <div
               key={msg.id}
+              data-testid="message-item"
               data-index={virtualItem.index}
               ref={virtualizer.measureElement}
               className="absolute top-0 left-0 w-full pr-4 pb-4 pl-4"

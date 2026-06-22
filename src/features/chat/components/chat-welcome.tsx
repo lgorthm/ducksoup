@@ -30,7 +30,10 @@ export function ChatWelcome() {
   const currentLabel = MODEL_LABELS[selectedModel];
 
   return (
-    <div className="flex h-full flex-col items-center justify-center px-4">
+    <div
+      data-testid="chat-welcome"
+      className="flex h-full flex-col items-center justify-center px-4"
+    >
       <div className="flex w-full max-w-[776px] flex-col items-center gap-8">
         <div className="flex items-center gap-2">
           <img src={duckSvg} alt="Duck" className="h-10 w-auto" />
