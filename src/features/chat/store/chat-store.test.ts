@@ -214,39 +214,42 @@ describe('switchConversation', () => {
 // ========== deleteConversation ==========
 
 describe('deleteConversation', () => {
-  it('删除当前会话时自动切换到最后一个', async () => {
+  it('删除当前会话时调用 startNewConversation（即使还有其他会话）', async () => {
     const c1 = makeConversation({ id: 'c1', updatedAt: 100 });
     const c2 = makeConversation({ id: 'c2', updatedAt: 200 });
     useChatStore.setState({
       conversations: [c1, c2],
       currentConversationId: 'c2',
+      messages: [makeMessage({ id: 'm1' })],
     });
     vi.mocked(db.deleteConversation).mockResolvedValue(undefined);
-    vi.mocked(db.getMessagesByConversation).mockResolvedValue([]);
 
     await useChatStore.getState().deleteConversation('c2');
 
     const state = useChatStore.getState();
-    expect(state.currentConversationId).toBe('c1');
     expect(state.conversations).toHaveLength(1);
-    expect(db.getMessagesByConversation).toHaveBeenCalledWith('c1');
+    expect(state.currentConversationId).toBeNull();
+    expect(state.messages).toEqual([]);
+    expect(state.streamingMessage).toBeNull();
+    expect(db.getMessagesByConversation).not.toHaveBeenCalled();
+    expect(db.addConversation).not.toHaveBeenCalled();
   });
 
-  it('删除最后一个会话时自动创建新会话', async () => {
+  it('删除唯一的当前会话时不自动创建新会话', async () => {
     const c1 = makeConversation({ id: 'c1' });
     useChatStore.setState({
       conversations: [c1],
       currentConversationId: 'c1',
     });
     vi.mocked(db.deleteConversation).mockResolvedValue(undefined);
-    vi.mocked(db.addConversation).mockResolvedValue(undefined);
 
     await useChatStore.getState().deleteConversation('c1');
 
     const state = useChatStore.getState();
-    expect(state.conversations).toHaveLength(1);
-    expect(state.currentConversationId).toBeTruthy();
-    expect(db.addConversation).toHaveBeenCalledOnce();
+    expect(state.conversations).toHaveLength(0);
+    expect(state.currentConversationId).toBeNull();
+    expect(state.messages).toEqual([]);
+    expect(db.addConversation).not.toHaveBeenCalled();
   });
 
   it('删除非当前会话时只更新列表', async () => {

@@ -176,22 +176,10 @@ export const useChatStore = create<ChatState>((set, get) => {
       await db.deleteConversation(id);
       const conversations = get().conversations.filter((c) => c.id !== id);
 
+      set({ conversations });
+
       if (get().currentConversationId === id) {
-        if (conversations.length > 0) {
-          const newId = conversations[conversations.length - 1].id;
-          const messages = await db.getMessagesByConversation(newId);
-          set({ conversations, currentConversationId: newId, messages });
-        } else {
-          set({
-            conversations,
-            currentConversationId: null,
-            messages: [],
-            streamingMessage: null,
-          });
-          await get().createConversation();
-        }
-      } else {
-        set({ conversations });
+        get().startNewConversation();
       }
     },
 
