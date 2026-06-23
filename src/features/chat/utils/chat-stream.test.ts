@@ -39,7 +39,7 @@ function makeChunk(
 beforeEach(() => {
   vi.useFakeTimers();
   vi.mocked(createSSEConnection).mockImplementation((_url, options) => {
-    capturedOptions = options;
+    capturedOptions = options ?? {};
     return mockConnection;
   });
 });

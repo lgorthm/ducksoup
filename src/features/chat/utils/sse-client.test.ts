@@ -255,8 +255,8 @@ describe('中止', () => {
 
     // 使用一个不会自行结束的流
     vi.mocked(fetch).mockImplementationOnce(
-      (_url: string, init?: RequestInit) =>
-        new Promise((resolve, reject) => {
+      (_url, init?) =>
+        new Promise((_resolve, reject) => {
           init?.signal?.addEventListener('abort', () => {
             reject(new DOMException('Aborted', 'AbortError'));
           });
@@ -280,7 +280,7 @@ describe('中止', () => {
     const onClose = vi.fn();
 
     vi.mocked(fetch).mockImplementationOnce(
-      (_url: string, init?: RequestInit) =>
+      (_url, init?) =>
         new Promise((_resolve, reject) => {
           init?.signal?.addEventListener('abort', () => {
             reject(new DOMException('Aborted', 'AbortError'));
@@ -306,7 +306,7 @@ describe('超时', () => {
     const onClose = vi.fn();
 
     vi.mocked(fetch).mockImplementationOnce(
-      (_url: string, init?: RequestInit) =>
+      (_url, init?) =>
         new Promise((_resolve, reject) => {
           init?.signal?.addEventListener('abort', () => {
             reject(new DOMException('Aborted', 'AbortError'));
@@ -368,7 +368,7 @@ describe('重连', () => {
     const abortController = new AbortController();
 
     vi.mocked(fetch).mockImplementation(
-      (_url: string, init?: RequestInit) =>
+      (_url, init?) =>
         new Promise((_resolve, reject) => {
           init?.signal?.addEventListener('abort', () => {
             reject(new DOMException('Aborted', 'AbortError'));

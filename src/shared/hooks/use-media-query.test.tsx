@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render } from '@testing-library/react';
-import * as React from 'react';
 import {
   useMediaQuery,
   useIsMobile,
