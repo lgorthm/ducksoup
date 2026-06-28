@@ -70,7 +70,7 @@ function SidebarProvider({
   const [openMobile, setOpenMobile] = React.useState(false);
 
   // 记录用户是否在 >= 768px 时手动折叠了 sidebar
-  const manualCollapseLockRef = React.useRef(false);
+  const [manualCollapseLock, setManualCollapseLock] = React.useState(false);
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
@@ -86,12 +86,14 @@ function SidebarProvider({
       } else {
         _setOpen(openState);
       }
-
-      // This sets the cookie to keep the sidebar state.
-      document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
     },
     [setOpenProp, open],
   );
+
+  // This sets the cookie to keep the sidebar state.
+  React.useEffect(() => {
+    document.cookie = `${SIDEBAR_COOKIE_NAME}=${open}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+  }, [open]);
 
   // Helper to toggle the sidebar.
   const toggleSidebar = React.useCallback(() => {
@@ -100,55 +102,38 @@ function SidebarProvider({
       return;
     }
     // 非移动端：记录手动折叠/展开状态
-    setOpen((prev) => {
-      const newOpen = !prev;
-      if (newOpen) {
-        manualCollapseLockRef.current = false;
-      } else {
-        manualCollapseLockRef.current = true;
-      }
-      return newOpen;
-    });
-  }, [isMobile, setOpen, setOpenMobile]);
+    setManualCollapseLock((prev) => !prev);
+    setOpen((prev) => !prev);
+  }, [isMobile, setOpen]);
 
   // 从桌面端切换回移动端时，关闭移动端侧边栏抽屉
-  const prevIsMobile = React.useRef(isMobile);
-  /* eslint-disable react-hooks/set-state-in-effect */
-  React.useEffect(() => {
-    if (prevIsMobile.current === isMobile) return;
-    prevIsMobile.current = isMobile;
-
+  const [prevIsMobile, setPrevIsMobile] = React.useState(isMobile);
+  if (prevIsMobile !== isMobile) {
+    setPrevIsMobile(isMobile);
     if (isMobile) {
       setOpenMobile(false);
     }
-  }, [isMobile]);
-  /* eslint-enable react-hooks/set-state-in-effect */
+  }
 
   // 根据屏幕宽度自动展开/折叠 sidebar
   // 仅在屏幕宽度跨越 1024px 断点时响应
-  const prevBelowDesktop = React.useRef(isBelowDesktop);
-  /* eslint-disable react-hooks/set-state-in-effect */
-  React.useEffect(() => {
-    if (isMobile) return;
-
-    if (prevBelowDesktop.current === isBelowDesktop) return;
-    prevBelowDesktop.current = isBelowDesktop;
-
-    if (manualCollapseLockRef.current) {
-      // 用户手动折叠过，保持折叠
-      if (open) setOpen(false);
-      return;
+  const [prevBelowDesktop, setPrevBelowDesktop] =
+    React.useState(isBelowDesktop);
+  if (prevBelowDesktop !== isBelowDesktop) {
+    setPrevBelowDesktop(isBelowDesktop);
+    if (!isMobile) {
+      if (manualCollapseLock) {
+        // 用户手动折叠过，保持折叠
+        if (open) setOpen(false);
+      } else if (isBelowDesktop) {
+        // < 1024px：自动折叠
+        if (open) setOpen(false);
+      } else {
+        // >= 1024px：自动展开
+        if (!open) setOpen(true);
+      }
     }
-
-    if (isBelowDesktop) {
-      // < 1024px：自动折叠
-      if (open) setOpen(false);
-    } else {
-      // >= 1024px：自动展开
-      if (!open) setOpen(true);
-    }
-  }, [isBelowDesktop, isMobile, open, setOpen]);
-  /* eslint-enable react-hooks/set-state-in-effect */
+  }
 
   // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
