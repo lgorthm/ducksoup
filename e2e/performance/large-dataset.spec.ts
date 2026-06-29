@@ -7,7 +7,12 @@ import {
 } from '../fixtures/test-data';
 
 test.describe('大数据量性能基准', () => {
-  test.beforeEach(async () => {
+  test.beforeEach(async ({ page }) => {
+    // 桌面端专用：移动端侧边栏为 Sheet 抽屉，交互模式不同
+    test.skip(
+      (page.viewportSize()?.width ?? 1440) < 768,
+      '移动端交互模式不同，跳过桌面端性能基准',
+    );
     test.setTimeout(60000);
   });
 

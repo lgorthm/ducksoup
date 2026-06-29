@@ -25,31 +25,55 @@ function RadioGroupButton<T extends string = string>({
   const currentValue = isControlled ? controlledValue : internalValue;
 
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const currentValueRef = React.useRef(currentValue);
   const [ringStyle, setRingStyle] = React.useState<React.CSSProperties>({
     opacity: 0,
   });
 
-  React.useLayoutEffect(() => {
+  const measure = React.useCallback((value: T) => {
     const container = containerRef.current;
     if (!container) return;
 
-    const button = container.querySelector(
-      `[data-value="${currentValue}"]`,
-    ) as HTMLElement | null;
-    if (!button) return;
+    const buttons = container.querySelectorAll<HTMLElement>('[data-value]');
+    if (buttons.length === 0) return;
+
+    // 找到当前选中按钮的索引
+    let index = 0;
+    for (let i = 0; i < buttons.length; i++) {
+      if (buttons[i].dataset.value === value) {
+        index = i;
+        break;
+      }
+    }
 
     const containerRect = container.getBoundingClientRect();
-    const buttonRect = button.getBoundingClientRect();
+    const buttonRect = buttons[index].getBoundingClientRect();
+    const borderWidth = 1;
 
-    const spread = 2;
     setRingStyle({
-      left: buttonRect.left - containerRect.left - spread,
-      top: buttonRect.top - containerRect.top - spread,
-      width: buttonRect.width + spread * 2,
-      height: buttonRect.height + spread * 2,
+      transform: `translateX(${buttonRect.left - containerRect.left - borderWidth * 2}px) translateY(${buttonRect.top - containerRect.top - borderWidth * 2}px)`,
+      width: buttonRect.width + borderWidth * 2,
+      height: containerRect.height,
       opacity: 1,
     });
+  }, []);
+
+  React.useLayoutEffect(() => {
+    measure(currentValue);
+  }, [currentValue, measure]);
+
+  React.useEffect(() => {
+    currentValueRef.current = currentValue;
   }, [currentValue]);
+
+  React.useEffect(() => {
+    const container = containerRef.current;
+    if (!container || typeof ResizeObserver === 'undefined') return;
+
+    const observer = new ResizeObserver(() => measure(currentValueRef.current));
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [measure]);
 
   const handleClick = (optionValue: T) => {
     if (!isControlled) {
@@ -63,10 +87,9 @@ function RadioGroupButton<T extends string = string>({
       ref={containerRef}
       className={cn('relative inline-flex border', className)}
     >
-      {/* 悬浮指示环 */}
       <div
         aria-hidden
-        className="pointer-events-none absolute z-10 rounded-none border-2 border-amber-400 bg-amber-400/15 transition-all duration-300 ease-out"
+        className="pointer-events-none absolute z-20 rounded-none border border-amber-400 bg-amber-400/15 transition-transform duration-300 ease-out"
         style={ringStyle}
       />
       {options.map((option) => (
@@ -74,7 +97,11 @@ function RadioGroupButton<T extends string = string>({
           key={option.value}
           variant="ghost"
           data-value={option.value}
-          className="relative z-20 cursor-pointer hover:bg-transparent hover:text-inherit dark:hover:bg-transparent"
+          className={cn(
+            'relative z-10 cursor-pointer transition-[background-color] duration-300 ease-out hover:text-inherit active:not-aria-[haspopup]:translate-y-0',
+            option.value === currentValue &&
+              'text-amber-400 hover:bg-white hover:text-amber-400',
+          )}
           onClick={() => handleClick(option.value)}
         >
           {option.label}

@@ -27,12 +27,20 @@ test.describe('冒烟测试', () => {
   });
 
   test('侧边栏可见且包含设置按钮', async ({ page }) => {
+    test.skip(
+      (page.viewportSize()?.width ?? 1440) < 768,
+      '移动端侧边栏为 Sheet 抽屉，跳过桌面端侧边栏测试',
+    );
     await expect(page.getByTestId('settings-button')).toBeVisible({
       timeout: 10000,
     });
   });
 
   test('点击设置按钮打开设置弹窗', async ({ page }) => {
+    test.skip(
+      (page.viewportSize()?.width ?? 1440) < 768,
+      '移动端侧边栏为 Sheet 抽屉，跳过桌面端设置弹窗测试',
+    );
     await page.getByTestId('settings-button').click();
     await expect(page.getByRole('heading', { name: '系统设置' })).toBeVisible({
       timeout: 10000,

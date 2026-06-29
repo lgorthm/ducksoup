@@ -70,7 +70,11 @@ export async function typeAndSend(page: Page, text: string): Promise<void> {
 export async function openSidebarIfNeeded(page: Page): Promise<void> {
   const width = page.viewportSize()?.width ?? 1440;
   if (width < 768) {
-    await page.locator('[data-slot="sidebar-trigger"]').first().click();
+    // WebKit 移动端 force: true 也报 viewport 错误，用 dispatchEvent 绕过
+    await page
+      .locator('[data-slot="sidebar-trigger"]')
+      .first()
+      .dispatchEvent('click');
     await page.waitForTimeout(500);
   }
 }

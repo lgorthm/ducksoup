@@ -3,6 +3,11 @@ import { setupApp } from '../helpers/setup';
 
 test.describe('组件位置与层级', () => {
   test.beforeEach(async ({ page }) => {
+    // 桌面端专用测试，移动端布局完全不同
+    test.skip(
+      (page.viewportSize()?.width ?? 1440) < 768,
+      '移动端布局不同，跳过桌面端布局测试',
+    );
     await setupApp(page);
   });
 
@@ -85,7 +90,10 @@ test.describe('移动端布局', () => {
 
   test('移动端侧边栏为 Sheet 抽屉', async ({ page }) => {
     // 侧边栏默认隐藏，点击 trigger 打开
-    await page.locator('[data-slot="sidebar-trigger"]').first().click();
+    await page
+      .locator('[data-slot="sidebar-trigger"]')
+      .first()
+      .dispatchEvent('click');
     await page.waitForTimeout(500);
 
     // 会话列表可见
@@ -96,6 +104,10 @@ test.describe('移动端布局', () => {
 
   test('移动端 FixedToolbar 隐藏', async ({ page }) => {
     const toolbar = page.getByTestId('fixed-toolbar');
-    await expect(toolbar).toHaveCSS('transform', /translateX\(-100%\)/);
+    // WebKit 用 matrix(1,0,0,1,-100,0)，Chromium 用 translateX(-100%)
+    await expect(toolbar).toHaveCSS(
+      'transform',
+      /(translateX\(-100%\)|matrix\(1,\s*0,\s*0,\s*1,\s*-100,\s*0\))/,
+    );
   });
 });

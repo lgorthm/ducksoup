@@ -4,6 +4,11 @@ import { generateConversations } from '../fixtures/test-data';
 
 test.describe('侧边栏视觉回归', () => {
   test.beforeEach(async ({ page }) => {
+    // 桌面端专用测试，移动端侧边栏为 Sheet 抽屉
+    test.skip(
+      (page.viewportSize()?.width ?? 1440) < 768,
+      '移动端侧边栏为 Sheet 抽屉，跳过桌面端布局视觉测试',
+    );
     await page.addInitScript(() => {
       localStorage.setItem('theme', 'light');
       localStorage.setItem('i18nLang', 'zh-CN');
