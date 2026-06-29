@@ -38,6 +38,9 @@ docs/*
 perf/stats.html
 perf/stats-*.json
 
+# TypeScript incremental build info
+*.tsbuildinfo
+
 # Test artifacts
 coverage/
 test-results/
