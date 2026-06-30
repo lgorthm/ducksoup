@@ -101,16 +101,16 @@ describe('init', () => {
     expect(state.hasApiKey).toBe(true);
   });
 
-  it('无会话时创建默认会话', async () => {
+  it('无会话时不自动创建，保持 null + 空数组', async () => {
     vi.mocked(db.getAllConversations).mockResolvedValue([]);
-    vi.mocked(db.addConversation).mockResolvedValue(undefined);
 
     await useChatStore.getState().init();
 
-    expect(db.addConversation).toHaveBeenCalledOnce();
-    const createdConv = vi.mocked(db.addConversation).mock.calls[0][0];
-    expect(createdConv.title).toBeTruthy();
-    expect(useChatStore.getState().currentConversationId).toBe(createdConv.id);
+    expect(db.addConversation).not.toHaveBeenCalled();
+    const state = useChatStore.getState();
+    expect(state.currentConversationId).toBeNull();
+    expect(state.conversations).toEqual([]);
+    expect(state.messages).toEqual([]);
   });
 
   it('DB 失败时仍设置 apiKey', async () => {

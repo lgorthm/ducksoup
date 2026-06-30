@@ -27,8 +27,7 @@
     "new": "New Chat",
     "startNew": "Start New Chat",
     "delete": "Delete Chat",
-    "empty": "No conversations",
-    "defaultName": "New Chat"
+    "empty": "No conversations"
   },
   "apiKey": {
     "dialogTitle": "Set API Key",

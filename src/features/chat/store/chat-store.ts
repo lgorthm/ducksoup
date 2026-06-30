@@ -86,23 +86,12 @@ export const useChatStore = create<ChatState>((set, get) => {
 
       try {
         const conversations = await db.getAllConversations();
-        let currentId: string | null = null;
-
-        if (conversations.length > 0) {
-          currentId = conversations[conversations.length - 1].id;
-        } else {
-          const now = Date.now();
-          const conv: Conversation = {
-            id: generateId(),
-            title: i18n.t('conversation.defaultName'),
-            createdAt: now,
-            updatedAt: now,
-            messageCount: 0,
-          };
-          await db.addConversation(conv);
-          conversations.push(conv);
-          currentId = conv.id;
-        }
+        // DB 为空时不自动创建对话，保持 null + 空数组；
+        // 真正的会话在首次 sendMessage 时延迟创建（见 sendMessage 的懒创建分支）。
+        const currentId =
+          conversations.length > 0
+            ? conversations[conversations.length - 1].id
+            : null;
 
         const messages = currentId
           ? await db.getMessagesByConversation(currentId)
