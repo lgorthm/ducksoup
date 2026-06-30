@@ -2,7 +2,7 @@ import { lazy, memo, Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/utils';
 import type { StoredMessage } from '@/features/chat/types/deepseek';
-import { ChevronDown } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 
 const MarkdownRenderer = lazy(() =>
   import('@/shared/components/markdown-renderer').then((m) => ({
@@ -96,10 +96,10 @@ const ThinkingSection = memo(function ThinkingSection({
             : 'text-muted-foreground hover:text-foreground/70',
         )}
       >
-        <ChevronDown
+        <ChevronRight
           className={cn(
             'size-3.5 transition-transform duration-200',
-            expanded && 'rotate-180',
+            expanded && 'rotate-90',
           )}
         />
         <span className="font-medium">
