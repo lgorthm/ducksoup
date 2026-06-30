@@ -55,7 +55,7 @@ export function ChatMessageList({
   // 流式消息内容变化时也自动滚动（防抖）
   const scrollTimeoutRef = useRef<number | undefined>(undefined);
   const streamingContent = streamingMessage?.content ?? '';
-  const thinkingCount = streamingMessage?.thinkingSteps.length ?? 0;
+  const reasoningLength = streamingMessage?.reasoningContent.length ?? 0;
   useEffect(() => {
     if (isAtBottomRef.current) {
       if (scrollTimeoutRef.current) {
@@ -70,7 +70,7 @@ export function ChatMessageList({
         clearTimeout(scrollTimeoutRef.current);
       }
     };
-  }, [streamingContent, thinkingCount, scrollToBottom]);
+  }, [streamingContent, reasoningLength, scrollToBottom]);
 
   // 监听用户手动滚动，记录是否在底部
   useEffect(() => {
@@ -121,10 +121,7 @@ export function ChatMessageList({
                     conversationId: streamingMessage.conversationId,
                     role: 'assistant',
                     content: streamingMessage.content,
-                    reasoningContent: streamingMessage.thinkingSteps
-                      .map((s) => s.content)
-                      .join(''),
-                    thinkingSteps: streamingMessage.thinkingSteps,
+                    reasoningContent: streamingMessage.reasoningContent,
                     createdAt: streamingMessage.createdAt,
                   }}
                   isStreaming

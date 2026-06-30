@@ -1,4 +1,5 @@
 import { lazy, memo, Suspense, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/utils';
 import type { StoredMessage } from '@/features/chat/types/deepseek';
 import { ChevronDown } from 'lucide-react';
@@ -20,9 +21,7 @@ export const ChatMessage = memo(function ChatMessage({
   isStreaming = false,
 }: ChatMessageProps) {
   const isUser = message.role === 'user';
-  const hasThinking =
-    !!message.reasoningContent ||
-    (message.thinkingSteps && message.thinkingSteps.length > 0);
+  const hasThinking = !!message.reasoningContent;
 
   return (
     <div
@@ -77,12 +76,11 @@ const ThinkingSection = memo(function ThinkingSection({
   message,
   isStreaming,
 }: ThinkingSectionProps) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
 
-  const steps = message.thinkingSteps;
-  const hasSteps = steps && steps.length > 0;
-
-  if (!hasSteps) return null;
+  const reasoning = message.reasoningContent;
+  if (!reasoning) return null;
 
   const isActive = isStreaming && message.content.length === 0;
 
@@ -105,7 +103,7 @@ const ThinkingSection = memo(function ThinkingSection({
           )}
         />
         <span className="font-medium">
-          {isActive ? '正在思考...' : `思考过程 (${steps.length} 步)`}
+          {isActive ? t('chat.area.thinking') : t('chat.message.thinkingLabel')}
         </span>
         {isActive && (
           <span className="inline-block size-1.5 animate-pulse rounded-full bg-foreground/60" />
@@ -113,17 +111,10 @@ const ThinkingSection = memo(function ThinkingSection({
       </button>
 
       {expanded && (
-        <div className="mt-2 space-y-1.5 border-l-2 border-border/60 pl-3">
-          {steps.map((step) => (
-            <div key={step.index} className="group">
-              <div className="mb-0.5 text-[10px] text-muted-foreground/60">
-                步骤 {step.index + 1}
-              </div>
-              <div className="text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground">
-                {step.content}
-              </div>
-            </div>
-          ))}
+        <div className="mt-2 border-l-2 border-border/60 pl-3">
+          <div className="text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground">
+            {reasoning}
+          </div>
           {isActive && (
             <span className="inline-block animate-pulse text-xs text-muted-foreground">
               ▊

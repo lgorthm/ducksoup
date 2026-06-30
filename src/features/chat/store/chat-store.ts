@@ -218,7 +218,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         conversationId,
         role: 'assistant',
         content: '',
-        thinkingSteps: [],
+        reasoningContent: '',
         createdAt: Date.now(),
       };
 
@@ -252,10 +252,8 @@ export const useChatStore = create<ChatState>((set, get) => {
                 return {
                   streamingMessage: {
                     ...state.streamingMessage,
-                    thinkingSteps: [
-                      ...state.streamingMessage.thinkingSteps,
-                      event.step,
-                    ],
+                    reasoningContent:
+                      state.streamingMessage.reasoningContent + event.text,
                   },
                 };
               });
@@ -277,22 +275,12 @@ export const useChatStore = create<ChatState>((set, get) => {
               const finalStreaming = get().streamingMessage;
               if (!finalStreaming) break;
 
-              // 收集完整的推理内容
-              const reasoningContent =
-                finalStreaming.thinkingSteps.length > 0
-                  ? finalStreaming.thinkingSteps.map((s) => s.content).join('')
-                  : undefined;
-
               const assistantMsg: StoredMessage = {
                 id: finalStreaming.id,
                 conversationId,
                 role: 'assistant',
                 content: finalStreaming.content,
-                reasoningContent,
-                thinkingSteps:
-                  finalStreaming.thinkingSteps.length > 0
-                    ? finalStreaming.thinkingSteps
-                    : undefined,
+                reasoningContent: finalStreaming.reasoningContent || undefined,
                 createdAt: finalStreaming.createdAt,
               };
 

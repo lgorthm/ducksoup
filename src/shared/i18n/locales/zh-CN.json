@@ -14,6 +14,9 @@
       "thinking": "思考中...",
       "stop": "停止"
     },
+    "message": {
+      "thinkingLabel": "思考过程"
+    },
     "disclaimer": "内容由AI生成，请仔细甄别",
     "welcome": {
       "startChat": "使用 {{model}} 开始对话"

@@ -29,7 +29,11 @@ export interface ToolMessage {
   tool_call_id: string;
 }
 
-export type ChatMessage = SystemMessage | UserMessage | AssistantMessage | ToolMessage;
+export type ChatMessage =
+  | SystemMessage
+  | UserMessage
+  | AssistantMessage
+  | ToolMessage;
 
 // ========== Tool 类型 ==========
 
@@ -92,7 +96,12 @@ export interface ChatCompletionRequest {
 // ========== 响应类型 ==========
 
 export interface ChatCompletionChoice {
-  finish_reason: 'stop' | 'length' | 'content_filter' | 'tool_calls' | 'insufficient_system_resource';
+  finish_reason:
+    | 'stop'
+    | 'length'
+    | 'content_filter'
+    | 'tool_calls'
+    | 'insufficient_system_resource';
   index: number;
   message: {
     content: string | null;
@@ -155,13 +164,6 @@ export interface Conversation {
 
 // ========== 流式消息状态 ==========
 
-/** 思考步骤记录 */
-export interface ThinkingStep {
-  index: number;
-  content: string;
-  timestamp: number;
-}
-
 /** 流式传输中的消息状态 */
 export interface StreamingMessage {
   id: string;
@@ -169,8 +171,8 @@ export interface StreamingMessage {
   role: 'assistant';
   /** 已接收的内容片段（累积） */
   content: string;
-  /** 已接收的思考步骤（累积） */
-  thinkingSteps: ThinkingStep[];
+  /** 已接收的推理过程内容（累积） */
+  reasoningContent: string;
   createdAt: number;
 }
 
@@ -183,8 +185,6 @@ export interface StoredMessage {
   content: string;
   /** 深度思考模式的推理过程内容 */
   reasoningContent?: string;
-  /** 推理过程的步骤记录 */
-  thinkingSteps?: ThinkingStep[];
   createdAt: number;
 }
 

@@ -75,18 +75,6 @@ export function generateMessages(
 
     if (!isUser && withThinking) {
       msg.reasoningContent = '让我分析一下这个问题...';
-      msg.thinkingSteps = [
-        {
-          index: 0,
-          content: '首先理解问题',
-          timestamp: now - (count - i) * 10,
-        },
-        {
-          index: 1,
-          content: '然后寻找解决方案',
-          timestamp: now - (count - i) * 10 + 1,
-        },
-      ];
     }
 
     return msg;

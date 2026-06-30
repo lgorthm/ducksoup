@@ -101,7 +101,7 @@ describe('ChatArea', () => {
           conversationId: 'c1',
           role: 'assistant' as const,
           content: '流式中',
-          thinkingSteps: [],
+          reasoningContent: '',
           createdAt: Date.now(),
         },
         isLoading: true,

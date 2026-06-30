@@ -322,26 +322,23 @@ describe('sendMessage', () => {
     expect(state.isLoading).toBe(true);
     expect(state.streamingMessage).not.toBeNull();
     expect(state.streamingMessage!.content).toBe('');
-    expect(state.streamingMessage!.thinkingSteps).toEqual([]);
+    expect(state.streamingMessage!.reasoningContent).toBe('');
     expect(state.messages).toHaveLength(1);
     expect(state.messages[0].role).toBe('user');
     expect(state.messages[0].content).toBe('hello');
   });
 
-  it('thinking 事件更新 thinkingSteps', async () => {
+  it('thinking 事件累积到 reasoningContent', async () => {
     await useChatStore.getState().sendMessage('hello');
 
     capturedOnEvent({
       type: 'thinking',
-      step: { index: 0, content: '思考中', timestamp: Date.now() },
+      text: '思考中',
     });
 
-    expect(
-      useChatStore.getState().streamingMessage!.thinkingSteps,
-    ).toHaveLength(1);
-    expect(
-      useChatStore.getState().streamingMessage!.thinkingSteps[0].content,
-    ).toBe('思考中');
+    expect(useChatStore.getState().streamingMessage!.reasoningContent).toBe(
+      '思考中',
+    );
   });
 
   it('content 事件追加到 content', async () => {
@@ -377,18 +374,17 @@ describe('sendMessage', () => {
 
     capturedOnEvent({
       type: 'thinking',
-      step: { index: 0, content: '第一步', timestamp: 1 },
+      text: '第一步',
     });
     capturedOnEvent({
       type: 'thinking',
-      step: { index: 1, content: '第二步', timestamp: 2 },
+      text: '第二步',
     });
     capturedOnEvent({ type: 'content', text: '结论' });
     capturedOnEvent({ type: 'done' });
 
     const assistantMsg = useChatStore.getState().messages[1];
     expect(assistantMsg.reasoningContent).toBe('第一步第二步');
-    expect(assistantMsg.thinkingSteps).toHaveLength(2);
   });
 
   it('error 事件设置 error 状态', async () => {
@@ -478,7 +474,7 @@ describe('clearMessages', () => {
         conversationId: 'c1',
         role: 'assistant',
         content: '流式中',
-        thinkingSteps: [],
+        reasoningContent: '',
         createdAt: Date.now(),
       },
     });

@@ -2,7 +2,7 @@
  * 聊天流式响应服务
  *
  * 基于 SSE 客户端，封装 DeepSeek Chat Completion 流式调用。
- * 支持深度思考模式的结构化思考过程输出。
+ * 支持深度思考模式的推理过程输出（单个累积文本块）。
  */
 
 import type { ChatMessage, StreamChunk } from '@/features/chat/types/deepseek';
@@ -13,19 +13,9 @@ import {
 
 // ========== 流式事件类型 ==========
 
-/** 思考步骤 */
-export interface ThinkingStep {
-  /** 步骤序号 */
-  index: number;
-  /** 思考内容片段 */
-  content: string;
-  /** 时间戳 */
-  timestamp: number;
-}
-
 /** 聊天流式事件 */
 export type ChatStreamEvent =
-  | { type: 'thinking'; step: ThinkingStep }
+  | { type: 'thinking'; text: string }
   | { type: 'content'; text: string }
   | { type: 'done'; usage?: StreamChunk['usage'] }
   | { type: 'error'; error: Error };
@@ -63,8 +53,9 @@ const CONTENT_BUFFER_MS = 32; // ~30fps 用于内容渲染
 /**
  * 创建聊天流式连接
  *
- * 当 deepThink 为 true 时，会从 stream 中提取 reasoning_content 并以结构化的
- * ThinkingStep 事件输出。思考过程按时间顺序排列，反映模型逐步推理的过程。
+ * 当 deepThink 为 true 时，会从 stream 中提取 reasoning_content 并以
+ * thinking 事件输出（累积文本块，由上层拼接）。思考过程作为连续文本块展示，
+ * 反映模型完整推理过程。
  */
 export function createChatStream(
   options: ChatStreamOptions,
@@ -101,7 +92,6 @@ export function createChatStream(
 
   // 思考过程缓冲区：定期合并后输出
   let thinkingBuffer = '';
-  let thinkingStepIndex = 0;
   let thinkingTimer: ReturnType<typeof setTimeout> | null = null;
 
   // 内容缓冲区：定期合并后输出
@@ -111,13 +101,9 @@ export function createChatStream(
   function flushThinking() {
     thinkingTimer = null;
     if (thinkingBuffer.length === 0) return;
-    const step: ThinkingStep = {
-      index: thinkingStepIndex++,
-      content: thinkingBuffer,
-      timestamp: Date.now(),
-    };
+    const text = thinkingBuffer;
     thinkingBuffer = '';
-    onEvent({ type: 'thinking', step });
+    onEvent({ type: 'thinking', text });
   }
 
   function flushContent() {

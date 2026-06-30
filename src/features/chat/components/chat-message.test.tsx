@@ -45,26 +45,23 @@ describe('ChatMessage', () => {
     expect(screen.queryByText(/思考过程/)).not.toBeInTheDocument();
   });
 
-  it('有思考步骤时显示思考区域（折叠）', () => {
+  it('有推理内容时显示思考区域（折叠）', () => {
     const msg = makeMessage({
       role: 'assistant',
       content: '回复',
-      thinkingSteps: [
-        { index: 0, content: '第一步', timestamp: 1 },
-        { index: 1, content: '第二步', timestamp: 2 },
-      ],
+      reasoningContent: '首先理解问题\n然后寻找解决方案',
     });
     render(<ChatMessage message={msg} />);
-    expect(screen.getByText(/思考过程.*2.*步/)).toBeInTheDocument();
-    // 折叠状态：不显示步骤内容
-    expect(screen.queryByText('第一步')).not.toBeInTheDocument();
+    expect(screen.getByText(/思考过程/)).toBeInTheDocument();
+    // 折叠状态：不显示推理内容
+    expect(screen.queryByText('首先理解问题')).not.toBeInTheDocument();
   });
 
   it('点击展开思考区域', () => {
     const msg = makeMessage({
       role: 'assistant',
       content: '回复',
-      thinkingSteps: [{ index: 0, content: '推理内容', timestamp: 1 }],
+      reasoningContent: '推理内容',
     });
     render(<ChatMessage message={msg} />);
     const toggleBtn = screen.getByText(/思考过程/);
@@ -83,14 +80,14 @@ describe('ChatMessage', () => {
     expect(pulse).toBeInTheDocument();
   });
 
-  it('流式且有思考步骤时显示"正在思考..."', () => {
+  it('流式且有推理内容时显示"思考中..."', () => {
     const msg = makeMessage({
       role: 'assistant',
       content: '',
-      thinkingSteps: [{ index: 0, content: '思考', timestamp: 1 }],
+      reasoningContent: '思考',
     });
     render(<ChatMessage message={msg} isStreaming />);
-    expect(screen.getByText('正在思考...')).toBeInTheDocument();
+    expect(screen.getByText('思考中...')).toBeInTheDocument();
   });
 
   it('流式且有内容时使用 MarkdownRenderer', async () => {

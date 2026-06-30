@@ -142,11 +142,7 @@ describe('事件路由', () => {
     vi.advanceTimersByTime(16);
     expect(onEvent).toHaveBeenCalledWith({
       type: 'thinking',
-      step: {
-        index: 0,
-        content: '思考中',
-        timestamp: expect.any(Number),
-      },
+      text: '思考中',
     });
   });
 
@@ -291,11 +287,7 @@ describe('缓冲合并', () => {
     expect(onEvent).toHaveBeenCalledOnce();
     expect(onEvent).toHaveBeenCalledWith({
       type: 'thinking',
-      step: {
-        index: 0,
-        content: '第一第二',
-        timestamp: expect.any(Number),
-      },
+      text: '第一第二',
     });
   });
 
@@ -317,7 +309,7 @@ describe('缓冲合并', () => {
     expect(onEvent).toHaveBeenCalledWith({ type: 'content', text: 'ABC' });
   });
 
-  it('thinking step index 递增', () => {
+  it('thinking 跨窗口多次 flush 分别输出文本', () => {
     const onEvent = vi.fn();
     createChatStream({
       apiKey: 'key',
@@ -333,20 +325,14 @@ describe('缓冲合并', () => {
     vi.advanceTimersByTime(16);
 
     expect(onEvent).toHaveBeenCalledTimes(2);
-    expect(onEvent).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({
-        type: 'thinking',
-        step: expect.objectContaining({ index: 0 }),
-      }),
-    );
-    expect(onEvent).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        type: 'thinking',
-        step: expect.objectContaining({ index: 1 }),
-      }),
-    );
+    expect(onEvent).toHaveBeenNthCalledWith(1, {
+      type: 'thinking',
+      text: 'a',
+    });
+    expect(onEvent).toHaveBeenNthCalledWith(2, {
+      type: 'thinking',
+      text: 'b',
+    });
   });
 });
 
