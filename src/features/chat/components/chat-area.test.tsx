@@ -26,9 +26,13 @@ vi.mock('@/features/chat/components/chat-message-list', () => ({
 }));
 
 vi.mock('@/features/chat/components/chat-input', () => ({
-  ChatInput: ({ onSend }: { onSend: (c: string, d: boolean) => void }) => (
-    <div data-testid="chat-input" onClick={() => onSend('test', false)} />
-  ),
+  ChatInput: ({
+    onSend,
+  }: {
+    onSend: (c: string, d: boolean) => void;
+    deepThink: boolean;
+    onToggleDeepThink: () => void;
+  }) => <div data-testid="chat-input" onClick={() => onSend('test', false)} />,
 }));
 
 vi.mock('@/features/chat/components/chat-welcome', () => ({
@@ -56,6 +60,8 @@ beforeEach(() => {
       error: null,
       sendMessage: vi.fn(),
       cancelStream: vi.fn(),
+      deepThink: false,
+      toggleDeepThink: vi.fn(),
     };
     return typeof selector === 'function'
       ? (selector as (s: typeof state) => unknown)(state)
@@ -80,6 +86,8 @@ describe('ChatArea', () => {
         error: null,
         sendMessage: vi.fn(),
         cancelStream: vi.fn(),
+        deepThink: false,
+        toggleDeepThink: vi.fn(),
       };
       return typeof selector === 'function'
         ? (selector as (s: typeof state) => unknown)(state)
@@ -108,6 +116,8 @@ describe('ChatArea', () => {
         error: null,
         sendMessage: vi.fn(),
         cancelStream: vi.fn(),
+        deepThink: false,
+        toggleDeepThink: vi.fn(),
       };
       return typeof selector === 'function'
         ? (selector as (s: typeof state) => unknown)(state)
@@ -128,6 +138,8 @@ describe('ChatArea', () => {
         error: null,
         sendMessage: vi.fn(),
         cancelStream: vi.fn(),
+        deepThink: false,
+        toggleDeepThink: vi.fn(),
       };
       return typeof selector === 'function'
         ? (selector as (s: typeof state) => unknown)(state)
@@ -147,6 +159,8 @@ describe('ChatArea', () => {
         error: 'API 调用失败',
         sendMessage: vi.fn(),
         cancelStream: vi.fn(),
+        deepThink: false,
+        toggleDeepThink: vi.fn(),
       };
       return typeof selector === 'function'
         ? (selector as (s: typeof state) => unknown)(state)
@@ -167,6 +181,8 @@ describe('ChatArea', () => {
         error: null,
         sendMessage: vi.fn(),
         cancelStream: vi.fn(),
+        deepThink: false,
+        toggleDeepThink: vi.fn(),
       };
       return typeof selector === 'function'
         ? (selector as (s: typeof state) => unknown)(state)

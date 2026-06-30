@@ -16,6 +16,8 @@ export function ChatArea() {
     error,
     sendMessage,
     cancelStream,
+    deepThink,
+    toggleDeepThink,
   } = useChatStore(
     useShallow((s) => ({
       messages: s.messages,
@@ -24,12 +26,14 @@ export function ChatArea() {
       error: s.error,
       sendMessage: s.sendMessage,
       cancelStream: s.cancelStream,
+      deepThink: s.deepThink,
+      toggleDeepThink: s.toggleDeepThink,
     })),
   );
 
   const handleSend = useCallback(
-    (content: string, deepThink: boolean) => {
-      sendMessage(content, deepThink);
+    (content: string, dt: boolean) => {
+      sendMessage(content, dt);
     },
     [sendMessage],
   );
@@ -66,6 +70,8 @@ export function ChatArea() {
           disabled={isLoading}
           isStreaming={!!streamingMessage}
           onCancel={cancelStream}
+          deepThink={deepThink}
+          onToggleDeepThink={toggleDeepThink}
         />
         <p
           data-testid="chat-disclaimer"

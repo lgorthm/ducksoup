@@ -5,15 +5,18 @@ import { ChatInput } from './chat-input';
 function setupInput(overrides: Partial<Parameters<typeof ChatInput>[0]> = {}) {
   const onSend = vi.fn();
   const onCancel = vi.fn();
+  const onToggleDeepThink = vi.fn();
   const props = {
     onSend,
     disabled: false,
     isStreaming: false,
     onCancel,
+    deepThink: false,
+    onToggleDeepThink,
     ...overrides,
   };
   render(<ChatInput {...props} />);
-  return { onSend, onCancel, props };
+  return { onSend, onCancel, onToggleDeepThink, props };
 }
 
 function setEditorText(text: string) {
@@ -89,11 +92,15 @@ describe('ChatInput', () => {
     expect(onSend).not.toHaveBeenCalled();
   });
 
-  it('深度思考按钮切换状态', () => {
-    const { onSend } = setupInput();
+  it('深度思考按钮调用 onToggleDeepThink', () => {
+    const { onToggleDeepThink } = setupInput();
+    fireEvent.click(screen.getByText('深度思考'));
+    expect(onToggleDeepThink).toHaveBeenCalledOnce();
+  });
+
+  it('deepThink 为 true 时发送传递 true', () => {
+    const { onSend } = setupInput({ deepThink: true });
     setEditorText('你好');
-    const deepThinkBtn = screen.getByText('深度思考');
-    fireEvent.click(deepThinkBtn);
     fireEvent.click(screen.getByText('发送'));
     expect(onSend).toHaveBeenCalledWith('你好', true);
   });

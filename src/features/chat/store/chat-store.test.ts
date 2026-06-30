@@ -64,6 +64,7 @@ const initialState = {
   apiKey: '',
   hasApiKey: false,
   selectedModel: 'deepseek-v4-flash' as const,
+  deepThink: false,
   conversations: [] as Conversation[],
   currentConversationId: null as string | null,
   messages: [] as StoredMessage[],
@@ -152,6 +153,18 @@ describe('setModel', () => {
   it('更新 selectedModel', () => {
     useChatStore.getState().setModel('deepseek-v4-pro');
     expect(useChatStore.getState().selectedModel).toBe('deepseek-v4-pro');
+  });
+});
+
+// ========== toggleDeepThink ==========
+
+describe('toggleDeepThink', () => {
+  it('切换 deepThink 状态', () => {
+    expect(useChatStore.getState().deepThink).toBe(false);
+    useChatStore.getState().toggleDeepThink();
+    expect(useChatStore.getState().deepThink).toBe(true);
+    useChatStore.getState().toggleDeepThink();
+    expect(useChatStore.getState().deepThink).toBe(false);
   });
 });
 

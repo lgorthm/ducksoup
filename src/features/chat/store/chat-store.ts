@@ -29,6 +29,9 @@ interface ChatState {
   // 模型
   selectedModel: ModelName;
 
+  // 深度思考
+  deepThink: boolean;
+
   // 会话
   conversations: Conversation[];
   currentConversationId: string | null;
@@ -45,6 +48,7 @@ interface ChatState {
   setApiKey: (key: string) => void;
   clearApiKey: () => void;
   setModel: (model: ModelName) => void;
+  toggleDeepThink: () => void;
 
   createConversation: () => Promise<void>;
   startNewConversation: () => void;
@@ -73,6 +77,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     apiKey: '',
     hasApiKey: false,
     selectedModel: 'deepseek-v4-flash',
+    deepThink: false,
     conversations: [],
     currentConversationId: null,
     messages: [],
@@ -121,6 +126,10 @@ export const useChatStore = create<ChatState>((set, get) => {
 
     setModel(model: ModelName) {
       set({ selectedModel: model });
+    },
+
+    toggleDeepThink() {
+      set((state) => ({ deepThink: !state.deepThink }));
     },
 
     async createConversation() {

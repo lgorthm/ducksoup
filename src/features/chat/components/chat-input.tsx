@@ -9,6 +9,8 @@ interface ChatInputProps {
   disabled?: boolean;
   isStreaming?: boolean;
   onCancel?: () => void;
+  deepThink: boolean;
+  onToggleDeepThink: () => void;
 }
 
 export function ChatInput({
@@ -16,10 +18,11 @@ export function ChatInput({
   disabled,
   isStreaming,
   onCancel,
+  deepThink,
+  onToggleDeepThink,
 }: ChatInputProps) {
   const { t } = useTranslation();
   const editorRef = useRef<HTMLDivElement>(null);
-  const [deepThink, setDeepThink] = useState(false);
   const [isEmpty, setIsEmpty] = useState(true);
 
   const handleSend = useCallback(() => {
@@ -78,7 +81,7 @@ export function ChatInput({
           variant="outline"
           size="default"
           disabled={inputDisabled}
-          onClick={() => setDeepThink((prev) => !prev)}
+          onClick={onToggleDeepThink}
           className={cn(
             deepThink &&
               'border-amber-400 bg-amber-400/15 text-amber-400 hover:bg-amber-400/15 hover:text-amber-400 dark:border-amber-400 dark:bg-amber-400/15 dark:hover:bg-amber-400/15 dark:hover:text-amber-400',

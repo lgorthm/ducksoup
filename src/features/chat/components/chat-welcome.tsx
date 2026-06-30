@@ -18,12 +18,21 @@ const MODEL_OPTIONS = (
 
 export function ChatWelcome() {
   const { t } = useTranslation();
-  const { selectedModel, setModel, sendMessage, isLoading } = useChatStore(
+  const {
+    selectedModel,
+    setModel,
+    sendMessage,
+    isLoading,
+    deepThink,
+    toggleDeepThink,
+  } = useChatStore(
     useShallow((s) => ({
       selectedModel: s.selectedModel,
       setModel: s.setModel,
       sendMessage: s.sendMessage,
       isLoading: s.isLoading,
+      deepThink: s.deepThink,
+      toggleDeepThink: s.toggleDeepThink,
     })),
   );
 
@@ -52,8 +61,10 @@ export function ChatWelcome() {
         {/* 第三行：输入组件 */}
         <div className="w-full">
           <ChatInput
-            onSend={(content, deepThink) => sendMessage(content, deepThink)}
+            onSend={(content, dt) => sendMessage(content, dt)}
             disabled={isLoading}
+            deepThink={deepThink}
+            onToggleDeepThink={toggleDeepThink}
           />
         </div>
       </div>
