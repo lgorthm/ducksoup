@@ -62,7 +62,7 @@ export function ChatInput({
         data-testid="chat-input-editor"
         contentEditable={!inputDisabled}
         className={cn(
-          'max-h-[200px] min-h-[44px] w-full overflow-y-auto rounded-none bg-background px-0.5 py-0.5 text-base outline-none',
+          'max-h-50 min-h-11 w-full overflow-y-auto rounded-none bg-background px-0.5 py-0.5 text-base outline-none',
           'empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)]',
           inputDisabled && 'cursor-not-allowed opacity-50',
         )}
@@ -75,10 +75,14 @@ export function ChatInput({
       <div className="mt-2 flex items-center justify-between">
         <Button
           data-testid="deep-think-button"
-          variant={deepThink ? 'default' : 'outline'}
+          variant="outline"
           size="default"
           disabled={inputDisabled}
           onClick={() => setDeepThink((prev) => !prev)}
+          className={cn(
+            deepThink &&
+              'border-amber-400 bg-amber-400/15 text-amber-400 hover:bg-amber-400/15 hover:text-amber-400 dark:border-amber-400 dark:bg-amber-400/15 dark:hover:bg-amber-400/15 dark:hover:text-amber-400',
+          )}
         >
           {t('chat.input.deepThink')}
         </Button>
