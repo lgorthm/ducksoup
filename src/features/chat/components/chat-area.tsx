@@ -32,8 +32,8 @@ export function ChatArea() {
   );
 
   const handleSend = useCallback(
-    (content: string, dt: boolean) => {
-      sendMessage(content, dt);
+    (content: string, deepThink: boolean) => {
+      sendMessage(content, deepThink);
     },
     [sendMessage],
   );
