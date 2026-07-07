@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw';
 
 const DEEPSEEK_API = 'https://api.deepseek.com/chat/completions';
+const DEEPSEEK_BALANCE_API = 'https://api.deepseek.com/user/balance';
 
 /**
  * 构造 SSE 格式的 data 行
@@ -111,4 +112,51 @@ export function mockDeepSeekError(status: number, message: string) {
  */
 export function mockDeepSeekNetworkError() {
   return http.post(DEEPSEEK_API, () => HttpResponse.error());
+}
+
+/**
+ * 默认余额查询响应
+ */
+const defaultBalanceResponse = {
+  is_available: true,
+  balance_infos: [
+    {
+      currency: 'CNY',
+      total_balance: '110.00',
+      granted_balance: '10.00',
+      topped_up_balance: '100.00',
+    },
+  ],
+};
+
+export const balanceHandlers = [
+  http.get(DEEPSEEK_BALANCE_API, () =>
+    HttpResponse.json(defaultBalanceResponse),
+  ),
+];
+
+/**
+ * 创建自定义余额查询响应（供测试用例按需定制）
+ */
+export function mockBalanceResponse(response: typeof defaultBalanceResponse) {
+  return http.get(DEEPSEEK_BALANCE_API, () => HttpResponse.json(response));
+}
+
+/**
+ * 创建余额查询错误响应
+ */
+export function mockBalanceError(status: number, message: string) {
+  return http.get(DEEPSEEK_BALANCE_API, () =>
+    HttpResponse.json(
+      { error: { message, type: 'invalid_request_error' } },
+      { status },
+    ),
+  );
+}
+
+/**
+ * 创建余额查询网络错误响应
+ */
+export function mockBalanceNetworkError() {
+  return http.get(DEEPSEEK_BALANCE_API, () => HttpResponse.error());
 }

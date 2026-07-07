@@ -188,6 +188,28 @@ export interface StoredMessage {
   createdAt: number;
 }
 
+// ========== 余额查询类型 ==========
+
+/** 单条余额信息 */
+export interface BalanceInfo {
+  /** 货币，人民币或美元 */
+  currency: 'CNY' | 'USD';
+  /** 总的可用余额，包括赠金和充值余额 */
+  total_balance: string;
+  /** 未过期的赠金余额 */
+  granted_balance: string;
+  /** 充值余额 */
+  topped_up_balance: string;
+}
+
+/** 余额查询响应 */
+export interface BalanceResponse {
+  /** 当前账户是否有余额可供 API 调用 */
+  is_available: boolean;
+  /** 余额信息列表 */
+  balance_infos: BalanceInfo[];
+}
+
 // ========== 数据库 Schema ==========
 
 export interface DuckSoupDBSchema {

@@ -43,6 +43,7 @@
     "title": "Settings",
     "tabGeneral": "General",
     "tabApiKey": "API Key",
+    "tabBalance": "Balance",
     "themeDescription": "Choose a theme",
     "themeLight": "Light",
     "themeDark": "Dark",
@@ -50,5 +51,21 @@
     "languageDescription": "Choose language",
     "languageZhCN": "中文",
     "languageEn": "English"
+  },
+  "balance": {
+    "description": "Query your DeepSeek account balance.",
+    "query": "Query Balance",
+    "retry": "Retry",
+    "loading": "Loading...",
+    "noApiKey": "Please configure your DeepSeek API Key in the API Key settings first.",
+    "available": "Available",
+    "unavailable": "Unavailable",
+    "status": "Account Status",
+    "totalBalance": "Total Balance",
+    "grantedBalance": "Granted Balance",
+    "toppedUpBalance": "Topped-up Balance",
+    "currency": "Currency",
+    "queryFailed": "Query Failed",
+    "lastUpdated": "Last Updated"
   }
 }

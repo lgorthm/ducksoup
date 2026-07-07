@@ -43,6 +43,7 @@
     "title": "系统设置",
     "tabGeneral": "通用设置",
     "tabApiKey": "API KEY 设置",
+    "tabBalance": "余额查询",
     "themeDescription": "选择界面主题",
     "themeLight": "浅色",
     "themeDark": "深色",
@@ -50,5 +51,21 @@
     "languageDescription": "选择界面语言",
     "languageZhCN": "中文",
     "languageEn": "English"
+  },
+  "balance": {
+    "description": "查询您的 DeepSeek 账户余额信息。",
+    "query": "查询余额",
+    "retry": "重新查询",
+    "loading": "查询中...",
+    "noApiKey": "请先在 API KEY 设置中配置您的 DeepSeek API Key。",
+    "available": "可用",
+    "unavailable": "不可用",
+    "status": "账户状态",
+    "totalBalance": "总余额",
+    "grantedBalance": "赠金余额",
+    "toppedUpBalance": "充值余额",
+    "currency": "货币",
+    "queryFailed": "查询失败",
+    "lastUpdated": "最后更新"
   }
 }

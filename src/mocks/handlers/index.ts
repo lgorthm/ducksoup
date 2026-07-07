@@ -1,3 +1,3 @@
-import { deepseekHandlers } from './deepseek';
+import { deepseekHandlers, balanceHandlers } from './deepseek';
 
-export const handlers = [...deepseekHandlers];
+export const handlers = [...deepseekHandlers, ...balanceHandlers];

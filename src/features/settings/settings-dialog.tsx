@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Sun,
@@ -8,6 +8,10 @@ import {
   Eye,
   EyeOff,
   Languages,
+  RefreshCw,
+  AlertCircle,
+  CircleCheck,
+  CircleX,
 } from 'lucide-react';
 import { useTheme } from '@/shared/providers/theme-provider';
 import {
@@ -24,10 +28,21 @@ import {
 } from '@/shared/components/ui/sheet';
 import { Input } from '@/shared/components/ui/input';
 import { Button } from '@/shared/components/ui/button';
+import { Skeleton } from '@/shared/components/ui/skeleton';
 import { cn } from '@/shared/lib/utils';
 import { useChatStore } from '@/features/chat/store/chat-store';
+import {
+  fetchBalance,
+  BalanceError,
+  loadBalanceCache,
+  saveBalanceCache,
+} from '@/features/chat/utils/balance';
+import type {
+  BalanceResponse,
+  BalanceInfo,
+} from '@/features/chat/types/deepseek';
 
-type SettingsTab = 'general' | 'api-key';
+type SettingsTab = 'general' | 'api-key' | 'balance';
 
 interface SettingsDialogProps {
   open: boolean;
@@ -168,6 +183,237 @@ function ApiKeySettings() {
   );
 }
 
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  CNY: '¥',
+  USD: '$',
+};
+
+function formatBalance(amount: string, currency: string): string {
+  const symbol = CURRENCY_SYMBOLS[currency] ?? '';
+  return `${symbol}${amount}`;
+}
+
+function BalanceCard({ info }: { info: BalanceInfo }) {
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-3 border border-border p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium">
+          {info.currency === 'CNY'
+            ? t('balance.currency') + ': CNY'
+            : t('balance.currency') + ': USD'}
+        </span>
+      </div>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
+            {t('balance.totalBalance')}
+          </span>
+          <span className="text-sm font-semibold tabular-nums">
+            {formatBalance(info.total_balance, info.currency)}
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
+            {t('balance.grantedBalance')}
+          </span>
+          <span className="text-xs tabular-nums">
+            {formatBalance(info.granted_balance, info.currency)}
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
+            {t('balance.toppedUpBalance')}
+          </span>
+          <span className="text-xs tabular-nums">
+            {formatBalance(info.topped_up_balance, info.currency)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BalanceSkeleton() {
+  return (
+    <div className="space-y-3 border border-border p-3">
+      <Skeleton className="h-4 w-20" />
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-3 w-20" />
+        </div>
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-3 w-20" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BalanceSettings() {
+  const { t } = useTranslation();
+  const apiKey = useChatStore((s) => s.apiKey);
+
+  // 挂载时从 sessionStorage 恢复缓存
+  const cached = useMemo(() => loadBalanceCache(apiKey), [apiKey]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [balance, setBalance] = useState<BalanceResponse | null>(
+    cached?.balance ?? null,
+  );
+  const [lastUpdated, setLastUpdated] = useState<number | null>(
+    cached?.lastUpdated ?? null,
+  );
+  const abortRef = useRef<AbortController | null>(null);
+
+  const handleQuery = useCallback(async () => {
+    if (!apiKey) return;
+    // 取消上一次请求
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const result = await fetchBalance(apiKey, controller.signal);
+      setBalance(result);
+      setLastUpdated(Date.now());
+      // 写入 sessionStorage 缓存
+      saveBalanceCache(apiKey, result);
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
+      const message =
+        err instanceof BalanceError || err instanceof Error
+          ? err.message
+          : 'Unknown error';
+      setError(message);
+      setBalance(null);
+    } finally {
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+      }
+      setLoading(false);
+    }
+  }, [apiKey]);
+
+  // 未配置 API Key
+  if (!apiKey) {
+    return (
+      <div className="space-y-3">
+        <p className="text-xs text-muted-foreground">
+          {t('balance.description')}
+        </p>
+        <div className="flex items-center gap-2 border border-border p-3 text-xs text-muted-foreground">
+          <AlertCircle className="size-4 shrink-0" />
+          <span>{t('balance.noApiKey')}</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">
+        {t('balance.description')}
+      </p>
+
+      <Button
+        onClick={handleQuery}
+        disabled={loading}
+        variant="outline"
+        size="sm"
+        className="w-full sm:w-auto"
+        data-testid="balance-query-btn"
+      >
+        <RefreshCw className={cn('size-3.5', loading && 'animate-spin')} />
+        {loading
+          ? t('balance.loading')
+          : balance
+            ? t('balance.retry')
+            : t('balance.query')}
+      </Button>
+
+      {/* 加载中骨架屏 */}
+      {loading && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-4 w-16" />
+          </div>
+          <BalanceSkeleton />
+        </div>
+      )}
+
+      {/* 错误状态 */}
+      {!loading && error && (
+        <div className="flex flex-col gap-2 border border-destructive/30 p-3">
+          <div className="flex items-center gap-2 text-xs text-destructive">
+            <AlertCircle className="size-4 shrink-0" />
+            <span className="font-medium">{t('balance.queryFailed')}</span>
+          </div>
+          <p className="text-xs text-muted-foreground">{error}</p>
+        </div>
+      )}
+
+      {/* 成功结果 */}
+      {!loading && !error && balance && (
+        <div className="space-y-3">
+          {/* 账户状态 */}
+          <div className="flex items-center gap-2 border border-border p-3">
+            {balance.is_available ? (
+              <CircleCheck className="size-4 shrink-0 text-green-600" />
+            ) : (
+              <CircleX className="size-4 shrink-0 text-destructive" />
+            )}
+            <span className="text-xs text-muted-foreground">
+              {t('balance.status')}:
+            </span>
+            <span
+              className={cn(
+                'text-xs font-medium',
+                balance.is_available ? 'text-green-600' : 'text-destructive',
+              )}
+            >
+              {balance.is_available
+                ? t('balance.available')
+                : t('balance.unavailable')}
+            </span>
+          </div>
+
+          {/* 余额卡片 */}
+          {balance.balance_infos.length > 0 ? (
+            <div className="space-y-2">
+              {balance.balance_infos.map((info, i) => (
+                <BalanceCard key={`${info.currency}-${i}`} info={info} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              {t('balance.unavailable')}
+            </p>
+          )}
+
+          {/* 最后更新时间 */}
+          {lastUpdated && (
+            <p className="text-right text-xs text-muted-foreground">
+              {t('balance.lastUpdated')}:{' '}
+              {new Date(lastUpdated).toLocaleTimeString()}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TabButtons({
   active,
   onChange,
@@ -181,6 +427,7 @@ function TabButtons({
       {[
         { key: 'general' as const, label: t('settings.tabGeneral') },
         { key: 'api-key' as const, label: t('settings.tabApiKey') },
+        { key: 'balance' as const, label: t('settings.tabBalance') },
       ].map((tab) => (
         <button
           key={tab.key}
@@ -210,7 +457,13 @@ function SettingsContent({
     <div>
       <TabButtons active={activeTab} onChange={onTabChange} />
       <div className="min-h-140 p-4">
-        {activeTab === 'general' ? <GeneralSettings /> : <ApiKeySettings />}
+        {activeTab === 'general' ? (
+          <GeneralSettings />
+        ) : activeTab === 'api-key' ? (
+          <ApiKeySettings />
+        ) : (
+          <BalanceSettings />
+        )}
       </div>
     </div>
   );
