@@ -8,6 +8,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-6-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![pnpm](https://img.shields.io/badge/pnpm-10-f69d20?logo=pnpm&logoColor=white)](https://pnpm.io)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-06b6d4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
 > 📖 中文文档:[README.md](./README.md)
 
@@ -187,7 +188,9 @@ Commit messages are recommended to follow the [Conventional Commits](https://www
 
 ## 📄 License
 
-This project does not yet specify an open-source license (`package.json` is marked `private: true`). If you intend to open-source it, please add a `LICENSE` file first (MIT recommended).
+This project is open-sourced under the [MIT License](./LICENSE).
+
+Copyright (c) 2026 alwaysblue <maybelxr@gmail.com>
 
 ## 🙏 Acknowledgements
 
