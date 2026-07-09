@@ -30,6 +30,8 @@
     "new": "New Chat",
     "startNew": "Start New Chat",
     "delete": "Delete Chat",
+    "deleteConfirmDesc": "Once deleted, this conversation cannot be recovered.",
+    "deleteConfirmBtn": "Delete This Conversation",
     "empty": "No conversations"
   },
   "apiKey": {

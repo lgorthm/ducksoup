@@ -30,6 +30,8 @@
     "new": "新建对话",
     "startNew": "开启新对话",
     "delete": "删除对话",
+    "deleteConfirmDesc": "删除后，该对话将不可恢复。",
+    "deleteConfirmBtn": "删除该对话",
     "empty": "暂无对话"
   },
   "apiKey": {

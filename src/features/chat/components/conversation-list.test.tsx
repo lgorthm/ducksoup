@@ -36,6 +36,26 @@ vi.mock('@/shared/components/ui/dropdown-menu', () => ({
   ),
 }));
 
+vi.mock('@/shared/components/ui/dialog', () => ({
+  Dialog: ({ children, open }: { children: React.ReactNode; open: boolean }) =>
+    open ? <div>{children}</div> : null,
+  DialogContent: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DialogHeader: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DialogTitle: ({ children }: { children: React.ReactNode }) => (
+    <h2>{children}</h2>
+  ),
+  DialogDescription: ({ children }: { children: React.ReactNode }) => (
+    <p>{children}</p>
+  ),
+  DialogFooter: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+}));
+
 function makeConv(overrides: Partial<Conversation> = {}): Conversation {
   const now = Date.now();
   return {
@@ -125,7 +145,7 @@ describe('ConversationList', () => {
     expect(mockActions.switchConversation).toHaveBeenCalledWith('c1');
   });
 
-  it('点击删除菜单项调用 deleteConversation', () => {
+  it('点击删除菜单项弹出确认对话框，确认后调用 deleteConversation', () => {
     const convs = [makeConv({ id: 'c1', title: '会话一' })];
     vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
       const state = {
@@ -141,7 +161,33 @@ describe('ConversationList', () => {
     render(<ConversationList />);
     const deleteItem = screen.getByTestId('dropdown-item');
     fireEvent.click(deleteItem);
+    // 点击删除菜单项后不应直接调用 deleteConversation
+    expect(mockActions.deleteConversation).not.toHaveBeenCalled();
+    // 应弹出确认对话框，点击确认后才执行删除
+    const confirmBtn = screen.getByTestId('confirm-delete-conversation');
+    fireEvent.click(confirmBtn);
     expect(mockActions.deleteConversation).toHaveBeenCalledWith('c1');
+  });
+
+  it('点击删除菜单项后点击取消不调用 deleteConversation', () => {
+    const convs = [makeConv({ id: 'c1', title: '会话一' })];
+    vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
+      const state = {
+        conversations: convs,
+        currentConversationId: 'c1',
+        ...mockActions,
+      };
+      return typeof selector === 'function'
+        ? (selector as (s: typeof state) => unknown)(state)
+        : state;
+    });
+
+    render(<ConversationList />);
+    fireEvent.click(screen.getByTestId('dropdown-item'));
+    // 点击取消按钮（ghost 样式）不执行删除
+    const cancelBtn = screen.getByText('取消');
+    fireEvent.click(cancelBtn);
+    expect(mockActions.deleteConversation).not.toHaveBeenCalled();
   });
 
   it('移动端非当前会话显示禁用的 MoreHorizontal', () => {

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { MoreHorizontal, Trash2 } from 'lucide-react';
@@ -9,6 +10,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/shared/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/shared/components/ui/dialog';
 import { useIsMobile } from '@/shared/hooks/use-media-query';
 import { useChatStore } from '@/features/chat/store/chat-store';
 
@@ -30,6 +39,14 @@ export function ConversationList() {
     })),
   );
   const isMobile = useIsMobile();
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
+  const handleConfirmDelete = () => {
+    if (pendingDeleteId !== null) {
+      deleteConversation(pendingDeleteId);
+      setPendingDeleteId(null);
+    }
+  };
 
   return (
     <div data-testid="conversation-list" className="flex flex-col gap-1 p-2">
@@ -83,14 +100,14 @@ export function ConversationList() {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
-                  align="end"
+                  align="start"
                   className="w-36"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <DropdownMenuItem
                     variant="destructive"
                     data-testid="conversation-delete-menu"
-                    onClick={() => deleteConversation(conv.id)}
+                    onClick={() => setPendingDeleteId(conv.id)}
                   >
                     <Trash2 />
                     {t('conversation.delete')}
@@ -101,6 +118,33 @@ export function ConversationList() {
           </div>
         ))
       )}
+      <Dialog
+        open={pendingDeleteId !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteId(null);
+        }}
+      >
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle>{t('conversation.delete')}</DialogTitle>
+            <DialogDescription>
+              {t('conversation.deleteConfirmDesc')}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setPendingDeleteId(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              data-testid="confirm-delete-conversation"
+              onClick={handleConfirmDelete}
+            >
+              {t('conversation.deleteConfirmBtn')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
