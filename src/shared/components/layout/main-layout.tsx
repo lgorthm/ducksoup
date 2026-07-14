@@ -98,9 +98,6 @@ const MainLayoutInner = memo(function MainLayoutInner({
   }, [isMobile]);
 
   const enableTransition = !isMobile && !isMobileChanged;
-  console.log('isMobile', isMobile);
-  console.log('isMobileChanged', isMobileChanged);
-  console.log('enableTransition', enableTransition);
   const showFixed = !isMobile && !open;
 
   const handleSettingsClick = useCallback(() => {
