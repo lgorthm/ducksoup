@@ -1,4 +1,12 @@
-import { lazy, memo, Suspense, useCallback, useState } from 'react';
+import {
+  lazy,
+  memo,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { Settings } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
@@ -77,7 +85,22 @@ const MainLayoutInner = memo(function MainLayoutInner({
   const { t } = useTranslation();
   const { isMobile, open } = useSidebar();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const prevIsMobileRef = useRef(isMobile);
+  const [isMobileChanged, setIsMobileChanged] = useState(false);
 
+  useEffect(() => {
+    if (prevIsMobileRef.current !== isMobile) {
+      prevIsMobileRef.current = isMobile;
+      setIsMobileChanged(true);
+    } else {
+      setIsMobileChanged(false);
+    }
+  }, [isMobile]);
+
+  const enableTransition = !isMobile && !isMobileChanged;
+  console.log('isMobile', isMobile);
+  console.log('isMobileChanged', isMobileChanged);
+  console.log('enableTransition', enableTransition);
   const showFixed = !isMobile && !open;
 
   const handleSettingsClick = useCallback(() => {
@@ -127,7 +150,8 @@ const MainLayoutInner = memo(function MainLayoutInner({
         <header
           className={cn(
             'flex h-12 shrink-0 items-center gap-2 px-2',
-            'transition-[margin-left] duration-300 ease-in-out',
+            enableTransition &&
+              'transition-[margin-left] duration-300 ease-in-out',
           )}
           style={showFixed ? HEADER_STYLE_FIXED : HEADER_STYLE_DEFAULT}
         >
