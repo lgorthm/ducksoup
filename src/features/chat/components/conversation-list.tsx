@@ -86,18 +86,20 @@ export function ConversationList() {
               </button>
             ) : (
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    className={cn(
-                      'inline-flex size-6 shrink-0 items-center justify-center rounded-none hover:bg-sidebar-accent',
-                      isMobile
-                        ? 'opacity-100'
-                        : 'opacity-0 group-hover:opacity-100',
-                    )}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <MoreHorizontal className="size-3.5" />
-                  </button>
+                <DropdownMenuTrigger
+                  render={
+                    <button
+                      className={cn(
+                        'inline-flex size-6 shrink-0 items-center justify-center rounded-none hover:bg-sidebar-accent',
+                        isMobile
+                          ? 'opacity-100'
+                          : 'opacity-0 group-hover:opacity-100',
+                      )}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  }
+                >
+                  <MoreHorizontal className="size-3.5" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="start"
