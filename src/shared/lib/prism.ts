@@ -140,7 +140,9 @@ const PRISM_LANG_MAP: Record<string, string> = {
  * Resolve a markdown fence language label to the prismjs grammar.
  * Returns null when the language is not registered (falls back to plaintext).
  */
-export function getGrammar(lang: string): { grammar: Grammar; id: string } | null {
+export function getGrammar(
+  lang: string,
+): { grammar: Grammar; id: string } | null {
   const id = PRISM_LANG_MAP[lang.toLowerCase()];
   if (!id) return null;
   const grammar = Prism.languages[id];

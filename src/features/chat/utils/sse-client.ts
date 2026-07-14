@@ -248,8 +248,7 @@ export function createSSEConnection(
         return;
       }
 
-      const error =
-        err instanceof Error ? err : new Error(String(err));
+      const error = err instanceof Error ? err : new Error(String(err));
 
       // 自动重连
       if (retryCount < maxRetries && state !== 'closed') {
@@ -268,10 +267,14 @@ export function createSSEConnection(
 
   // 监听外部 signal
   if (signal) {
-    signal.addEventListener('abort', () => {
-      aborted = true;
-      cleanup();
-    }, { once: true });
+    signal.addEventListener(
+      'abort',
+      () => {
+        aborted = true;
+        cleanup();
+      },
+      { once: true },
+    );
   }
 
   // 启动连接

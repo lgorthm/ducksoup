@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import type { ReactNode } from 'react';
+import type { ReactNode, RefObject } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChatMessage } from '@/features/chat/components/chat-message';
 import type {
@@ -7,23 +7,41 @@ import type {
   StreamingMessage,
 } from '@/features/chat/types/deepseek';
 
+/**
+ * 暴露给外部组件的虚拟列表控制器，用于滚动导航栏联动
+ */
+export interface ChatListController {
+  /** 滚动容器元素，供外部监听 scroll 事件 */
+  readonly scrollContainer: HTMLDivElement | null;
+  /** 滚动到指定虚拟索引 */
+  scrollToIndex: (index: number, align?: 'start' | 'center' | 'end') => void;
+  /** 获取当前可见虚拟项的索引范围 [startIndex, endIndex] */
+  getVisibleRange: () => [number, number] | null;
+}
+
 interface ChatMessageListProps {
   messages: StoredMessage[];
   streamingMessage?: StreamingMessage | null;
   children?: ReactNode;
+  /** 外部传入的 ref，组件挂载后会填充控制器实例 */
+  controllerRef?: RefObject<ChatListController | null>;
 }
 
 export function ChatMessageList({
   messages,
   streamingMessage,
   children,
+  controllerRef,
 }: ChatMessageListProps) {
+  // TanStack Virtual 的 useVirtualizer 返回不稳定函数引用，
+  // 与 React Compiler 自动记忆化不兼容，故显式跳过本组件的记忆化。
+  'use no memo';
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // 总条目数 = 历史消息 + 可能存在的流式消息
   const totalCount = messages.length + (streamingMessage ? 1 : 0);
 
-  // eslint-disable-next-line react-hooks/incompatible-library
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual 返回不稳定函数引用，已通过 'use no memo' 显式跳过记忆化
   const virtualizer = useVirtualizer({
     count: totalCount,
     getScrollElement: useCallback(() => scrollContainerRef.current, []),
@@ -86,6 +104,25 @@ export function ChatMessageList({
     container.addEventListener('scroll', handleScroll, { passive: true });
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // 填充外部控制器（供滚动导航栏使用）
+  useEffect(() => {
+    if (!controllerRef) return;
+    controllerRef.current = {
+      scrollContainer: scrollContainerRef.current,
+      scrollToIndex: (index, align = 'center') => {
+        virtualizer.scrollToIndex(index, { align });
+      },
+      getVisibleRange: () => {
+        const items = virtualizer.getVirtualItems();
+        if (items.length === 0) return null;
+        return [items[0].index, items[items.length - 1].index] as [
+          number,
+          number,
+        ];
+      },
+    };
+  }, [virtualizer, controllerRef]);
 
   const virtualItems = virtualizer.getVirtualItems();
 

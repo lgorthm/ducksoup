@@ -44,9 +44,7 @@ export function ApiKeyDialog({ open, onOpenChange }: ApiKeyDialogProps) {
       <DialogContent showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>{t('apiKey.dialogTitle')}</DialogTitle>
-          <DialogDescription>
-            {t('apiKey.description')}
-          </DialogDescription>
+          <DialogDescription>{t('apiKey.description')}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3">
           <Input

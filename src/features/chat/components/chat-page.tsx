@@ -24,7 +24,9 @@ export function ChatPage() {
   if (!ready) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-sm text-muted-foreground">{t('chat.page.loading')}</p>
+        <p className="text-sm text-muted-foreground">
+          {t('chat.page.loading')}
+        </p>
       </div>
     );
   }

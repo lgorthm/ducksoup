@@ -1,5 +1,9 @@
 import { openDB } from 'idb';
-import type { Conversation, DuckSoupDBSchema, StoredMessage } from '@/features/chat/types/deepseek';
+import type {
+  Conversation,
+  DuckSoupDBSchema,
+  StoredMessage,
+} from '@/features/chat/types/deepseek';
 
 const DB_NAME = 'ducksoup-chat';
 const DB_VERSION = 1;
@@ -8,7 +12,9 @@ function getDB() {
   return openDB<DuckSoupDBSchema>(DB_NAME, DB_VERSION, {
     upgrade(db) {
       if (!db.objectStoreNames.contains('conversations')) {
-        const convStore = db.createObjectStore('conversations', { keyPath: 'id' });
+        const convStore = db.createObjectStore('conversations', {
+          keyPath: 'id',
+        });
         convStore.createIndex('by-updatedAt', 'updatedAt');
       }
       if (!db.objectStoreNames.contains('messages')) {
@@ -40,7 +46,11 @@ export async function updateConversation(conv: Conversation): Promise<void> {
 export async function deleteConversation(id: string): Promise<void> {
   const db = await getDB();
   // 级联删除该会话下的所有消息
-  const messages = await db.getAllFromIndex('messages', 'by-conversationId', id);
+  const messages = await db.getAllFromIndex(
+    'messages',
+    'by-conversationId',
+    id,
+  );
   const tx = db.transaction(['messages', 'conversations'], 'readwrite');
   for (const msg of messages) {
     await tx.objectStore('messages').delete(msg.id);
@@ -56,9 +66,15 @@ export async function addMessage(msg: StoredMessage): Promise<void> {
   await db.add('messages', msg);
 }
 
-export async function getMessagesByConversation(conversationId: string): Promise<StoredMessage[]> {
+export async function getMessagesByConversation(
+  conversationId: string,
+): Promise<StoredMessage[]> {
   const db = await getDB();
-  const messages = await db.getAllFromIndex('messages', 'by-conversationId', conversationId);
+  const messages = await db.getAllFromIndex(
+    'messages',
+    'by-conversationId',
+    conversationId,
+  );
   return messages.sort((a, b) => {
     const timeDiff = a.createdAt - b.createdAt;
     if (timeDiff !== 0) return timeDiff;
@@ -72,9 +88,15 @@ export async function deleteMessage(id: string): Promise<void> {
   await db.delete('messages', id);
 }
 
-export async function clearConversationMessages(conversationId: string): Promise<void> {
+export async function clearConversationMessages(
+  conversationId: string,
+): Promise<void> {
   const db = await getDB();
-  const messages = await db.getAllFromIndex('messages', 'by-conversationId', conversationId);
+  const messages = await db.getAllFromIndex(
+    'messages',
+    'by-conversationId',
+    conversationId,
+  );
   const tx = db.transaction('messages', 'readwrite');
   for (const msg of messages) {
     await tx.store.delete(msg.id);

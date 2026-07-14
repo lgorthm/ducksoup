@@ -74,7 +74,10 @@ function getExt(lang: string): string {
 
 /** HTML-escape plain text (used when no grammar is registered or during streaming) */
 function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 /** 代码块语言检测正则，提升到模块级别避免重复创建 */
@@ -291,9 +294,7 @@ const STATIC_MARKDOWN_COMPONENTS = {
       {children}
     </thead>
   ),
-  tbody: ({ children, ...props }: any) => (
-    <tbody {...props}>{children}</tbody>
-  ),
+  tbody: ({ children, ...props }: any) => <tbody {...props}>{children}</tbody>,
   tr: ({ children, ...props }: any) => (
     <tr className="border-b" {...props}>
       {children}
