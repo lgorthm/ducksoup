@@ -43,12 +43,9 @@ export function useChatListController({
         virtualizer.scrollToIndex(index, { align });
       },
       getVisibleRange: () => {
-        const items = virtualizer.getVirtualItems();
-        if (items.length === 0) return null;
-        return [items[0].index, items[items.length - 1].index] as [
-          number,
-          number,
-        ];
+        const indexes = virtualizer.getVirtualIndexes();
+        if (indexes.length === 0) return null;
+        return [indexes[0], indexes[indexes.length - 1]] as [number, number];
       },
     };
   }, [virtualizer, controllerRef, scrollContainerRef]);
