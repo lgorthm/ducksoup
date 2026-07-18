@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useLayoutEffect, useRef } from 'react';
 import type { ReactNode, RefObject } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChatMessage } from '@/features/chat/components/chat-message';
@@ -6,8 +6,6 @@ import type {
   StoredMessage,
   StreamingMessage,
 } from '@/features/chat/types/deepseek';
-import { useChatAutoScroll } from '@/features/chat/hooks/use-chat-auto-scroll';
-import { useStreamingScrollDebounce } from '@/features/chat/hooks/use-streaming-scroll-debounce';
 import {
   useChatListController,
   type ChatListController,
@@ -44,22 +42,19 @@ export function ChatMessageList({
     getScrollElement: useCallback(() => scrollContainerRef.current, []),
     estimateSize: useCallback(() => 80, []),
     overscan: 5,
+    // 端锚定：专为聊天/日志场景设计。prepend 历史时保持视口稳定；
+    // 末尾项增长（流式 token 累积）时由 virtualizer 内部尺寸补偿
+    // 自动保持贴底，无需手写 scroll 监听 + isAtBottom ref。
+    anchorTo: 'end',
+    // 视口已贴底时，追加新 item 自动跟随到底部；用户上滚时不打断。
+    followOnAppend: 'auto',
+    // 贴底判定阈值：距末尾 50px 内视为"贴底"，对齐原 bottomThreshold。
+    scrollEndThreshold: 50,
   });
 
-  // 滚动管理：自动贴底 + 用户手动滚动检测
-  const { isAtBottomRef, scrollToBottom } = useChatAutoScroll({
-    scrollContainerRef,
-    virtualizer,
-    totalCount,
-  });
-
-  // 流式消息内容变化时防抖滚动
-  useStreamingScrollDebounce({
-    streamingContent: streamingMessage?.content ?? '',
-    reasoningLength: streamingMessage?.reasoningContent.length ?? 0,
-    isAtBottomRef,
-    scrollToBottom,
-  });
+  useLayoutEffect(() => {
+    virtualizer.scrollToEnd();
+  }, [virtualizer]);
 
   // 填充外部控制器（供滚动导航栏使用）
   useChatListController({
