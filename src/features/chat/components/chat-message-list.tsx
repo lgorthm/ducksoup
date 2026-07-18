@@ -55,9 +55,9 @@ export function ChatMessageList({
   // 滚动到底部
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
-      virtualizer.scrollToIndex(totalCount - 1, { align: 'end' });
+      virtualizer.scrollToEnd();
     });
-  }, [totalCount, virtualizer]);
+  }, [virtualizer]);
 
   // 新消息到来时自动滚动到底部
   const prevLength = useRef(totalCount);
