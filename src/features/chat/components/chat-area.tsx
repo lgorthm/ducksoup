@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { Loader2 } from 'lucide-react';
 import { ChatMessageList } from '@/features/chat/components/chat-message-list';
-import type { ChatListController } from '@/features/chat/components/chat-message-list';
+import type { ChatListController } from '@/features/chat/hooks/use-chat-list-controller';
 import { ChatScrollNav } from '@/features/chat/components/chat-scroll-nav';
 import type { NavUserMessage } from '@/features/chat/components/chat-scroll-nav';
 import { ChatInput } from '@/features/chat/components/chat-input';

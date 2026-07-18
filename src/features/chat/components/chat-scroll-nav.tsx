@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MouseEvent, RefObject } from 'react';
 import { useMediaQuery } from '@/shared/hooks/use-media-query';
 import { cn } from '@/shared/lib/utils';
-import type { ChatListController } from '@/features/chat/components/chat-message-list';
+import type { ChatListController } from '@/features/chat/hooks/use-chat-list-controller';
 
 /** 导航栏中每条用户消息的元数据 */
 export interface NavUserMessage {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import type { ReactNode, RefObject } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChatMessage } from '@/features/chat/components/chat-message';
@@ -6,18 +6,15 @@ import type {
   StoredMessage,
   StreamingMessage,
 } from '@/features/chat/types/deepseek';
+import { useChatAutoScroll } from '@/features/chat/hooks/use-chat-auto-scroll';
+import { useStreamingScrollDebounce } from '@/features/chat/hooks/use-streaming-scroll-debounce';
+import {
+  useChatListController,
+  type ChatListController,
+} from '@/features/chat/hooks/use-chat-list-controller';
 
-/**
- * 暴露给外部组件的虚拟列表控制器，用于滚动导航栏联动
- */
-export interface ChatListController {
-  /** 滚动容器元素，供外部监听 scroll 事件 */
-  readonly scrollContainer: HTMLDivElement | null;
-  /** 滚动到指定虚拟索引 */
-  scrollToIndex: (index: number, align?: 'start' | 'center' | 'end') => void;
-  /** 获取当前可见虚拟项的索引范围 [startIndex, endIndex] */
-  getVisibleRange: () => [number, number] | null;
-}
+// 向后兼容：保留 ChatListController 类型的 re-export
+export type { ChatListController };
 
 interface ChatMessageListProps {
   messages: StoredMessage[];
@@ -49,80 +46,27 @@ export function ChatMessageList({
     overscan: 5,
   });
 
-  // 记录上一次是否在底部
-  const isAtBottomRef = useRef(true);
+  // 滚动管理：自动贴底 + 用户手动滚动检测
+  const { isAtBottomRef, scrollToBottom } = useChatAutoScroll({
+    scrollContainerRef,
+    virtualizer,
+    totalCount,
+  });
 
-  // 滚动到底部
-  const scrollToBottom = useCallback(() => {
-    requestAnimationFrame(() => {
-      virtualizer.scrollToEnd();
-    });
-  }, [virtualizer]);
-
-  // 新消息到来时自动滚动到底部
-  const prevLength = useRef(totalCount);
-  useEffect(() => {
-    if (totalCount > 0 && prevLength.current !== totalCount) {
-      if (prevLength.current === 0 || isAtBottomRef.current) {
-        scrollToBottom();
-      }
-    }
-    prevLength.current = totalCount;
-  }, [totalCount, scrollToBottom]);
-
-  // 流式消息内容变化时也自动滚动（防抖）
-  const scrollTimeoutRef = useRef<number | undefined>(undefined);
-  const streamingContent = streamingMessage?.content ?? '';
-  const reasoningLength = streamingMessage?.reasoningContent.length ?? 0;
-  useEffect(() => {
-    if (isAtBottomRef.current) {
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-      scrollTimeoutRef.current = setTimeout(() => {
-        scrollToBottom();
-      }, 50);
-    }
-    return () => {
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-    };
-  }, [streamingContent, reasoningLength, scrollToBottom]);
-
-  // 监听用户手动滚动，记录是否在底部
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    const handleScroll = () => {
-      isAtBottomRef.current =
-        container.scrollHeight - container.scrollTop - container.clientHeight <
-        100;
-    };
-
-    container.addEventListener('scroll', handleScroll, { passive: true });
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, []);
+  // 流式消息内容变化时防抖滚动
+  useStreamingScrollDebounce({
+    streamingContent: streamingMessage?.content ?? '',
+    reasoningLength: streamingMessage?.reasoningContent.length ?? 0,
+    isAtBottomRef,
+    scrollToBottom,
+  });
 
   // 填充外部控制器（供滚动导航栏使用）
-  useEffect(() => {
-    if (!controllerRef) return;
-    controllerRef.current = {
-      scrollContainer: scrollContainerRef.current,
-      scrollToIndex: (index, align = 'center') => {
-        virtualizer.scrollToIndex(index, { align });
-      },
-      getVisibleRange: () => {
-        const items = virtualizer.getVirtualItems();
-        if (items.length === 0) return null;
-        return [items[0].index, items[items.length - 1].index] as [
-          number,
-          number,
-        ];
-      },
-    };
-  }, [virtualizer, controllerRef]);
+  useChatListController({
+    scrollContainerRef,
+    virtualizer,
+    controllerRef,
+  });
 
   const virtualItems = virtualizer.getVirtualItems();
 
