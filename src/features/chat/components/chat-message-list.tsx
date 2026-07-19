@@ -86,7 +86,7 @@ export function ChatMessageList({
                 data-testid="message-item"
                 data-index={virtualItem.index}
                 ref={virtualizer.measureElement}
-                className="absolute top-0 left-0 w-full pr-4 pb-4 pl-4"
+                className="group absolute top-0 left-0 w-full pr-4 pb-4 pl-4"
                 style={{
                   transform: `translateY(${virtualItem.start}px)`,
                 }}
@@ -113,7 +113,7 @@ export function ChatMessageList({
               data-testid="message-item"
               data-index={virtualItem.index}
               ref={virtualizer.measureElement}
-              className="absolute top-0 left-0 w-full pr-4 pb-4 pl-4"
+              className="group absolute top-0 left-0 w-full pr-4 pb-4 pl-4"
               style={{
                 transform: `translateY(${virtualItem.start}px)`,
               }}

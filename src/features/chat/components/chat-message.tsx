@@ -2,7 +2,13 @@ import { lazy, memo, Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/utils';
 import type { StoredMessage } from '@/features/chat/types/deepseek';
-import { ChevronRight } from 'lucide-react';
+import { Check, ChevronRight, Copy } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/shared/components/ui/tooltip';
 
 const MarkdownRenderer = lazy(() =>
   import('@/shared/components/markdown-renderer').then((m) => ({
@@ -25,7 +31,10 @@ export const ChatMessage = memo(function ChatMessage({
 
   return (
     <div
-      className={cn('flex w-full', isUser ? 'justify-end' : 'justify-start')}
+      className={cn(
+        'flex w-full flex-col',
+        isUser ? 'items-end' : 'items-start',
+      )}
     >
       <div
         className={cn(
@@ -61,6 +70,7 @@ export const ChatMessage = memo(function ChatMessage({
           </>
         )}
       </div>
+      {!isStreaming && <MessageActions message={message} />}
     </div>
   );
 });
@@ -123,5 +133,65 @@ const ThinkingSection = memo(function ThinkingSection({
         </div>
       )}
     </div>
+  );
+});
+
+// ========== 消息操作栏组件 ==========
+
+interface MessageActionsProps {
+  message: StoredMessage;
+}
+
+const MessageActions = memo(function MessageActions({
+  message,
+}: MessageActionsProps) {
+  const { t } = useTranslation();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // 剪贴板不可用时静默失败，不阻断交互
+    }
+  };
+
+  return (
+    <TooltipProvider>
+      <div
+        data-testid="message-actions"
+        className={cn(
+          'pointer-events-none mt-1 flex items-center gap-1 opacity-0 transition-opacity duration-150 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100',
+          message.role === 'user' ? 'justify-end' : 'justify-start',
+        )}
+      >
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                data-testid="message-copy-button"
+                onClick={handleCopy}
+                aria-label={
+                  copied ? t('chat.message.copied') : t('chat.message.copy')
+                }
+                className="inline-flex items-center justify-center rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              >
+                {copied ? (
+                  <Check className="size-3.5" />
+                ) : (
+                  <Copy className="size-3.5" />
+                )}
+              </button>
+            }
+          />
+          <TooltipContent side="bottom">
+            {copied ? t('chat.message.copied') : t('chat.message.copy')}
+          </TooltipContent>
+        </Tooltip>
+      </div>
+    </TooltipProvider>
   );
 });

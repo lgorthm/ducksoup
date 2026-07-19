@@ -16,6 +16,8 @@ export const SELECTORS = {
   // 消息
   messageList: '[data-testid="message-list"]',
   messageItem: '[data-testid="message-item"]',
+  messageActions: '[data-testid="message-actions"]',
+  messageCopyButton: '[data-testid="message-copy-button"]',
   chatInput: '[data-testid="chat-input"]',
   sendButton: '[data-testid="send-button"]',
   stopButton: '[data-testid="stop-button"]',

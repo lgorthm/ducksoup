@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import type { StoredMessage } from '@/features/chat/types/deepseek';
 import { ChatMessage } from './chat-message';
 
@@ -98,5 +98,54 @@ describe('ChatMessage', () => {
     render(<ChatMessage message={msg} isStreaming />);
     const markdown = await screen.findByTestId('markdown-renderer');
     expect(markdown).toBeInTheDocument();
+  });
+});
+
+describe('ChatMessage 操作栏', () => {
+  beforeEach(() => {
+    Object.assign(navigator, {
+      clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
+  });
+
+  it('完成的消息渲染操作栏与复制按钮', () => {
+    const msg = makeMessage({ role: 'user', content: '你好' });
+    render(<ChatMessage message={msg} />);
+    expect(screen.getByTestId('message-actions')).toBeInTheDocument();
+    expect(screen.getByTestId('message-copy-button')).toBeInTheDocument();
+  });
+
+  it('assistant 完成消息同样渲染复制按钮', () => {
+    const msg = makeMessage({ role: 'assistant', content: '回复' });
+    render(<ChatMessage message={msg} />);
+    expect(screen.getByTestId('message-copy-button')).toBeInTheDocument();
+  });
+
+  it('流式消息不渲染操作栏', () => {
+    const msg = makeMessage({ role: 'assistant', content: '部分内容' });
+    render(<ChatMessage message={msg} isStreaming />);
+    expect(screen.queryByTestId('message-actions')).not.toBeInTheDocument();
+  });
+
+  it('点击复制按钮写入剪贴板并切换为已复制状态', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    vi.useFakeTimers();
+    try {
+      const msg = makeMessage({ role: 'user', content: '待复制内容' });
+      render(<ChatMessage message={msg} />);
+      const btn = screen.getByTestId('message-copy-button');
+      await act(async () => {
+        fireEvent.click(btn);
+      });
+      expect(writeText).toHaveBeenCalledWith('待复制内容');
+      expect(btn).toHaveAttribute('aria-label', '已复制');
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+      expect(btn).toHaveAttribute('aria-label', '复制');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

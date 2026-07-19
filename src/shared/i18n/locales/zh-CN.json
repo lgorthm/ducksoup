@@ -15,7 +15,9 @@
       "stop": "停止"
     },
     "message": {
-      "thinkingLabel": "思考过程"
+      "thinkingLabel": "思考过程",
+      "copy": "复制",
+      "copied": "已复制"
     },
     "disclaimer": "内容由AI生成，请仔细甄别",
     "welcome": {
