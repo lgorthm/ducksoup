@@ -86,10 +86,12 @@ export function ChatArea() {
         )}
       </ChatMessageList>
 
-      <ChatScrollNav
-        userMessages={userMessages}
-        controllerRef={controllerRef}
-      />
+      {userMessages.length > 1 && (
+        <ChatScrollNav
+          userMessages={userMessages}
+          controllerRef={controllerRef}
+        />
+      )}
 
       <div className="mx-auto w-full max-w-[776px] px-4">
         <ChatInput

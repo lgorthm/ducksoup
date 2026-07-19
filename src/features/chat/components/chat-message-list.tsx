@@ -41,7 +41,7 @@ export function ChatMessageList({
     count: totalCount,
     getScrollElement: useCallback(() => scrollContainerRef.current, []),
     estimateSize: useCallback(() => 80, []),
-    overscan: 5,
+    overscan: 0,
     // 端锚定：专为聊天/日志场景设计。prepend 历史时保持视口稳定；
     // 末尾项增长（流式 token 累积）时由 virtualizer 内部尺寸补偿
     // 自动保持贴底，无需手写 scroll 监听 + isAtBottom ref。
