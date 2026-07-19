@@ -18,6 +18,7 @@ export function generateConversations(count: number): Conversation[] {
     createdAt: now - (count - i) * 1000,
     updatedAt: now - (count - i) * 1000,
     messageCount: 0,
+    activeLeafId: null,
   }));
 }
 
@@ -31,6 +32,7 @@ export function generateConversation(
     createdAt: now,
     updatedAt: now,
     messageCount: 0,
+    activeLeafId: null,
     ...overrides,
   };
 }
@@ -55,7 +57,8 @@ export function generateMessages(
     '总结一下，核心思路就是这些。',
   ];
 
-  return Array.from({ length: count }, (_, i) => {
+  const msgs: StoredMessage[] = [];
+  for (let i = 0; i < count; i++) {
     const isUser = i % 2 === 0;
     const baseContent = contents[i % contents.length];
     const content =
@@ -71,14 +74,24 @@ export function generateMessages(
       role: isUser ? 'user' : 'assistant',
       content,
       createdAt: now - (count - i) * 10,
+      parentId: null,
+      selectedChildId: null,
     };
 
     if (!isUser && withThinking) {
       msg.reasoningContent = '让我分析一下这个问题...';
     }
 
-    return msg;
-  });
+    msgs.push(msg);
+  }
+
+  // 链式化树结构：parentId 指向前一条，selectedChildId 指向下一条
+  for (let i = 0; i < msgs.length; i++) {
+    msgs[i].parentId = i > 0 ? msgs[i - 1].id : null;
+    msgs[i].selectedChildId = i < msgs.length - 1 ? msgs[i + 1].id : null;
+  }
+
+  return msgs;
 }
 
 export function generateMessage(
@@ -90,6 +103,8 @@ export function generateMessage(
     role: 'user',
     content: '测试消息',
     createdAt: Date.now(),
+    parentId: null,
+    selectedChildId: null,
     ...overrides,
   };
 }

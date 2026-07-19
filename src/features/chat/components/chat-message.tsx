@@ -1,14 +1,25 @@
-import { lazy, memo, Suspense, useState } from 'react';
+import { lazy, memo, Suspense, useEffect, useRef, useState } from 'react';
+import type { KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useShallow } from 'zustand/react/shallow';
 import { cn } from '@/shared/lib/utils';
-import type { StoredMessage } from '@/features/chat/types/deepseek';
-import { Check, ChevronRight, Copy } from 'lucide-react';
+import type { BranchInfo, StoredMessage } from '@/features/chat/types/deepseek';
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  Pencil,
+  RefreshCw,
+} from 'lucide-react';
+import { Button } from '@/shared/components/ui/button';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/shared/components/ui/tooltip';
+import { useChatStore } from '@/features/chat/store/chat-store';
 
 const MarkdownRenderer = lazy(() =>
   import('@/shared/components/markdown-renderer').then((m) => ({
@@ -20,11 +31,17 @@ interface ChatMessageProps {
   message: StoredMessage;
   /** 是否为流式传输中（内容还未完成） */
   isStreaming?: boolean;
+  /** 当前是否处于编辑态（仅 user 消息） */
+  isEditing?: boolean;
+  /** 分支导航信息；total>1 时渲染 `<N/M>` */
+  branchInfo?: BranchInfo;
 }
 
 export const ChatMessage = memo(function ChatMessage({
   message,
   isStreaming = false,
+  isEditing = false,
+  branchInfo,
 }: ChatMessageProps) {
   const isUser = message.role === 'user';
   const hasThinking = !!message.reasoningContent;
@@ -45,15 +62,17 @@ export const ChatMessage = memo(function ChatMessage({
         )}
       >
         {isUser ? (
-          <p className="wrap-break-word whitespace-pre-wrap">
-            {message.content}
-          </p>
+          isEditing ? (
+            <EditForm message={message} />
+          ) : (
+            <p className="wrap-break-word whitespace-pre-wrap">
+              {message.content}
+            </p>
+          )
         ) : (
           <>
-            {/* 思考过程 */}
             <ThinkingSection message={message} isStreaming={isStreaming} />
 
-            {/* 输出内容 */}
             {message.content ? (
               <Suspense
                 fallback={
@@ -70,7 +89,9 @@ export const ChatMessage = memo(function ChatMessage({
           </>
         )}
       </div>
-      {!isStreaming && <MessageActions message={message} />}
+      {!isStreaming && !isEditing && (
+        <MessageActions message={message} branchInfo={branchInfo} />
+      )}
     </div>
   );
 });
@@ -136,17 +157,119 @@ const ThinkingSection = memo(function ThinkingSection({
   );
 });
 
+// ========== 内联编辑表单 ==========
+
+interface EditFormProps {
+  message: StoredMessage;
+}
+
+const EditForm = memo(function EditForm({ message }: EditFormProps) {
+  const { t } = useTranslation();
+  const { setEditingMessage, editMessage, isLoading } = useChatStore(
+    useShallow((s) => ({
+      setEditingMessage: s.setEditingMessage,
+      editMessage: s.editMessage,
+      isLoading: s.isLoading,
+    })),
+  );
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // 自动聚焦并将光标置于末尾
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.focus();
+    const len = ta.value.length;
+    ta.setSelectionRange(len, len);
+    autoResize(ta);
+  }, []);
+
+  const cancel = () => setEditingMessage(null);
+
+  const send = () => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const value = ta.value.trim();
+    if (!value || isLoading) return;
+    editMessage(message.id, value);
+  };
+
+  const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+      e.preventDefault();
+      if (!isLoading) send();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      cancel();
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <textarea
+        ref={textareaRef}
+        data-testid="message-edit-textarea"
+        defaultValue={message.content}
+        placeholder={t('chat.message.editPlaceholder')}
+        disabled={isLoading}
+        onKeyDown={onKeyDown}
+        onInput={(e) => autoResize(e.currentTarget)}
+        rows={1}
+        className="min-h-11 w-full resize-none rounded-none bg-background px-2 py-1.5 text-sm leading-relaxed text-foreground ring-1 ring-border/60 outline-none ring-inset focus-visible:ring-ring"
+      />
+      <div className="flex items-center justify-end gap-2">
+        <Button
+          data-testid="message-edit-cancel"
+          variant="ghost"
+          size="sm"
+          onClick={cancel}
+          disabled={isLoading}
+        >
+          {t('common.cancel')}
+        </Button>
+        <Button
+          data-testid="message-edit-send"
+          size="sm"
+          onClick={send}
+          disabled={isLoading}
+        >
+          {t('chat.input.send')}
+        </Button>
+      </div>
+    </div>
+  );
+});
+
+function autoResize(el: HTMLTextAreaElement | HTMLInputElement) {
+  el.style.height = 'auto';
+  el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+}
+
 // ========== 消息操作栏组件 ==========
 
 interface MessageActionsProps {
   message: StoredMessage;
+  branchInfo?: BranchInfo;
 }
 
 const MessageActions = memo(function MessageActions({
   message,
+  branchInfo,
 }: MessageActionsProps) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
+  const { setEditingMessage, regenerateMessage, switchSibling, isLoading } =
+    useChatStore(
+      useShallow((s) => ({
+        setEditingMessage: s.setEditingMessage,
+        regenerateMessage: s.regenerateMessage,
+        switchSibling: s.switchSibling,
+        isLoading: s.isLoading,
+      })),
+    );
+
+  const isUser = message.role === 'user';
+  const showBranch = !!branchInfo && branchInfo.total > 1;
 
   const handleCopy = async () => {
     try {
@@ -154,7 +277,7 @@ const MessageActions = memo(function MessageActions({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // 剪贴板不可用时静默失败，不阻断交互
+      // 剪贴板不可用时静默失败
     }
   };
 
@@ -164,9 +287,64 @@ const MessageActions = memo(function MessageActions({
         data-testid="message-actions"
         className={cn(
           'pointer-events-none mt-1 flex items-center gap-1 opacity-0 transition-opacity duration-150 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100',
-          message.role === 'user' ? 'justify-end' : 'justify-start',
+          isUser ? 'justify-end' : 'justify-start',
         )}
       >
+        {showBranch && (
+          <div
+            data-testid="message-branch-nav"
+            className="pointer-events-auto flex items-center gap-0.5 opacity-100"
+          >
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    data-testid="message-branch-prev"
+                    aria-label={t('chat.message.branchPrev')}
+                    disabled={!branchInfo?.prevSiblingId}
+                    onClick={() => switchSibling(message.id, -1)}
+                    className="inline-flex items-center justify-center rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+                  >
+                    <ChevronLeft className="size-3.5" />
+                  </button>
+                }
+              />
+              <TooltipContent side="bottom">
+                {t('chat.message.branchPrev')}
+              </TooltipContent>
+            </Tooltip>
+            <span
+              data-testid="message-branch-position"
+              className="min-w-7 text-center text-xs text-muted-foreground tabular-nums"
+            >
+              {t('chat.message.branchPosition', {
+                current: branchInfo!.current,
+                total: branchInfo!.total,
+              })}
+            </span>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    data-testid="message-branch-next"
+                    aria-label={t('chat.message.branchNext')}
+                    disabled={!branchInfo?.nextSiblingId}
+                    onClick={() => switchSibling(message.id, 1)}
+                    className="inline-flex items-center justify-center rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+                  >
+                    <ChevronRight className="size-3.5" />
+                  </button>
+                }
+              />
+              <TooltipContent side="bottom">
+                {t('chat.message.branchNext')}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        )}
+
         <Tooltip>
           <TooltipTrigger
             render={
@@ -191,6 +369,48 @@ const MessageActions = memo(function MessageActions({
             {copied ? t('chat.message.copied') : t('chat.message.copy')}
           </TooltipContent>
         </Tooltip>
+
+        {isUser ? (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  type="button"
+                  data-testid="message-edit-button"
+                  aria-label={t('chat.message.edit')}
+                  disabled={isLoading}
+                  onClick={() => setEditingMessage(message.id)}
+                  className="inline-flex items-center justify-center rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+                >
+                  <Pencil className="size-3.5" />
+                </button>
+              }
+            />
+            <TooltipContent side="bottom">
+              {t('chat.message.edit')}
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  type="button"
+                  data-testid="message-regenerate-button"
+                  aria-label={t('chat.message.regenerate')}
+                  disabled={isLoading}
+                  onClick={() => regenerateMessage(message.id)}
+                  className="inline-flex items-center justify-center rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+                >
+                  <RefreshCw className="size-3.5" />
+                </button>
+              }
+            />
+            <TooltipContent side="bottom">
+              {t('chat.message.regenerate')}
+            </TooltipContent>
+          </Tooltip>
+        )}
       </div>
     </TooltipProvider>
   );

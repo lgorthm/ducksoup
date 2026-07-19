@@ -149,3 +149,95 @@ describe('ChatMessage 操作栏', () => {
     }
   });
 });
+
+describe('ChatMessage 修改 / 重新生成 / 分支导航', () => {
+  beforeEach(() => {
+    Object.assign(navigator, {
+      clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
+    });
+  });
+
+  it('user 消息渲染修改按钮', () => {
+    const msg = makeMessage({ role: 'user', content: '你好' });
+    render(<ChatMessage message={msg} />);
+    expect(screen.getByTestId('message-edit-button')).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('message-regenerate-button'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('assistant 消息渲染重新生成按钮', () => {
+    const msg = makeMessage({ role: 'assistant', content: '回复' });
+    render(<ChatMessage message={msg} />);
+    expect(screen.getByTestId('message-regenerate-button')).toBeInTheDocument();
+    expect(screen.queryByTestId('message-edit-button')).not.toBeInTheDocument();
+  });
+
+  it('isEditing 时渲染编辑框与取消/发送按钮，并预填内容', () => {
+    const msg = makeMessage({ role: 'user', content: '原文' });
+    render(<ChatMessage message={msg} isEditing />);
+    const ta = screen.getByTestId(
+      'message-edit-textarea',
+    ) as HTMLTextAreaElement;
+    expect(ta).toBeInTheDocument();
+    expect(ta.value).toBe('原文');
+    expect(screen.getByTestId('message-edit-cancel')).toBeInTheDocument();
+    expect(screen.getByTestId('message-edit-send')).toBeInTheDocument();
+    // 编辑态不渲染操作栏
+    expect(screen.queryByTestId('message-actions')).not.toBeInTheDocument();
+  });
+
+  it('branchInfo.total>1 时渲染 <N/M> 导航', () => {
+    const msg = makeMessage({ role: 'assistant', content: '回复' });
+    render(
+      <ChatMessage
+        message={msg}
+        branchInfo={{
+          current: 2,
+          total: 3,
+          prevSiblingId: 's1',
+          nextSiblingId: 's3',
+        }}
+      />,
+    );
+    expect(screen.getByTestId('message-branch-nav')).toBeInTheDocument();
+    expect(screen.getByTestId('message-branch-position').textContent).toBe(
+      '2/3',
+    );
+    expect(screen.getByTestId('message-branch-prev')).not.toBeDisabled();
+    expect(screen.getByTestId('message-branch-next')).not.toBeDisabled();
+  });
+
+  it('branchInfo.total===1 时不渲染导航', () => {
+    const msg = makeMessage({ role: 'assistant', content: '回复' });
+    render(
+      <ChatMessage
+        message={msg}
+        branchInfo={{
+          current: 1,
+          total: 1,
+          prevSiblingId: null,
+          nextSiblingId: null,
+        }}
+      />,
+    );
+    expect(screen.queryByTestId('message-branch-nav')).not.toBeInTheDocument();
+  });
+
+  it('分支边界按钮禁用', () => {
+    const msg = makeMessage({ role: 'assistant', content: '回复' });
+    render(
+      <ChatMessage
+        message={msg}
+        branchInfo={{
+          current: 1,
+          total: 2,
+          prevSiblingId: null,
+          nextSiblingId: 's2',
+        }}
+      />,
+    );
+    expect(screen.getByTestId('message-branch-prev')).toBeDisabled();
+    expect(screen.getByTestId('message-branch-next')).not.toBeDisabled();
+  });
+});

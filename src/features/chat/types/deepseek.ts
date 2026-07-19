@@ -160,6 +160,8 @@ export interface Conversation {
   createdAt: number;
   updatedAt: number;
   messageCount: number;
+  /** 当前激活路径的叶子消息 ID（树结构）；空会话为 null */
+  activeLeafId?: string | null;
 }
 
 // ========== 流式消息状态 ==========
@@ -186,6 +188,25 @@ export interface StoredMessage {
   /** 深度思考模式的推理过程内容 */
   reasoningContent?: string;
   createdAt: number;
+  /** 父消息 ID（树结构）；根消息为 null/undefined */
+  parentId?: string | null;
+  /** 当前激活子消息 ID；叶子消息为 null/undefined */
+  selectedChildId?: string | null;
+  selectedChildId?: string | null;
+}
+
+// ========== 分支导航信息 ==========
+
+/** 单条消息在兄弟分支中的位置信息，用于 `<N/M>` 导航 */
+export interface BranchInfo {
+  /** 当前激活的版本序号（1-based） */
+  current: number;
+  /** 兄弟版本总数 */
+  total: number;
+  /** 上一版本消息 ID；无则 null */
+  prevSiblingId: string | null;
+  /** 下一版本消息 ID；无则 null */
+  nextSiblingId: string | null;
 }
 
 // ========== 余额查询类型 ==========

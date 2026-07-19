@@ -1,11 +1,14 @@
-import { useCallback, useLayoutEffect, useRef } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import type { ReactNode, RefObject } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { useShallow } from 'zustand/react/shallow';
 import { ChatMessage } from '@/features/chat/components/chat-message';
 import type {
+  BranchInfo,
   StoredMessage,
   StreamingMessage,
 } from '@/features/chat/types/deepseek';
+import { useChatStore } from '@/features/chat/store/chat-store';
 import {
   useChatListController,
   type ChatListController,
@@ -32,6 +35,38 @@ export function ChatMessageList({
   // 与 React Compiler 自动记忆化不兼容，故显式跳过本组件的记忆化。
   'use no memo';
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const { allMessages, editingMessageId } = useChatStore(
+    useShallow((s) => ({
+      allMessages: s.allMessages,
+      editingMessageId: s.editingMessageId,
+    })),
+  );
+
+  // 由全树派生每条消息的分支信息，避免每条 ChatMessage 各自订阅 store
+  const branchInfoMap = useMemo(() => {
+    const map: Record<string, BranchInfo> = {};
+    // 按 parentId 分组兄弟（root 消息 parentId 为 null/undefined）
+    const byParent = new Map<string | null, StoredMessage[]>();
+    for (const m of allMessages) {
+      const key = m.parentId ?? null;
+      const list = byParent.get(key) ?? [];
+      list.push(m);
+      byParent.set(key, list);
+    }
+    for (const siblings of byParent.values()) {
+      siblings.sort((a, b) => a.createdAt - b.createdAt);
+      for (let i = 0; i < siblings.length; i++) {
+        const m = siblings[i];
+        map[m.id] = {
+          current: i + 1,
+          total: siblings.length,
+          prevSiblingId: i > 0 ? siblings[i - 1].id : null,
+          nextSiblingId: i < siblings.length - 1 ? siblings[i + 1].id : null,
+        };
+      }
+    }
+    return map;
+  }, [allMessages]);
 
   // 总条目数 = 历史消息 + 可能存在的流式消息
   const totalCount = messages.length + (streamingMessage ? 1 : 0);
@@ -82,7 +117,7 @@ export function ChatMessageList({
           if (isStreaming) {
             return (
               <div
-                key={`streaming-${streamingMessage.id}`}
+                key={`streaming-${streamingMessage!.id}`}
                 data-testid="message-item"
                 data-index={virtualItem.index}
                 ref={virtualizer.measureElement}
@@ -93,12 +128,12 @@ export function ChatMessageList({
               >
                 <ChatMessage
                   message={{
-                    id: streamingMessage.id,
-                    conversationId: streamingMessage.conversationId,
+                    id: streamingMessage!.id,
+                    conversationId: streamingMessage!.conversationId,
                     role: 'assistant',
-                    content: streamingMessage.content,
-                    reasoningContent: streamingMessage.reasoningContent,
-                    createdAt: streamingMessage.createdAt,
+                    content: streamingMessage!.content,
+                    reasoningContent: streamingMessage!.reasoningContent,
+                    createdAt: streamingMessage!.createdAt,
                   }}
                   isStreaming
                 />
@@ -118,7 +153,11 @@ export function ChatMessageList({
                 transform: `translateY(${virtualItem.start}px)`,
               }}
             >
-              <ChatMessage message={msg} />
+              <ChatMessage
+                message={msg}
+                branchInfo={branchInfoMap[msg.id]}
+                isEditing={editingMessageId === msg.id}
+              />
             </div>
           );
         })}

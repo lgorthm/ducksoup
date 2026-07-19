@@ -13,6 +13,8 @@ import {
   getMessagesByConversation,
   deleteMessage,
   clearConversationMessages,
+  updateMessage,
+  chainFlatMessagesIntoTree,
 } from './db';
 
 // ========== 辅助工厂 ==========
@@ -43,7 +45,7 @@ function makeMessage(overrides: Partial<StoredMessage> = {}): StoredMessage {
 // ========== 测试前清空数据库 ==========
 
 beforeEach(async () => {
-  const db = await openDB('ducksoup-chat', 1, {
+  const db = await openDB('ducksoup-chat', 2, {
     upgrade(db) {
       if (!db.objectStoreNames.contains('conversations')) {
         const convStore = db.createObjectStore('conversations', {
@@ -283,5 +285,127 @@ describe('clearConversationMessages', () => {
     await expect(
       clearConversationMessages('nonexistent'),
     ).resolves.toBeUndefined();
+  });
+});
+
+// ========== updateMessage ==========
+
+describe('updateMessage', () => {
+  it('覆盖写入已存在的消息', async () => {
+    await addConversation(makeConversation({ id: 'c1' }));
+    await addMessage(
+      makeMessage({ id: 'm1', conversationId: 'c1', content: '旧' }),
+    );
+    await updateMessage(
+      makeMessage({ id: 'm1', conversationId: 'c1', content: '新' }),
+    );
+    const msgs = await getMessagesByConversation('c1');
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0].content).toBe('新');
+  });
+});
+
+// ========== v1 → v2 迁移 ==========
+
+describe('v1 → v2 迁移', () => {
+  it('chainFlatMessagesIntoTree 链式化扁平消息并设置 activeLeafId', () => {
+    const now = Date.now();
+    const conv: Conversation = {
+      id: 'c1',
+      title: '迁移',
+      createdAt: now,
+      updatedAt: now,
+      messageCount: 4,
+    };
+    const messages: StoredMessage[] = [
+      {
+        id: 'u1',
+        conversationId: 'c1',
+        role: 'user',
+        content: '问1',
+        createdAt: now,
+      },
+      {
+        id: 'a1',
+        conversationId: 'c1',
+        role: 'assistant',
+        content: '答1',
+        createdAt: now,
+      },
+      {
+        id: 'u2',
+        conversationId: 'c1',
+        role: 'user',
+        content: '问2',
+        createdAt: now + 1,
+      },
+      {
+        id: 'a2',
+        conversationId: 'c1',
+        role: 'assistant',
+        content: '答2',
+        createdAt: now + 1,
+      },
+    ];
+
+    chainFlatMessagesIntoTree(messages, [conv]);
+
+    const byId = new Map(messages.map((m) => [m.id, m]));
+    expect(byId.get('u1')!.parentId).toBeNull();
+    expect(byId.get('u1')!.selectedChildId).toBe('a1');
+    expect(byId.get('a1')!.parentId).toBe('u1');
+    expect(byId.get('a1')!.selectedChildId).toBe('u2');
+    expect(byId.get('u2')!.parentId).toBe('a1');
+    expect(byId.get('u2')!.selectedChildId).toBe('a2');
+    expect(byId.get('a2')!.parentId).toBe('u2');
+    expect(byId.get('a2')!.selectedChildId).toBeNull();
+    expect(conv.activeLeafId).toBe('a2');
+  });
+
+  it('chainFlatMessagesIntoTree 相同时间戳时 user 排在 assistant 前', () => {
+    const ts = 1000;
+    const messages: StoredMessage[] = [
+      {
+        id: 'a1',
+        conversationId: 'c1',
+        role: 'assistant',
+        content: '答',
+        createdAt: ts,
+      },
+      {
+        id: 'u1',
+        conversationId: 'c1',
+        role: 'user',
+        content: '问',
+        createdAt: ts,
+      },
+    ];
+    const conv: Conversation = {
+      id: 'c1',
+      title: 'x',
+      createdAt: ts,
+      updatedAt: ts,
+      messageCount: 2,
+    };
+
+    chainFlatMessagesIntoTree(messages, [conv]);
+
+    const byId = new Map(messages.map((m) => [m.id, m]));
+    expect(byId.get('u1')!.parentId).toBeNull();
+    expect(byId.get('u1')!.selectedChildId).toBe('a1');
+    expect(byId.get('a1')!.parentId).toBe('u1');
+    expect(conv.activeLeafId).toBe('a1');
+  });
+
+  it('chainFlatMessagesIntoTree 无消息时 no-op', () => {
+    const conv: Conversation = {
+      id: 'c1',
+      title: 'x',
+      createdAt: 1,
+      updatedAt: 1,
+      messageCount: 0,
+    };
+    chainFlatMessagesIntoTree([], [conv]);
+    expect(conv.activeLeafId).toBeNull();
   });
 });

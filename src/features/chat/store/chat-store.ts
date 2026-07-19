@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import i18n from '@/shared/i18n';
 import type {
+  BranchInfo,
   ChatMessage,
   Conversation,
   StoredMessage,
@@ -9,6 +10,7 @@ import type {
 import {
   createChatStream,
   type ChatStreamController,
+  type ChatStreamEvent,
 } from '@/features/chat/utils/chat-stream';
 import * as db from '@/features/chat/utils/db';
 
@@ -21,29 +23,65 @@ export const MODEL_LABELS: Record<ModelName, string> = {
   'deepseek-v4-pro': 'DeepSeek V4 Pro',
 };
 
+// ========== 树结构辅助函数 ==========
+
+function deriveActivePath(
+  allMessages: StoredMessage[],
+  activeLeafId: string | null | undefined,
+): StoredMessage[] {
+  if (allMessages.length === 0) return [];
+  let leafId = activeLeafId ?? null;
+  if (!leafId) {
+    const sorted = [...allMessages].sort((a, b) => a.createdAt - b.createdAt);
+    leafId = sorted[sorted.length - 1].id;
+  }
+  const byId = new Map(allMessages.map((m) => [m.id, m]));
+  const path: StoredMessage[] = [];
+  const seen = new Set<string>();
+  let cur = byId.get(leafId);
+  while (cur && !seen.has(cur.id)) {
+    seen.add(cur.id);
+    path.push(cur);
+    cur = cur.parentId ? byId.get(cur.parentId) : undefined;
+  }
+  return path.reverse();
+}
+
+function deriveBranchInfo(
+  allMessages: StoredMessage[],
+  message: StoredMessage,
+): BranchInfo {
+  const siblings = allMessages
+    .filter(
+      (m) =>
+        m.conversationId === message.conversationId &&
+        (m.parentId ?? null) === (message.parentId ?? null),
+    )
+    .sort((a, b) => a.createdAt - b.createdAt);
+  const idx = siblings.findIndex((m) => m.id === message.id);
+  return {
+    current: idx + 1,
+    total: siblings.length,
+    prevSiblingId: idx > 0 ? siblings[idx - 1].id : null,
+    nextSiblingId:
+      idx >= 0 && idx < siblings.length - 1 ? siblings[idx + 1].id : null,
+  };
+}
+
 interface ChatState {
-  // API Key
   apiKey: string;
   hasApiKey: boolean;
-
-  // 模型
   selectedModel: ModelName;
-
-  // 深度思考
   deepThink: boolean;
-
-  // 会话
   conversations: Conversation[];
   currentConversationId: string | null;
-
-  // 消息
+  allMessages: StoredMessage[];
   messages: StoredMessage[];
-  /** 正在流式传输中的 assistant 消息（用于实时渲染） */
   streamingMessage: StreamingMessage | null;
+  editingMessageId: string | null;
   isLoading: boolean;
   error: string | null;
 
-  // 操作
   init: () => Promise<void>;
   setApiKey: (key: string) => void;
   clearApiKey: () => void;
@@ -57,8 +95,13 @@ interface ChatState {
 
   sendMessage: (content: string, deepThink?: boolean) => Promise<void>;
   cancelStream: () => void;
-  retryLastMessage: () => Promise<void>;
   clearMessages: () => Promise<void>;
+
+  setEditingMessage: (id: string | null) => void;
+  editMessage: (messageId: string, newContent: string) => Promise<void>;
+  regenerateMessage: (messageId: string) => Promise<void>;
+  switchSibling: (messageId: string, direction: -1 | 1) => void;
+  getBranchInfo: (messageId: string) => BranchInfo;
 }
 
 function generateId(): string {
@@ -69,9 +112,166 @@ function buildSystemPrompt(): string {
   return 'You are a helpful assistant.';
 }
 
+function buildApiMessages(path: StoredMessage[]): ChatMessage[] {
+  return [
+    { role: 'system', content: buildSystemPrompt() },
+    ...path.map((m) => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content,
+    })),
+  ];
+}
+
 export const useChatStore = create<ChatState>((set, get) => {
-  /** 当前活跃的流控制器，用于手动取消 */
   let activeController: ChatStreamController | null = null;
+
+  function runStream(opts: {
+    conversationId: string;
+    apiMessages: ChatMessage[];
+    streamingMsgId: string;
+    streamingParentId: string | null;
+    parentUpdate: { parentId: string; newChildId: string } | null;
+    userMsgToPersist?: StoredMessage | null;
+    messageCountDelta: number;
+  }) {
+    const {
+      conversationId,
+      apiMessages,
+      streamingParentId,
+      parentUpdate,
+      userMsgToPersist,
+      messageCountDelta,
+    } = opts;
+
+    if (userMsgToPersist) {
+      db.addMessage(userMsgToPersist).catch(() => {});
+    }
+
+    const controller = createChatStream({
+      apiKey: get().apiKey,
+      model: get().selectedModel,
+      messages: apiMessages,
+      deepThink: get().deepThink,
+      onEvent: (event: ChatStreamEvent) => {
+        switch (event.type) {
+          case 'thinking':
+            set((state) =>
+              state.streamingMessage
+                ? {
+                    streamingMessage: {
+                      ...state.streamingMessage,
+                      reasoningContent:
+                        state.streamingMessage.reasoningContent + event.text,
+                    },
+                  }
+                : state,
+            );
+            break;
+
+          case 'content':
+            set((state) =>
+              state.streamingMessage
+                ? {
+                    streamingMessage: {
+                      ...state.streamingMessage,
+                      content: state.streamingMessage.content + event.text,
+                    },
+                  }
+                : state,
+            );
+            break;
+
+          case 'done': {
+            const finalStreaming = get().streamingMessage;
+            if (!finalStreaming) break;
+
+            const entry = get().allMessages.find(
+              (m) => m.id === finalStreaming.id,
+            );
+            const assistantMsg: StoredMessage = {
+              id: finalStreaming.id,
+              conversationId,
+              role: 'assistant',
+              content: finalStreaming.content,
+              reasoningContent: finalStreaming.reasoningContent || undefined,
+              createdAt: finalStreaming.createdAt,
+              parentId: entry?.parentId ?? null,
+              selectedChildId: entry?.selectedChildId ?? null,
+            };
+            db.addMessage(assistantMsg).catch(() => {});
+
+            let nextAll = get().allMessages.map((m) =>
+              m.id === assistantMsg.id ? assistantMsg : m,
+            );
+            if (parentUpdate) {
+              nextAll = nextAll.map((m) =>
+                m.id === parentUpdate.parentId
+                  ? { ...m, selectedChildId: parentUpdate.newChildId }
+                  : m,
+              );
+              const parent = get().allMessages.find(
+                (m) => m.id === parentUpdate.parentId,
+              );
+              if (parent) {
+                db.updateMessage({
+                  ...parent,
+                  selectedChildId: parentUpdate.newChildId,
+                }).catch(() => {});
+              }
+            }
+
+            const conversations = get().conversations.map((c) =>
+              c.id === conversationId
+                ? {
+                    ...c,
+                    activeLeafId: assistantMsg.id,
+                    updatedAt: Date.now(),
+                    messageCount: c.messageCount + messageCountDelta,
+                  }
+                : c,
+            );
+            const updatedConv = conversations.find(
+              (c) => c.id === conversationId,
+            );
+            if (updatedConv) {
+              db.updateConversation(updatedConv).catch(() => {});
+            }
+
+            set({
+              allMessages: nextAll,
+              messages: deriveActivePath(nextAll, assistantMsg.id),
+              streamingMessage: null,
+              isLoading: false,
+              conversations,
+            });
+            activeController = null;
+            break;
+          }
+
+          case 'error':
+            set((state) => {
+              const conv = state.conversations.find(
+                (c) => c.id === conversationId,
+              );
+              return {
+                streamingMessage: null,
+                isLoading: false,
+                error: event.error.message,
+                messages: deriveActivePath(
+                  state.allMessages,
+                  conv?.activeLeafId,
+                ),
+              };
+            });
+            activeController = null;
+            break;
+        }
+      },
+    });
+
+    void streamingParentId;
+    activeController = controller;
+  }
 
   return {
     apiKey: '',
@@ -80,8 +280,10 @@ export const useChatStore = create<ChatState>((set, get) => {
     deepThink: false,
     conversations: [],
     currentConversationId: null,
+    allMessages: [],
     messages: [],
     streamingMessage: null,
+    editingMessageId: null,
     isLoading: false,
     error: null,
 
@@ -91,23 +293,28 @@ export const useChatStore = create<ChatState>((set, get) => {
 
       try {
         const conversations = await db.getAllConversations();
-        // DB 为空时不自动创建对话，保持 null + 空数组；
-        // 真正的会话在首次 sendMessage 时延迟创建（见 sendMessage 的懒创建分支）。
         const currentId =
           conversations.length > 0
             ? conversations[conversations.length - 1].id
             : null;
 
-        const messages = currentId
-          ? await db.getMessagesByConversation(currentId)
-          : [];
+        let allMessages: StoredMessage[] = [];
+        if (currentId) {
+          allMessages = await db.getMessagesByConversation(currentId);
+        }
+        const conv = conversations.find((c) => c.id === currentId);
+        const messages = deriveActivePath(allMessages, conv?.activeLeafId);
 
         set({
           apiKey: storedKey,
           hasApiKey: hasKey,
           conversations,
           currentConversationId: currentId,
+          allMessages,
           messages,
+          streamingMessage: null,
+          editingMessageId: null,
+          error: null,
         });
       } catch {
         set({ apiKey: storedKey, hasApiKey: hasKey });
@@ -140,13 +347,16 @@ export const useChatStore = create<ChatState>((set, get) => {
         createdAt: now,
         updatedAt: now,
         messageCount: 0,
+        activeLeafId: null,
       };
       await db.addConversation(conv);
       set((state) => ({
         conversations: [...state.conversations, conv],
         currentConversationId: conv.id,
+        allMessages: [],
         messages: [],
         streamingMessage: null,
+        editingMessageId: null,
         error: null,
       }));
     },
@@ -154,18 +364,24 @@ export const useChatStore = create<ChatState>((set, get) => {
     startNewConversation() {
       set({
         currentConversationId: null,
+        allMessages: [],
         messages: [],
         streamingMessage: null,
+        editingMessageId: null,
         error: null,
       });
     },
 
     async switchConversation(id: string) {
-      const messages = await db.getMessagesByConversation(id);
+      const allMessages = await db.getMessagesByConversation(id);
+      const conv = get().conversations.find((c) => c.id === id);
+      const messages = deriveActivePath(allMessages, conv?.activeLeafId);
       set({
         currentConversationId: id,
+        allMessages,
         messages,
         streamingMessage: null,
+        editingMessageId: null,
         error: null,
       });
     },
@@ -189,29 +405,28 @@ export const useChatStore = create<ChatState>((set, get) => {
     },
 
     async sendMessage(content: string, deepThink = false) {
-      const { apiKey, currentConversationId, messages } = get();
+      const { apiKey, currentConversationId, allMessages, conversations } =
+        get();
       if (!apiKey) return;
+      void deepThink;
 
-      // 取消之前的流
       get().cancelStream();
 
-      // 如果没有当前会话，自动创建一个
       let conversationId = currentConversationId;
-      if (!conversationId) {
+      let conv = conversations.find((c) => c.id === conversationId) ?? null;
+      const prevLeafId = conv?.activeLeafId ?? null;
+      if (!conv) {
         const now = Date.now();
-        const conv: Conversation = {
+        conv = {
           id: generateId(),
           title: content.length > 20 ? content.slice(0, 20) + '...' : content,
           createdAt: now,
           updatedAt: now,
           messageCount: 0,
+          activeLeafId: null,
         };
         await db.addConversation(conv);
         conversationId = conv.id;
-        set((state) => ({
-          conversations: [...state.conversations, conv],
-          currentConversationId: conv.id,
-        }));
       }
 
       const userMsg: StoredMessage = {
@@ -220,158 +435,274 @@ export const useChatStore = create<ChatState>((set, get) => {
         role: 'user',
         content,
         createdAt: Date.now(),
+        parentId: prevLeafId,
+        selectedChildId: null,
       };
-
+      const assistantId = generateId();
+      userMsg.selectedChildId = assistantId;
+      const assistantPlaceholder: StoredMessage = {
+        id: assistantId,
+        conversationId,
+        role: 'assistant',
+        content: '',
+        createdAt: Date.now() + 1,
+        parentId: userMsg.id,
+        selectedChildId: null,
+      };
       const streamingMsg: StreamingMessage = {
-        id: generateId(),
+        id: assistantId,
         conversationId,
         role: 'assistant',
         content: '',
         reasoningContent: '',
-        createdAt: Date.now(),
+        createdAt: assistantPlaceholder.createdAt,
       };
 
+      const newAll = [...allMessages, userMsg, assistantPlaceholder];
+      const baseConversations =
+        conv.id === currentConversationId
+          ? conversations
+          : [...conversations, conv];
       set({
         isLoading: true,
         error: null,
-        messages: [...messages, userMsg],
+        allMessages: newAll,
+        messages: deriveActivePath(newAll, userMsg.id),
         streamingMessage: streamingMsg,
+        conversations: baseConversations,
+        currentConversationId: conversationId,
       });
 
-      // 构造 API 消息列表（不含流式消息）
-      const apiMessages: ChatMessage[] = [
-        { role: 'system', content: buildSystemPrompt() },
-        ...get().messages.map((m) => ({
-          role: m.role as 'user' | 'assistant',
-          content: m.content,
-        })),
-        { role: 'user' as const, content },
-      ];
+      const apiMessages = buildApiMessages(
+        deriveActivePath(newAll, userMsg.id),
+      );
 
-      const controller = createChatStream({
-        apiKey,
-        model: get().selectedModel,
-        messages: apiMessages,
-        deepThink,
-        onEvent: (event) => {
-          switch (event.type) {
-            case 'thinking':
-              set((state) => {
-                if (!state.streamingMessage) return state;
-                return {
-                  streamingMessage: {
-                    ...state.streamingMessage,
-                    reasoningContent:
-                      state.streamingMessage.reasoningContent + event.text,
-                  },
-                };
-              });
-              break;
-
-            case 'content':
-              set((state) => {
-                if (!state.streamingMessage) return state;
-                return {
-                  streamingMessage: {
-                    ...state.streamingMessage,
-                    content: state.streamingMessage.content + event.text,
-                  },
-                };
-              });
-              break;
-
-            case 'done': {
-              const finalStreaming = get().streamingMessage;
-              if (!finalStreaming) break;
-
-              const assistantMsg: StoredMessage = {
-                id: finalStreaming.id,
-                conversationId,
-                role: 'assistant',
-                content: finalStreaming.content,
-                reasoningContent: finalStreaming.reasoningContent || undefined,
-                createdAt: finalStreaming.createdAt,
-              };
-
-              // 持久化
-              db.addMessage(userMsg).catch(() => {});
-              db.addMessage(assistantMsg).catch(() => {});
-
-              // 更新会话标题和计数
-              const conversations = get().conversations.map((c) => {
-                if (c.id === conversationId) {
-                  const firstUserMsg =
-                    get().messages.length === 0 ? content : c.title;
-                  return {
-                    ...c,
-                    title:
-                      firstUserMsg.length > 20
-                        ? firstUserMsg.slice(0, 20) + '...'
-                        : firstUserMsg,
-                    updatedAt: Date.now(),
-                    messageCount: c.messageCount + 2,
-                  };
-                }
-                return c;
-              });
-              const updatedConv = conversations.find(
-                (c) => c.id === conversationId,
-              );
-              if (updatedConv) {
-                db.updateConversation(updatedConv).catch(() => {});
-              }
-
-              set({
-                messages: [...get().messages, assistantMsg],
-                streamingMessage: null,
-                isLoading: false,
-                conversations,
-              });
-              activeController = null;
-              break;
-            }
-
-            case 'error':
-              set({
-                streamingMessage: null,
-                isLoading: false,
-                error: event.error.message,
-              });
-              activeController = null;
-              break;
-          }
-        },
+      runStream({
+        conversationId,
+        apiMessages,
+        streamingMsgId: assistantId,
+        streamingParentId: userMsg.id,
+        parentUpdate: prevLeafId
+          ? { parentId: prevLeafId, newChildId: userMsg.id }
+          : null,
+        userMsgToPersist: userMsg,
+        messageCountDelta: 2,
       });
-
-      activeController = controller;
-    },
-
-    async retryLastMessage() {
-      const { messages } = get();
-      // 反向查找最后一条 user 消息
-      let lastUserIdx = -1;
-      for (let i = messages.length - 1; i >= 0; i--) {
-        if (messages[i].role === 'user') {
-          lastUserIdx = i;
-          break;
-        }
-      }
-      if (lastUserIdx === -1) return;
-
-      const lastUserContent = messages[lastUserIdx].content;
-
-      // 移除 user 消息及之后的 assistant 消息
-      const trimmed = messages.slice(0, lastUserIdx);
-      set({ messages: trimmed });
-
-      await get().sendMessage(lastUserContent);
     },
 
     async clearMessages() {
-      const { currentConversationId } = get();
+      const { currentConversationId, conversations } = get();
       if (!currentConversationId) return;
       await db.clearConversationMessages(currentConversationId);
-      set({ messages: [], streamingMessage: null });
+      const updatedConversations = conversations.map((c) =>
+        c.id === currentConversationId ? { ...c, activeLeafId: null } : c,
+      );
+      const updatedConv = updatedConversations.find(
+        (c) => c.id === currentConversationId,
+      );
+      if (updatedConv) {
+        db.updateConversation(updatedConv).catch(() => {});
+      }
+      set({
+        allMessages: [],
+        messages: [],
+        streamingMessage: null,
+        editingMessageId: null,
+        conversations: updatedConversations,
+      });
+    },
+
+    setEditingMessage(id) {
+      set({ editingMessageId: id });
+    },
+
+    async editMessage(messageId, newContent) {
+      if (get().isLoading) return;
+      const { allMessages } = get();
+      const original = allMessages.find((m) => m.id === messageId);
+      if (!original || original.role !== 'user' || !get().apiKey) return;
+
+      get().cancelStream();
+
+      const conversationId = original.conversationId;
+      const parentId = original.parentId ?? null;
+
+      const newUserMsg: StoredMessage = {
+        id: generateId(),
+        conversationId,
+        role: 'user',
+        content: newContent,
+        createdAt: Date.now(),
+        parentId,
+        selectedChildId: null,
+      };
+      const assistantId = generateId();
+      newUserMsg.selectedChildId = assistantId;
+      const assistantPlaceholder: StoredMessage = {
+        id: assistantId,
+        conversationId,
+        role: 'assistant',
+        content: '',
+        createdAt: Date.now() + 1,
+        parentId: newUserMsg.id,
+        selectedChildId: null,
+      };
+      const streamingMsg: StreamingMessage = {
+        id: assistantId,
+        conversationId,
+        role: 'assistant',
+        content: '',
+        reasoningContent: '',
+        createdAt: assistantPlaceholder.createdAt,
+      };
+
+      const newAll = [...allMessages, newUserMsg, assistantPlaceholder];
+      set({
+        isLoading: true,
+        error: null,
+        editingMessageId: null,
+        allMessages: newAll,
+        messages: deriveActivePath(newAll, newUserMsg.id),
+        streamingMessage: streamingMsg,
+      });
+
+      const apiMessages = buildApiMessages(
+        deriveActivePath(newAll, newUserMsg.id),
+      );
+
+      runStream({
+        conversationId,
+        apiMessages,
+        streamingMsgId: assistantId,
+        streamingParentId: newUserMsg.id,
+        parentUpdate: parentId ? { parentId, newChildId: newUserMsg.id } : null,
+        userMsgToPersist: newUserMsg,
+        messageCountDelta: 2,
+      });
+    },
+
+    async regenerateMessage(messageId) {
+      if (get().isLoading) return;
+      const { allMessages } = get();
+      const original = allMessages.find((m) => m.id === messageId);
+      if (!original || original.role !== 'assistant' || !get().apiKey) return;
+
+      get().cancelStream();
+
+      const conversationId = original.conversationId;
+      const parentId = original.parentId ?? null;
+      if (!parentId) return;
+
+      const assistantId = generateId();
+      const assistantPlaceholder: StoredMessage = {
+        id: assistantId,
+        conversationId,
+        role: 'assistant',
+        content: '',
+        createdAt: Date.now(),
+        parentId,
+        selectedChildId: null,
+      };
+      const streamingMsg: StreamingMessage = {
+        id: assistantId,
+        conversationId,
+        role: 'assistant',
+        content: '',
+        reasoningContent: '',
+        createdAt: assistantPlaceholder.createdAt,
+      };
+
+      const newAll = [...allMessages, assistantPlaceholder];
+      set({
+        isLoading: true,
+        error: null,
+        allMessages: newAll,
+        messages: deriveActivePath(newAll, parentId),
+        streamingMessage: streamingMsg,
+      });
+
+      const apiMessages = buildApiMessages(deriveActivePath(newAll, parentId));
+
+      runStream({
+        conversationId,
+        apiMessages,
+        streamingMsgId: assistantId,
+        streamingParentId: parentId,
+        parentUpdate: { parentId, newChildId: assistantId },
+        userMsgToPersist: null,
+        messageCountDelta: 1,
+      });
+    },
+
+    switchSibling(messageId, direction) {
+      if (get().isLoading) return;
+      const { allMessages, conversations } = get();
+      const msg = allMessages.find((m) => m.id === messageId);
+      if (!msg) return;
+
+      const info = deriveBranchInfo(allMessages, msg);
+      const targetSiblingId =
+        direction === -1 ? info.prevSiblingId : info.nextSiblingId;
+      if (!targetSiblingId) return;
+
+      const byId = new Map(allMessages.map((m) => [m.id, m]));
+      const seen = new Set<string>();
+      let leaf = byId.get(targetSiblingId);
+      while (leaf?.selectedChildId && !seen.has(leaf.id)) {
+        seen.add(leaf.id);
+        const next = byId.get(leaf.selectedChildId);
+        if (!next) break;
+        leaf = next;
+      }
+      const newLeafId = leaf ? leaf.id : targetSiblingId;
+
+      let nextAll = allMessages;
+      if (msg.parentId) {
+        nextAll = allMessages.map((m) =>
+          m.id === msg.parentId
+            ? { ...m, selectedChildId: targetSiblingId }
+            : m,
+        );
+        const parent = byId.get(msg.parentId);
+        if (parent) {
+          db.updateMessage({
+            ...parent,
+            selectedChildId: targetSiblingId,
+          }).catch(() => {});
+        }
+      }
+
+      const updatedConversations = conversations.map((c) =>
+        c.id === msg.conversationId ? { ...c, activeLeafId: newLeafId } : c,
+      );
+      const updatedConv = updatedConversations.find(
+        (c) => c.id === msg.conversationId,
+      );
+      if (updatedConv) {
+        db.updateConversation(updatedConv).catch(() => {});
+      }
+
+      set({
+        allMessages: nextAll,
+        messages: deriveActivePath(nextAll, newLeafId),
+        streamingMessage: null,
+        editingMessageId: null,
+        conversations: updatedConversations,
+      });
+    },
+
+    getBranchInfo(messageId) {
+      const { allMessages } = get();
+      const msg = allMessages.find((m) => m.id === messageId);
+      if (!msg) {
+        return {
+          current: 1,
+          total: 1,
+          prevSiblingId: null,
+          nextSiblingId: null,
+        };
+      }
+      return deriveBranchInfo(allMessages, msg);
     },
   };
 });

@@ -17,7 +17,13 @@
     "message": {
       "thinkingLabel": "思考过程",
       "copy": "复制",
-      "copied": "已复制"
+      "copied": "已复制",
+      "edit": "修改",
+      "regenerate": "重新生成",
+      "editPlaceholder": "修改消息... (Enter 发送, Esc 取消)",
+      "branchPrev": "上一版本",
+      "branchNext": "下一版本",
+      "branchPosition": "{{current}}/{{total}}"
     },
     "disclaimer": "内容由AI生成，请仔细甄别",
     "welcome": {
