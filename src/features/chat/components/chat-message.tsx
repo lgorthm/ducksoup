@@ -9,8 +9,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Copy,
+  ArrowUp,
+  Loader2,
   Pencil,
   RefreshCw,
+  X,
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import {
@@ -57,7 +60,10 @@ export const ChatMessage = memo(function ChatMessage({
         className={cn(
           'rounded-none px-4 py-2.5 text-sm leading-relaxed',
           isUser
-            ? 'max-w-[80%] bg-primary text-primary-foreground'
+            ? cn(
+                isEditing ? 'w-[95%] p-0' : 'max-w-[80%]',
+                'bg-primary text-primary-foreground',
+              )
             : 'max-w-full bg-transparent text-foreground',
         )}
       >
@@ -205,7 +211,12 @@ const EditForm = memo(function EditForm({ message }: EditFormProps) {
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <div
+      className={cn(
+        'flex w-full flex-col border border-border bg-background text-foreground transition-colors',
+        'focus-within:border-primary focus-within:ring-1 focus-within:ring-primary',
+      )}
+    >
       <textarea
         ref={textareaRef}
         data-testid="message-edit-textarea"
@@ -215,9 +226,9 @@ const EditForm = memo(function EditForm({ message }: EditFormProps) {
         onKeyDown={onKeyDown}
         onInput={(e) => autoResize(e.currentTarget)}
         rows={1}
-        className="min-h-11 w-full resize-none rounded-none bg-background px-2 py-1.5 text-sm leading-relaxed text-foreground ring-1 ring-border/60 outline-none ring-inset focus-visible:ring-ring"
+        className="min-h-8 w-full resize-none bg-transparent px-3 py-1 text-sm leading-relaxed text-foreground outline-none placeholder:text-muted-foreground disabled:opacity-50"
       />
-      <div className="flex items-center justify-end gap-2">
+      <div className="flex items-center justify-end gap-2 px-1 py-1">
         <Button
           data-testid="message-edit-cancel"
           variant="ghost"
@@ -225,6 +236,7 @@ const EditForm = memo(function EditForm({ message }: EditFormProps) {
           onClick={cancel}
           disabled={isLoading}
         >
+          <X className="size-3.5" />
           {t('common.cancel')}
         </Button>
         <Button
@@ -233,6 +245,11 @@ const EditForm = memo(function EditForm({ message }: EditFormProps) {
           onClick={send}
           disabled={isLoading}
         >
+          {isLoading ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <ArrowUp className="size-3.5" />
+          )}
           {t('chat.input.send')}
         </Button>
       </div>
