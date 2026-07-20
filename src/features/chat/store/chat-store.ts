@@ -79,6 +79,7 @@ interface ChatState {
   messages: StoredMessage[];
   streamingMessage: StreamingMessage | null;
   editingMessageId: string | null;
+  activeMessageId: string | null;
   isLoading: boolean;
   error: string | null;
 
@@ -98,6 +99,7 @@ interface ChatState {
   clearMessages: () => Promise<void>;
 
   setEditingMessage: (id: string | null) => void;
+  toggleActiveMessage: (id: string) => void;
   editMessage: (messageId: string, newContent: string) => Promise<void>;
   regenerateMessage: (messageId: string) => Promise<void>;
   switchSibling: (messageId: string, direction: -1 | 1) => void;
@@ -284,6 +286,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     messages: [],
     streamingMessage: null,
     editingMessageId: null,
+    activeMessageId: null,
     isLoading: false,
     error: null,
 
@@ -314,6 +317,7 @@ export const useChatStore = create<ChatState>((set, get) => {
           messages,
           streamingMessage: null,
           editingMessageId: null,
+          activeMessageId: null,
           error: null,
         });
       } catch {
@@ -357,6 +361,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         messages: [],
         streamingMessage: null,
         editingMessageId: null,
+        activeMessageId: null,
         error: null,
       }));
     },
@@ -368,6 +373,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         messages: [],
         streamingMessage: null,
         editingMessageId: null,
+        activeMessageId: null,
         error: null,
       });
     },
@@ -382,6 +388,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         messages,
         streamingMessage: null,
         editingMessageId: null,
+        activeMessageId: null,
         error: null,
       });
     },
@@ -508,12 +515,19 @@ export const useChatStore = create<ChatState>((set, get) => {
         messages: [],
         streamingMessage: null,
         editingMessageId: null,
+        activeMessageId: null,
         conversations: updatedConversations,
       });
     },
 
     setEditingMessage(id) {
       set({ editingMessageId: id });
+    },
+
+    toggleActiveMessage(id) {
+      set((state) => ({
+        activeMessageId: state.activeMessageId === id ? null : id,
+      }));
     },
 
     async editMessage(messageId, newContent) {
@@ -561,6 +575,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         isLoading: true,
         error: null,
         editingMessageId: null,
+        activeMessageId: null,
         allMessages: newAll,
         messages: deriveActivePath(newAll, newUserMsg.id),
         streamingMessage: streamingMsg,
@@ -687,6 +702,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         messages: deriveActivePath(nextAll, newLeafId),
         streamingMessage: null,
         editingMessageId: null,
+        activeMessageId: null,
         conversations: updatedConversations,
       });
     },

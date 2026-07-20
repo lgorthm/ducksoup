@@ -5,6 +5,7 @@ import {
   useIsMobile,
   useIsTablet,
   useIsBelowDesktop,
+  useCanHover,
 } from './use-media-query';
 
 function setupMatchMediaForWidth(width: number) {
@@ -137,5 +138,28 @@ describe('useIsBelowDesktop', () => {
     setupMatchMediaForWidth(375);
     const result = renderHook(() => useIsBelowDesktop());
     expect(result.current).toBe(true);
+  });
+});
+
+describe('useCanHover', () => {
+  it('主输入支持 hover 时返回 true', () => {
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: query === '(hover: hover)',
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+    const result = renderHook(() => useCanHover());
+    expect(result.current).toBe(true);
+  });
+
+  it('主输入不支持 hover（触摸设备）时返回 false', () => {
+    // 全局 matchMedia mock 对所有 query 返回 matches:false
+    const result = renderHook(() => useCanHover());
+    expect(result.current).toBe(false);
   });
 });

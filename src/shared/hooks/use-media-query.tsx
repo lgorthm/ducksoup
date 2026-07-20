@@ -37,3 +37,8 @@ export function useIsTablet() {
 export function useIsBelowDesktop() {
   return useMediaQuery(`(max-width: ${TABLET_BREAKPOINT - 1}px)`);
 }
+
+/** 主输入支持 hover（鼠标等）；移动端触摸设备为 false */
+export function useCanHover() {
+  return useMediaQuery('(hover: hover)');
+}

@@ -72,6 +72,7 @@ const initialState = {
   streamingMessage: null,
   allMessages: [] as StoredMessage[],
   editingMessageId: null,
+  activeMessageId: null,
   isLoading: false,
   error: null,
 };
@@ -225,6 +226,33 @@ describe('switchConversation', () => {
     expect(state.messages).toEqual(msgs);
     expect(state.streamingMessage).toBeNull();
     expect(state.error).toBeNull();
+  });
+
+  it('切换会话时清空激活消息', async () => {
+    useChatStore.setState({ activeMessageId: 'm1' });
+    vi.mocked(db.getMessagesByConversation).mockResolvedValue([]);
+
+    await useChatStore.getState().switchConversation('c2');
+
+    expect(useChatStore.getState().activeMessageId).toBeNull();
+  });
+});
+
+// ========== toggleActiveMessage ==========
+
+describe('toggleActiveMessage', () => {
+  it('激活指定消息，再次调用取消激活', () => {
+    useChatStore.getState().toggleActiveMessage('m1');
+    expect(useChatStore.getState().activeMessageId).toBe('m1');
+
+    useChatStore.getState().toggleActiveMessage('m1');
+    expect(useChatStore.getState().activeMessageId).toBeNull();
+  });
+
+  it('激活新消息时替换上一条激活消息', () => {
+    useChatStore.getState().toggleActiveMessage('m1');
+    useChatStore.getState().toggleActiveMessage('m2');
+    expect(useChatStore.getState().activeMessageId).toBe('m2');
   });
 });
 

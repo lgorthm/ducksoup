@@ -1,6 +1,7 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { act, render, screen, fireEvent } from '@testing-library/react';
 import type { StoredMessage } from '@/features/chat/types/deepseek';
+import { useChatStore } from '@/features/chat/store/chat-store';
 import { ChatMessage } from './chat-message';
 
 vi.mock('@/shared/components/markdown-renderer', () => ({
@@ -19,6 +20,12 @@ function makeMessage(overrides: Partial<StoredMessage> = {}): StoredMessage {
     ...overrides,
   };
 }
+
+const hasClass = (el: Element | null, cls: string) =>
+  !!el && el.className.split(/\s+/).includes(cls);
+// 承载 copy / edit / regenerate 的操作分组容器带 transition-opacity
+const getActionsGroup = (container: HTMLElement) =>
+  container.querySelector('[class*="transition-opacity"]');
 
 describe('ChatMessage', () => {
   it('user 消息渲染纯文本内容', () => {
@@ -242,13 +249,7 @@ describe('ChatMessage 修改 / 重新生成 / 分支导航', () => {
   });
 });
 
-describe('ChatMessage 操作栏可见性（isLast / 分支导航常显）', () => {
-  // 承载 copy / edit / regenerate 的操作分组容器带 transition-opacity
-  const hasClass = (el: Element | null, cls: string) =>
-    !!el && el.className.split(/\s+/).includes(cls);
-  const getActionsGroup = (container: HTMLElement) =>
-    container.querySelector('[class*="transition-opacity"]');
-
+describe('ChatMessage 操作栏可见性（isLast / 分支常显）', () => {
   it('默认（非最后、无分支）：操作分组 hover 才显示', () => {
     const msg = makeMessage({ role: 'user', content: '你好' });
     const { container } = render(<ChatMessage message={msg} />);
@@ -258,7 +259,7 @@ describe('ChatMessage 操作栏可见性（isLast / 分支导航常显）', () =
     expect(hasClass(group, 'opacity-100')).toBe(false);
   });
 
-  it('有分支但非最后一条：分支导航常显，复制/编辑分组仍 hover 才显示', () => {
+  it('有分支但非最后一条：分支导航与操作分组均常显', () => {
     const msg = makeMessage({ role: 'assistant', content: '回复' });
     const { container } = render(
       <ChatMessage
@@ -279,8 +280,8 @@ describe('ChatMessage 操作栏可见性（isLast / 分支导航常显）', () =
     expect(hasClass(branchNav, 'pointer-events-auto')).toBe(true);
 
     const group = getActionsGroup(container);
-    expect(hasClass(group, 'opacity-0')).toBe(true);
-    expect(hasClass(group, 'opacity-100')).toBe(false);
+    expect(hasClass(group, 'opacity-100')).toBe(true);
+    expect(hasClass(group, 'opacity-0')).toBe(false);
   });
 
   it('最后一条用户消息（isLast）：所有操作常显', () => {
@@ -325,8 +326,6 @@ describe('ChatMessage 操作栏可见性（isLast / 分支导航常显）', () =
 });
 
 describe('ChatMessage 用户消息分支导航位置', () => {
-  const hasClass = (el: Element | null, cls: string) =>
-    !!el && el.className.split(/\s+/).includes(cls);
   const branchInfo2 = {
     current: 1,
     total: 2,
@@ -346,5 +345,129 @@ describe('ChatMessage 用户消息分支导航位置', () => {
     render(<ChatMessage message={msg} branchInfo={branchInfo2} />);
     const branchNav = screen.getByTestId('message-branch-nav');
     expect(hasClass(branchNav, 'order-last')).toBe(false);
+  });
+});
+
+describe('ChatMessage 移动端点击激活操作栏', () => {
+  // 全局 matchMedia mock 对所有 query 返回 matches:false，
+  // 即默认模拟不可 hover 的移动端环境。
+  beforeEach(() => {
+    useChatStore.setState({ activeMessageId: null });
+  });
+
+  it('点击气泡激活操作栏，再次点击取消激活', () => {
+    const msg = makeMessage({ role: 'user', content: '你好' });
+    const { container } = render(<ChatMessage message={msg} />);
+    const group = getActionsGroup(container);
+    expect(hasClass(group, 'opacity-0')).toBe(true);
+
+    fireEvent.click(screen.getByText('你好'));
+    expect(useChatStore.getState().activeMessageId).toBe(msg.id);
+    expect(hasClass(group, 'opacity-100')).toBe(true);
+    expect(hasClass(group, 'pointer-events-auto')).toBe(true);
+
+    fireEvent.click(screen.getByText('你好'));
+    expect(useChatStore.getState().activeMessageId).toBeNull();
+    expect(hasClass(group, 'opacity-0')).toBe(true);
+  });
+
+  it('点击另一条消息时，上一条消息的激活态隐藏', () => {
+    const msgA = makeMessage({ role: 'user', content: '消息A' });
+    const msgB = makeMessage({ role: 'assistant', content: '消息B' });
+    render(
+      <div>
+        <div data-testid="wrap-a">
+          <ChatMessage message={msgA} />
+        </div>
+        <div data-testid="wrap-b">
+          <ChatMessage message={msgB} />
+        </div>
+      </div>,
+    );
+    const groupA = screen
+      .getByTestId('wrap-a')
+      .querySelector('[class*="transition-opacity"]');
+    const groupB = screen
+      .getByTestId('wrap-b')
+      .querySelector('[class*="transition-opacity"]');
+
+    fireEvent.click(screen.getByText('消息A'));
+    expect(hasClass(groupA, 'opacity-100')).toBe(true);
+    expect(hasClass(groupB, 'opacity-0')).toBe(true);
+
+    fireEvent.click(screen.getByText('消息B'));
+    expect(useChatStore.getState().activeMessageId).toBe(msgB.id);
+    expect(hasClass(groupA, 'opacity-0')).toBe(true);
+    expect(hasClass(groupB, 'opacity-100')).toBe(true);
+  });
+
+  it('激活其他消息后，isLast 与有分支的消息仍常显', () => {
+    const lastMsg = makeMessage({ role: 'assistant', content: '最后回复' });
+    const branchMsg = makeMessage({ role: 'assistant', content: '分支回复' });
+    const otherMsg = makeMessage({ role: 'user', content: '普通消息' });
+    render(
+      <div>
+        <div data-testid="wrap-last">
+          <ChatMessage message={lastMsg} isLast />
+        </div>
+        <div data-testid="wrap-branch">
+          <ChatMessage
+            message={branchMsg}
+            branchInfo={{
+              current: 1,
+              total: 2,
+              prevSiblingId: null,
+              nextSiblingId: 's2',
+            }}
+          />
+        </div>
+        <div data-testid="wrap-other">
+          <ChatMessage message={otherMsg} />
+        </div>
+      </div>,
+    );
+
+    fireEvent.click(screen.getByText('普通消息'));
+
+    const groupLast = screen
+      .getByTestId('wrap-last')
+      .querySelector('[class*="transition-opacity"]');
+    const groupBranch = screen
+      .getByTestId('wrap-branch')
+      .querySelector('[class*="transition-opacity"]');
+    expect(hasClass(groupLast, 'opacity-100')).toBe(true);
+    expect(hasClass(groupBranch, 'opacity-100')).toBe(true);
+  });
+
+  it('流式消息点击不激活', () => {
+    const msg = makeMessage({ role: 'assistant', content: '部分内容' });
+    render(<ChatMessage message={msg} isStreaming />);
+    fireEvent.click(screen.getByText('部分内容'));
+    expect(useChatStore.getState().activeMessageId).toBeNull();
+  });
+
+  it('可 hover 设备（桌面端）点击气泡不激活操作栏', () => {
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: query === '(hover: hover)',
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+    try {
+      const msg = makeMessage({ role: 'user', content: '你好' });
+      const { container } = render(<ChatMessage message={msg} />);
+      fireEvent.click(screen.getByText('你好'));
+      expect(useChatStore.getState().activeMessageId).toBeNull();
+      const group = getActionsGroup(container);
+      expect(hasClass(group, 'opacity-0')).toBe(true);
+      expect(hasClass(group, 'group-hover:opacity-100')).toBe(true);
+    } finally {
+      window.matchMedia = originalMatchMedia;
+    }
   });
 });

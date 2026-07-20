@@ -22,6 +22,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/shared/components/ui/tooltip';
+import { useCanHover } from '@/shared/hooks/use-media-query';
 import { useChatStore } from '@/features/chat/store/chat-store';
 
 const MarkdownRenderer = lazy(() =>
@@ -51,6 +52,14 @@ export const ChatMessage = memo(function ChatMessage({
 }: ChatMessageProps) {
   const isUser = message.role === 'user';
   const hasThinking = !!message.reasoningContent;
+  const canHover = useCanHover();
+  const toggleActiveMessage = useChatStore((s) => s.toggleActiveMessage);
+
+  // 移动端主输入不支持 hover：点击气泡切换操作栏激活态（全局同时仅一条激活）
+  const handleBubbleClick =
+    canHover || isStreaming || isEditing
+      ? undefined
+      : () => toggleActiveMessage(message.id);
 
   return (
     <div
@@ -60,6 +69,7 @@ export const ChatMessage = memo(function ChatMessage({
       )}
     >
       <div
+        onClick={handleBubbleClick}
         className={cn(
           'rounded-none px-4 py-2.5 text-sm leading-relaxed',
           isUser
@@ -293,9 +303,13 @@ const MessageActions = memo(function MessageActions({
         isLoading: s.isLoading,
       })),
     );
+  const canHover = useCanHover();
+  const isActive = useChatStore((s) => s.activeMessageId === message.id);
 
   const isUser = message.role === 'user';
   const showBranch = !!branchInfo && branchInfo.total > 1;
+  // 最后一轮与有分支的消息操作栏常显；移动端点击激活的消息同样常显
+  const forceVisible = isLast || showBranch || (!canHover && isActive);
 
   const handleCopy = async () => {
     try {
@@ -377,7 +391,7 @@ const MessageActions = memo(function MessageActions({
         <div
           className={cn(
             'flex items-center gap-1 transition-opacity duration-150',
-            isLast
+            forceVisible
               ? 'pointer-events-auto opacity-100'
               : 'pointer-events-none opacity-0 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100',
           )}

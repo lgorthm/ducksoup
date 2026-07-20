@@ -71,7 +71,8 @@ export function ChatMessageList({
   // 总条目数 = 历史消息 + 可能存在的流式消息
   const totalCount = messages.length + (streamingMessage ? 1 : 0);
   // 当前激活路径上"最后一条用户消息"与"最后一条 AI 回复"的下标；
-  // 这两条消息的操作栏常显，其余消息仅在 hover/focus 时显示。
+  // 这两条消息与有分支的消息操作栏常显；其余消息在 hover/focus 时显示，
+  // 移动端（主输入不可 hover）通过点击消息气泡逐条激活显示。
   const lastActionIndices = useMemo(() => {
     let lastUser = -1;
     let lastAssistant = -1;
