@@ -70,6 +70,18 @@ export function ChatMessageList({
 
   // 总条目数 = 历史消息 + 可能存在的流式消息
   const totalCount = messages.length + (streamingMessage ? 1 : 0);
+  // 当前激活路径上"最后一条用户消息"与"最后一条 AI 回复"的下标；
+  // 这两条消息的操作栏常显，其余消息仅在 hover/focus 时显示。
+  const lastActionIndices = useMemo(() => {
+    let lastUser = -1;
+    let lastAssistant = -1;
+    for (let i = 0; i < messages.length; i++) {
+      const role = messages[i].role;
+      if (role === 'user') lastUser = i;
+      else if (role === 'assistant') lastAssistant = i;
+    }
+    return { lastUser, lastAssistant };
+  }, [messages]);
 
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual 返回不稳定函数引用，已通过 'use no memo' 显式跳过记忆化
   const virtualizer = useVirtualizer({
@@ -157,6 +169,10 @@ export function ChatMessageList({
                 message={msg}
                 branchInfo={branchInfoMap[msg.id]}
                 isEditing={editingMessageId === msg.id}
+                isLast={
+                  virtualItem.index === lastActionIndices.lastUser ||
+                  virtualItem.index === lastActionIndices.lastAssistant
+                }
               />
             </div>
           );

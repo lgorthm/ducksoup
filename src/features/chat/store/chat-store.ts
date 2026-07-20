@@ -412,8 +412,8 @@ export const useChatStore = create<ChatState>((set, get) => {
 
       get().cancelStream();
 
-      let conversationId = currentConversationId;
-      let conv = conversations.find((c) => c.id === conversationId) ?? null;
+      let conv =
+        conversations.find((c) => c.id === currentConversationId) ?? null;
       const prevLeafId = conv?.activeLeafId ?? null;
       if (!conv) {
         const now = Date.now();
@@ -426,8 +426,8 @@ export const useChatStore = create<ChatState>((set, get) => {
           activeLeafId: null,
         };
         await db.addConversation(conv);
-        conversationId = conv.id;
       }
+      const conversationId = conv.id;
 
       const userMsg: StoredMessage = {
         id: generateId(),

@@ -38,6 +38,8 @@ interface ChatMessageProps {
   isEditing?: boolean;
   /** 分支导航信息；total>1 时渲染 `<N/M>` */
   branchInfo?: BranchInfo;
+  /** 是否为最后一条用户消息或最后一条 AI 回复，决定操作栏是否常显 */
+  isLast?: boolean;
 }
 
 export const ChatMessage = memo(function ChatMessage({
@@ -45,6 +47,7 @@ export const ChatMessage = memo(function ChatMessage({
   isStreaming = false,
   isEditing = false,
   branchInfo,
+  isLast = false,
 }: ChatMessageProps) {
   const isUser = message.role === 'user';
   const hasThinking = !!message.reasoningContent;
@@ -96,7 +99,11 @@ export const ChatMessage = memo(function ChatMessage({
         )}
       </div>
       {!isStreaming && !isEditing && (
-        <MessageActions message={message} branchInfo={branchInfo} />
+        <MessageActions
+          message={message}
+          branchInfo={branchInfo}
+          isLast={isLast}
+        />
       )}
     </div>
   );
@@ -267,11 +274,13 @@ function autoResize(el: HTMLTextAreaElement | HTMLInputElement) {
 interface MessageActionsProps {
   message: StoredMessage;
   branchInfo?: BranchInfo;
+  isLast?: boolean;
 }
 
 const MessageActions = memo(function MessageActions({
   message,
   branchInfo,
+  isLast = false,
 }: MessageActionsProps) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
@@ -303,14 +312,17 @@ const MessageActions = memo(function MessageActions({
       <div
         data-testid="message-actions"
         className={cn(
-          'pointer-events-none mt-1 flex items-center gap-1 opacity-0 transition-opacity duration-150 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100',
+          'pointer-events-none mt-1 flex items-center gap-1',
           isUser ? 'justify-end' : 'justify-start',
         )}
       >
         {showBranch && (
           <div
             data-testid="message-branch-nav"
-            className="pointer-events-auto flex items-center gap-0.5 opacity-100"
+            className={cn(
+              'pointer-events-auto flex items-center gap-0.5',
+              isUser && 'order-last',
+            )}
           >
             <Tooltip>
               <TooltipTrigger
@@ -362,72 +374,81 @@ const MessageActions = memo(function MessageActions({
           </div>
         )}
 
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <button
-                type="button"
-                data-testid="message-copy-button"
-                onClick={handleCopy}
-                aria-label={
-                  copied ? t('chat.message.copied') : t('chat.message.copy')
-                }
-                className="inline-flex items-center justify-center rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-              >
-                {copied ? (
-                  <Check className="size-3.5" />
-                ) : (
-                  <Copy className="size-3.5" />
-                )}
-              </button>
-            }
-          />
-          <TooltipContent side="bottom">
-            {copied ? t('chat.message.copied') : t('chat.message.copy')}
-          </TooltipContent>
-        </Tooltip>
+        <div
+          className={cn(
+            'flex items-center gap-1 transition-opacity duration-150',
+            isLast
+              ? 'pointer-events-auto opacity-100'
+              : 'pointer-events-none opacity-0 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100',
+          )}
+        >
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  type="button"
+                  data-testid="message-copy-button"
+                  onClick={handleCopy}
+                  aria-label={
+                    copied ? t('chat.message.copied') : t('chat.message.copy')
+                  }
+                  className="inline-flex items-center justify-center rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                >
+                  {copied ? (
+                    <Check className="size-3.5" />
+                  ) : (
+                    <Copy className="size-3.5" />
+                  )}
+                </button>
+              }
+            />
+            <TooltipContent side="bottom">
+              {copied ? t('chat.message.copied') : t('chat.message.copy')}
+            </TooltipContent>
+          </Tooltip>
 
-        {isUser ? (
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <button
-                  type="button"
-                  data-testid="message-edit-button"
-                  aria-label={t('chat.message.edit')}
-                  disabled={isLoading}
-                  onClick={() => setEditingMessage(message.id)}
-                  className="inline-flex items-center justify-center rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
-                >
-                  <Pencil className="size-3.5" />
-                </button>
-              }
-            />
-            <TooltipContent side="bottom">
-              {t('chat.message.edit')}
-            </TooltipContent>
-          </Tooltip>
-        ) : (
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <button
-                  type="button"
-                  data-testid="message-regenerate-button"
-                  aria-label={t('chat.message.regenerate')}
-                  disabled={isLoading}
-                  onClick={() => regenerateMessage(message.id)}
-                  className="inline-flex items-center justify-center rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
-                >
-                  <RefreshCw className="size-3.5" />
-                </button>
-              }
-            />
-            <TooltipContent side="bottom">
-              {t('chat.message.regenerate')}
-            </TooltipContent>
-          </Tooltip>
-        )}
+          {isUser ? (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    data-testid="message-edit-button"
+                    aria-label={t('chat.message.edit')}
+                    disabled={isLoading}
+                    onClick={() => setEditingMessage(message.id)}
+                    className="inline-flex items-center justify-center rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+                  >
+                    <Pencil className="size-3.5" />
+                  </button>
+                }
+              />
+              <TooltipContent side="bottom">
+                {t('chat.message.edit')}
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    data-testid="message-regenerate-button"
+                    aria-label={t('chat.message.regenerate')}
+                    disabled={isLoading}
+                    onClick={() => regenerateMessage(message.id)}
+                    className="inline-flex items-center justify-center rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+                  >
+                    <RefreshCw className="size-3.5" />
+                  </button>
+                }
+              />
+              <TooltipContent side="bottom">
+                {t('chat.message.regenerate')}
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
       </div>
     </TooltipProvider>
   );
