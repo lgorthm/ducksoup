@@ -192,7 +192,6 @@ export interface StoredMessage {
   parentId?: string | null;
   /** 当前激活子消息 ID；叶子消息为 null/undefined */
   selectedChildId?: string | null;
-  selectedChildId?: string | null;
 }
 
 // ========== 分支导航信息 ==========
