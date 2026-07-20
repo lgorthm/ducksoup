@@ -241,3 +241,110 @@ describe('ChatMessage 修改 / 重新生成 / 分支导航', () => {
     expect(screen.getByTestId('message-branch-next')).not.toBeDisabled();
   });
 });
+
+describe('ChatMessage 操作栏可见性（isLast / 分支导航常显）', () => {
+  // 承载 copy / edit / regenerate 的操作分组容器带 transition-opacity
+  const hasClass = (el: Element | null, cls: string) =>
+    !!el && el.className.split(/\s+/).includes(cls);
+  const getActionsGroup = (container: HTMLElement) =>
+    container.querySelector('[class*="transition-opacity"]');
+
+  it('默认（非最后、无分支）：操作分组 hover 才显示', () => {
+    const msg = makeMessage({ role: 'user', content: '你好' });
+    const { container } = render(<ChatMessage message={msg} />);
+    const group = getActionsGroup(container);
+    expect(group).not.toBeNull();
+    expect(hasClass(group, 'opacity-0')).toBe(true);
+    expect(hasClass(group, 'opacity-100')).toBe(false);
+  });
+
+  it('有分支但非最后一条：分支导航常显，复制/编辑分组仍 hover 才显示', () => {
+    const msg = makeMessage({ role: 'assistant', content: '回复' });
+    const { container } = render(
+      <ChatMessage
+        message={msg}
+        branchInfo={{
+          current: 2,
+          total: 3,
+          prevSiblingId: 's1',
+          nextSiblingId: 's3',
+        }}
+      />,
+    );
+    const branchNav = screen.getByTestId('message-branch-nav');
+    // 分支导航不再被父级 opacity 遮蔽：父容器与导航均无 opacity-0
+    const actions = screen.getByTestId('message-actions');
+    expect(hasClass(actions, 'opacity-0')).toBe(false);
+    expect(hasClass(branchNav, 'opacity-0')).toBe(false);
+    expect(hasClass(branchNav, 'pointer-events-auto')).toBe(true);
+
+    const group = getActionsGroup(container);
+    expect(hasClass(group, 'opacity-0')).toBe(true);
+    expect(hasClass(group, 'opacity-100')).toBe(false);
+  });
+
+  it('最后一条用户消息（isLast）：所有操作常显', () => {
+    const msg = makeMessage({ role: 'user', content: '你好' });
+    const { container } = render(<ChatMessage message={msg} isLast />);
+    const group = getActionsGroup(container);
+    expect(hasClass(group, 'opacity-100')).toBe(true);
+    expect(hasClass(group, 'opacity-0')).toBe(false);
+    expect(screen.getByTestId('message-copy-button')).toBeInTheDocument();
+    expect(screen.getByTestId('message-edit-button')).toBeInTheDocument();
+  });
+
+  it('最后一条 AI 回复（isLast）：所有操作常显', () => {
+    const msg = makeMessage({ role: 'assistant', content: '回复' });
+    const { container } = render(<ChatMessage message={msg} isLast />);
+    const group = getActionsGroup(container);
+    expect(hasClass(group, 'opacity-100')).toBe(true);
+    expect(hasClass(group, 'opacity-0')).toBe(false);
+    expect(screen.getByTestId('message-regenerate-button')).toBeInTheDocument();
+  });
+
+  it('最后一条且有分支：分支导航与操作分组均常显', () => {
+    const msg = makeMessage({ role: 'assistant', content: '回复' });
+    const { container } = render(
+      <ChatMessage
+        message={msg}
+        isLast
+        branchInfo={{
+          current: 1,
+          total: 2,
+          prevSiblingId: null,
+          nextSiblingId: 's2',
+        }}
+      />,
+    );
+    const branchNav = screen.getByTestId('message-branch-nav');
+    expect(hasClass(branchNav, 'opacity-0')).toBe(false);
+    const group = getActionsGroup(container);
+    expect(hasClass(group, 'opacity-100')).toBe(true);
+    expect(hasClass(group, 'opacity-0')).toBe(false);
+  });
+});
+
+describe('ChatMessage 用户消息分支导航位置', () => {
+  const hasClass = (el: Element | null, cls: string) =>
+    !!el && el.className.split(/\s+/).includes(cls);
+  const branchInfo2 = {
+    current: 1,
+    total: 2,
+    prevSiblingId: null,
+    nextSiblingId: 's2',
+  };
+
+  it('用户消息：<1/2> 排在最右（order-last），复制/修改在其左侧', () => {
+    const msg = makeMessage({ role: 'user', content: '你好' });
+    render(<ChatMessage message={msg} branchInfo={branchInfo2} />);
+    const branchNav = screen.getByTestId('message-branch-nav');
+    expect(hasClass(branchNav, 'order-last')).toBe(true);
+  });
+
+  it('AI 回复：<1/2> 保持在最左（不添加 order-last）', () => {
+    const msg = makeMessage({ role: 'assistant', content: '回复' });
+    render(<ChatMessage message={msg} branchInfo={branchInfo2} />);
+    const branchNav = screen.getByTestId('message-branch-nav');
+    expect(hasClass(branchNav, 'order-last')).toBe(false);
+  });
+});
