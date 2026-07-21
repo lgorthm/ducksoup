@@ -68,9 +68,9 @@ export function ConversationList() {
             data-testid="conversation-item"
             data-conv-id={conv.id}
             className={cn(
-              'group flex cursor-pointer items-center rounded-none px-2 py-1.5 text-sm transition-colors',
+              'group/item flex cursor-pointer items-center rounded-none px-2 py-1.5 text-sm transition-colors',
               conv.id === currentConversationId
-                ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                ? 'bg-amber-400/15 text-sidebar-accent-foreground dark:bg-sidebar-accent'
                 : 'hover:bg-sidebar-accent/50',
             )}
             onClick={() => switchConversation(conv.id)}
@@ -91,9 +91,9 @@ export function ConversationList() {
                     <button
                       className={cn(
                         'inline-flex size-6 shrink-0 items-center justify-center rounded-none hover:bg-sidebar-accent',
-                        isMobile
+                        isMobile || conv.id === currentConversationId
                           ? 'opacity-100'
-                          : 'opacity-0 group-hover:opacity-100',
+                          : 'opacity-0 group-hover/item:opacity-100',
                       )}
                       onClick={(e) => e.stopPropagation()}
                     />
