@@ -107,7 +107,7 @@ State: Zustand stores live at `src/features/<name>/store/` (see `features/chat/s
 e2e/
   fixtures/          # db-seed.ts, test-data.ts
   helpers/           # setup.ts, selectors.ts, performance.ts, sse-mock.ts
-  flows/             # chat-flow.spec.ts, conversation-switch.spec.ts
+  flows/             # chat-flow.spec.ts, conversation-switch.spec.ts, scroll-nav.spec.ts
   position/          # layout.spec.ts (z-index, FixedToolbar visibility, header margin)
   performance/       # large-dataset.spec.ts (multi-tier benchmarks)
   visual/            # chat-page.spec.ts, settings.spec.ts, sidebar.spec.ts

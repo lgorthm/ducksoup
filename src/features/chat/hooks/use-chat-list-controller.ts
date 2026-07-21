@@ -10,8 +10,8 @@ export interface ChatListController {
   readonly scrollContainer: HTMLDivElement | null;
   /** 滚动到指定虚拟索引 */
   scrollToIndex: (index: number, align?: 'start' | 'center' | 'end') => void;
-  /** 获取当前可见虚拟项的索引范围 [startIndex, endIndex] */
-  getVisibleRange: () => [number, number] | null;
+  /** 获取指定虚拟索引在内容中的起始像素偏移；索引无效时返回 null */
+  getItemOffset: (index: number) => number | null;
 }
 
 interface UseChatListControllerOptions {
@@ -42,11 +42,8 @@ export function useChatListController({
       scrollToIndex: (index, align = 'center') => {
         virtualizer.scrollToIndex(index, { align });
       },
-      getVisibleRange: () => {
-        const indexes = virtualizer.getVirtualIndexes();
-        if (indexes.length === 0) return null;
-        return [indexes[0], indexes[indexes.length - 1]] as [number, number];
-      },
+      getItemOffset: (index) =>
+        virtualizer.measurementsCache[index]?.start ?? null,
     };
   }, [virtualizer, controllerRef, scrollContainerRef]);
 }

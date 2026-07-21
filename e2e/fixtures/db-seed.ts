@@ -5,7 +5,7 @@ import type {
 } from '@/features/chat/types/deepseek';
 
 const DB_NAME = 'ducksoup-chat';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export async function seedIndexedDB(
   page: Page,
@@ -71,9 +71,9 @@ export async function seedIndexedDB(
 
 export async function clearIndexedDB(page: Page): Promise<void> {
   await page.evaluate(
-    (dbName) =>
+    ({ dbName, dbVersion }) =>
       new Promise<void>((resolve) => {
-        const request = indexedDB.open(dbName, 1);
+        const request = indexedDB.open(dbName, dbVersion);
         request.onupgradeneeded = () => {
           const db = request.result;
           if (!db.objectStoreNames.contains('conversations')) {
@@ -114,7 +114,7 @@ export async function clearIndexedDB(page: Page): Promise<void> {
         };
         request.onerror = () => resolve();
       }),
-    DB_NAME,
+    { dbName: DB_NAME, dbVersion: DB_VERSION },
   );
 }
 
@@ -122,10 +122,10 @@ export async function getIndexedDBData(
   page: Page,
 ): Promise<{ conversations: Conversation[]; messages: StoredMessage[] }> {
   return page.evaluate(
-    (dbName) =>
+    ({ dbName, dbVersion }) =>
       new Promise<{ conversations: Conversation[]; messages: StoredMessage[] }>(
         (resolve, reject) => {
-          const request = indexedDB.open(dbName, 1);
+          const request = indexedDB.open(dbName, dbVersion);
           request.onsuccess = () => {
             const db = request.result;
             const result = {
@@ -160,6 +160,6 @@ export async function getIndexedDBData(
           request.onerror = () => reject(request.error);
         },
       ),
-    DB_NAME,
+    { dbName: DB_NAME, dbVersion: DB_VERSION },
   );
 }

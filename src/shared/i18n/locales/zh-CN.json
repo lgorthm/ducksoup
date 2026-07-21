@@ -25,6 +25,10 @@
       "branchNext": "下一版本",
       "branchPosition": "{{current}}/{{total}}"
     },
+    "scrollNav": {
+      "label": "消息导航",
+      "jumpTo": "跳转到第 {{position}} 条提问"
+    },
     "disclaimer": "内容由AI生成，请仔细甄别",
     "welcome": {
       "startChat": "使用 {{model}} 开始对话"
