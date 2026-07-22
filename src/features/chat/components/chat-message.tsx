@@ -243,7 +243,7 @@ const EditForm = memo(function EditForm({ message }: EditFormProps) {
         onKeyDown={onKeyDown}
         onInput={(e) => autoResize(e.currentTarget)}
         rows={1}
-        className="min-h-8 w-full resize-none bg-transparent px-3 py-1 text-sm leading-relaxed text-foreground outline-none placeholder:text-muted-foreground disabled:opacity-50"
+        className="min-h-8 w-full resize-none bg-transparent px-3 py-1 text-base leading-relaxed text-foreground outline-none placeholder:text-muted-foreground disabled:opacity-50 md:text-sm"
       />
       <div className="flex items-center justify-end gap-2 px-1 py-1">
         <Button
