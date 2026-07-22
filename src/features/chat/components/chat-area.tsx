@@ -79,7 +79,7 @@ export function ChatArea() {
         {error && (
           <div
             data-testid="error-message"
-            className="rounded-none bg-destructive/10 px-4 py-2 text-sm text-destructive"
+            className="rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive"
           >
             {error}
           </div>

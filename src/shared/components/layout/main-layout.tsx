@@ -33,7 +33,7 @@ const SettingsDialog = lazy(() =>
   })),
 );
 
-const HEADER_STYLE_FIXED = { marginLeft: '100px' } as const;
+const HEADER_STYLE_FIXED = { marginLeft: '140px' } as const;
 const HEADER_STYLE_DEFAULT = { marginLeft: 0 } as const;
 
 interface MainLayoutProps {
@@ -126,7 +126,7 @@ const MainLayoutInner = memo(function MainLayoutInner({
           <SidebarMenu className="mt-auto border-t p-2">
             <div
               data-testid="settings-button"
-              className="group flex cursor-pointer items-center rounded-none px-2 py-1.5 text-sm transition-colors hover:bg-sidebar-accent/50"
+              className="group flex cursor-pointer items-center rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-sidebar-accent/50"
               onClick={handleSettingsClick}
             >
               <Settings className="mr-2 size-4" />

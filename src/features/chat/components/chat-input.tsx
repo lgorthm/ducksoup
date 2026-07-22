@@ -58,14 +58,14 @@ export function ChatInput({
   return (
     <div
       data-testid="chat-input"
-      className="border bg-background p-3 shadow-sm"
+      className="rounded-lg border bg-background p-3 shadow-sm"
     >
       <div
         ref={editorRef}
         data-testid="chat-input-editor"
         contentEditable={!inputDisabled}
         className={cn(
-          'max-h-50 min-h-11 w-full overflow-y-auto rounded-none bg-background px-0.5 py-0.5 text-base outline-none',
+          'max-h-50 min-h-11 w-full overflow-y-auto bg-background px-0.5 py-0.5 text-base outline-none',
           'empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)]',
           inputDisabled && 'cursor-not-allowed opacity-50',
         )}

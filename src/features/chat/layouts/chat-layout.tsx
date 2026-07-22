@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 
 import { MainLayout } from '@/shared/components/layout/main-layout';
 import { ConversationList } from '@/features/chat/components/conversation-list';
+import { NewConversationButton } from '@/features/chat/components/new-conversation-button';
 import { useChatStore, MODEL_LABELS } from '@/features/chat/store/chat-store';
 
 export function ChatLayout() {
@@ -23,6 +24,7 @@ export function ChatLayout() {
   return (
     <MainLayout
       sidebarContent={<ConversationList />}
+      buttonGroup={<NewConversationButton />}
       conversationTitle={conversationTitle}
       modelName={modelName}
     >

@@ -83,7 +83,7 @@ function GeneralSettings() {
                 key={option.value}
                 onClick={() => setTheme(option.value)}
                 className={cn(
-                  'flex flex-col items-center gap-1.5 rounded-none border p-3 text-xs transition-colors',
+                  'flex flex-col items-center gap-1.5 rounded-lg border p-3 text-xs transition-colors',
                   'min-h-18 justify-center active:translate-y-px',
                   isActive
                     ? 'border-foreground bg-foreground/5'
@@ -111,7 +111,7 @@ function GeneralSettings() {
                 key={option.value}
                 onClick={() => i18n.changeLanguage(option.value)}
                 className={cn(
-                  'flex items-center gap-2 rounded-none border p-3 text-xs transition-colors',
+                  'flex items-center gap-2 rounded-lg border p-3 text-xs transition-colors',
                   'min-h-11 justify-center active:translate-y-px',
                   isActive
                     ? 'border-foreground bg-foreground/5'
@@ -196,7 +196,7 @@ function formatBalance(amount: string, currency: string): string {
 function BalanceCard({ info }: { info: BalanceInfo }) {
   const { t } = useTranslation();
   return (
-    <div className="space-y-3 border border-border p-3">
+    <div className="space-y-3 rounded-lg border border-border p-3">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium">
           {info.currency === 'CNY'
@@ -367,7 +367,7 @@ function BalanceSettings() {
       {!loading && !error && balance && (
         <div className="space-y-3">
           {/* 账户状态 */}
-          <div className="flex items-center gap-2 border border-border p-3">
+          <div className="flex items-center gap-2 rounded-lg border border-border p-3">
             {balance.is_available ? (
               <CircleCheck className="size-4 shrink-0 text-green-600" />
             ) : (

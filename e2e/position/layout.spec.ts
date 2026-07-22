@@ -25,11 +25,12 @@ test.describe('组件位置与层级', () => {
     await expect(toolbar).toHaveCSS('opacity', '1');
     await expect(toolbar).toHaveCSS('pointer-events', 'auto');
 
-    // 验证位置
+    // 验证位置（宽度由内容决定：logo + 白盒内两个按钮，约 132px）
     const box = await toolbar.boundingBox();
     expect(box?.x).toBe(0);
     expect(box?.y).toBe(0);
-    expect(box?.width).toBe(100);
+    expect(box?.width).toBeGreaterThan(100);
+    expect(box?.width).toBeLessThan(140);
   });
 
   test('SettingsDialog z-index 高于 FixedToolbar', async ({ page }) => {
@@ -57,8 +58,8 @@ test.describe('组件位置与层级', () => {
     await page.getByTestId('sidebar-trigger').click();
     await page.waitForTimeout(500);
 
-    // margin-left 应为 100px
-    await expect(page.locator('header')).toHaveCSS('margin-left', '100px');
+    // margin-left 应为 140px
+    await expect(page.locator('header')).toHaveCSS('margin-left', '140px');
   });
 
   test('侧边栏折叠后再展开恢复状态', async ({ page }) => {

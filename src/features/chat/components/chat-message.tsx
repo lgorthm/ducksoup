@@ -71,7 +71,7 @@ export const ChatMessage = memo(function ChatMessage({
       <div
         onClick={handleBubbleClick}
         className={cn(
-          'rounded-none px-4 py-2.5 text-sm leading-relaxed',
+          'rounded-lg px-4 py-2.5 text-sm leading-relaxed',
           isUser
             ? cn(
                 isEditing ? 'w-[95%] p-0' : 'max-w-[80%]',

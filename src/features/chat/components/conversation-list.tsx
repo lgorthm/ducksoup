@@ -52,7 +52,7 @@ export function ConversationList() {
     <div data-testid="conversation-list" className="flex flex-col gap-1 p-2">
       <Button
         data-testid="new-conversation"
-        className="mb-2 w-full transition-transform hover:-translate-y-px hover:shadow-md"
+        className="mb-2 w-full rounded-3xl transition-transform hover:-translate-y-px hover:shadow-md"
         onClick={startNewConversation}
       >
         {t('conversation.startNew')}
@@ -68,7 +68,7 @@ export function ConversationList() {
             data-testid="conversation-item"
             data-conv-id={conv.id}
             className={cn(
-              'group/item flex cursor-pointer items-center rounded-none px-2 py-1.5 text-sm transition-colors',
+              'group/item flex cursor-pointer items-center rounded-lg px-2 py-1.5 text-sm transition-colors',
               conv.id === currentConversationId
                 ? 'bg-amber-400/15 text-sidebar-accent-foreground dark:bg-sidebar-accent'
                 : 'hover:bg-sidebar-accent/50',
@@ -79,7 +79,7 @@ export function ConversationList() {
             {isMobile && conv.id !== currentConversationId ? (
               <button
                 disabled
-                className="inline-flex size-6 shrink-0 items-center justify-center rounded-none opacity-30"
+                className="inline-flex size-6 shrink-0 items-center justify-center rounded-lg opacity-30"
                 onClick={(e) => e.stopPropagation()}
               >
                 <MoreHorizontal className="size-3.5" />
@@ -90,7 +90,7 @@ export function ConversationList() {
                   render={
                     <button
                       className={cn(
-                        'inline-flex size-6 shrink-0 items-center justify-center rounded-none hover:bg-sidebar-accent',
+                        'inline-flex size-6 shrink-0 items-center justify-center rounded-lg hover:bg-sidebar-accent',
                         isMobile || conv.id === currentConversationId
                           ? 'opacity-100'
                           : 'opacity-0 group-hover/item:opacity-100',

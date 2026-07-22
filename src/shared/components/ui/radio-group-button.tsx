@@ -85,11 +85,11 @@ function RadioGroupButton<T extends string = string>({
   return (
     <div
       ref={containerRef}
-      className={cn('relative inline-flex border', className)}
+      className={cn('relative inline-flex rounded-lg border', className)}
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute z-20 rounded-none border border-amber-400 bg-amber-400/15 transition-transform duration-300 ease-out"
+        className="pointer-events-none absolute z-20 rounded-lg border border-amber-400 bg-amber-400/15 transition-transform duration-300 ease-out"
         style={ringStyle}
       />
       {options.map((option) => (
