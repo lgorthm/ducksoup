@@ -15,6 +15,7 @@ export function NewConversationButton() {
       aria-label={t('conversation.startNew')}
       title={t('conversation.startNew')}
       onClick={startNewConversation}
+      className="rounded-full hover:bg-foreground/15 dark:hover:bg-foreground/15"
     >
       <SquarePen />
     </Button>

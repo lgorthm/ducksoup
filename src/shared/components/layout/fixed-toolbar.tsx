@@ -31,7 +31,7 @@ export const FixedToolbar = memo(function FixedToolbar({
       }}
     >
       {DUCK_LOGO}
-      <div className="flex items-center gap-1 rounded-lg border bg-background p-1 shadow-sm">
+      <div className="flex items-center gap-1 rounded-full border bg-background p-1 shadow-sm">
         <SidebarTrigger />
         {buttonGroup}
       </div>

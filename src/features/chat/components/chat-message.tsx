@@ -50,6 +50,22 @@ export const ChatMessage = memo(function ChatMessage({
   const canHover = useCanHover();
   const toggleActiveMessage = useChatStore((s) => s.toggleActiveMessage);
 
+  // 单行气泡使用 rounded-full，多行回退到 rounded-lg（按实际渲染高度判断，含换行折行）
+  const contentRef = useRef<HTMLParagraphElement>(null);
+  const [isSingleLine, setIsSingleLine] = useState(true);
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const check = () => {
+      const lineHeight = parseFloat(getComputedStyle(el).lineHeight);
+      setIsSingleLine(el.scrollHeight <= lineHeight + 1);
+    };
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   // 移动端主输入不支持 hover：点击气泡切换操作栏激活态（全局同时仅一条激活）
   const handleBubbleClick =
     canHover || isStreaming || isEditing
@@ -66,12 +82,14 @@ export const ChatMessage = memo(function ChatMessage({
       <div
         onClick={handleBubbleClick}
         className={cn(
-          'rounded-lg px-4 py-2.5 text-sm leading-relaxed',
+          'rounded-full px-4 py-2.5 text-sm leading-relaxed',
           isUser
-            ? cn(
-                isEditing ? 'w-[95%] p-0' : 'max-w-[80%]',
-                'bg-primary text-primary-foreground',
-              )
+            ? isEditing
+              ? 'w-[95%] p-0'
+              : cn(
+                  'max-w-[80%] bg-primary text-primary-foreground',
+                  !isSingleLine && 'rounded-lg',
+                )
             : 'max-w-full bg-transparent text-foreground',
         )}
       >
@@ -79,7 +97,7 @@ export const ChatMessage = memo(function ChatMessage({
           isEditing ? (
             <EditForm message={message} />
           ) : (
-            <p className="wrap-break-word whitespace-pre-wrap">
+            <p ref={contentRef} className="wrap-break-word whitespace-pre-wrap">
               {message.content}
             </p>
           )
@@ -219,8 +237,8 @@ const EditForm = memo(function EditForm({ message }: EditFormProps) {
   return (
     <div
       className={cn(
-        'flex w-full flex-col border border-border bg-background text-foreground transition-colors',
-        'focus-within:border-primary focus-within:ring-1 focus-within:ring-primary',
+        'flex w-full flex-col rounded-3xl border border-border bg-background text-foreground transition-colors',
+        'focus-within:border-primary',
       )}
     >
       <textarea
@@ -241,6 +259,7 @@ const EditForm = memo(function EditForm({ message }: EditFormProps) {
           size="sm"
           onClick={cancel}
           disabled={isLoading}
+          className="rounded-full"
         >
           <X className="size-3.5" />
           {t('common.cancel')}
@@ -250,6 +269,7 @@ const EditForm = memo(function EditForm({ message }: EditFormProps) {
           size="sm"
           onClick={send}
           disabled={isLoading}
+          className="rounded-full"
         >
           {isLoading ? (
             <Loader2 className="size-3.5 animate-spin" />
@@ -336,7 +356,7 @@ const MessageActions = memo(function MessageActions({
                     aria-label={t('chat.message.branchPrev')}
                     disabled={!branchInfo?.prevSiblingId}
                     onClick={() => switchSibling(message.id, -1)}
-                    className="inline-flex items-center justify-center rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+                    className="inline-flex items-center justify-center rounded-full p-1 text-muted-foreground transition-colors hover:bg-foreground/15 hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40 dark:hover:bg-foreground/15"
                   >
                     <ChevronLeft className="size-3.5" />
                   </button>
@@ -364,7 +384,7 @@ const MessageActions = memo(function MessageActions({
                     aria-label={t('chat.message.branchNext')}
                     disabled={!branchInfo?.nextSiblingId}
                     onClick={() => switchSibling(message.id, 1)}
-                    className="inline-flex items-center justify-center rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+                    className="inline-flex items-center justify-center rounded-full p-1 text-muted-foreground transition-colors hover:bg-foreground/15 hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40 dark:hover:bg-foreground/15"
                   >
                     <ChevronRight className="size-3.5" />
                   </button>
@@ -395,7 +415,7 @@ const MessageActions = memo(function MessageActions({
                   aria-label={
                     copied ? t('chat.message.copied') : t('chat.message.copy')
                   }
-                  className="inline-flex items-center justify-center rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                  className="inline-flex items-center justify-center rounded-full p-1 text-muted-foreground transition-colors hover:bg-foreground/15 hover:text-accent-foreground dark:hover:bg-foreground/15"
                 >
                   {copied ? (
                     <Check className="size-3.5" />
@@ -420,7 +440,7 @@ const MessageActions = memo(function MessageActions({
                     aria-label={t('chat.message.edit')}
                     disabled={isLoading}
                     onClick={() => setEditingMessage(message.id)}
-                    className="inline-flex items-center justify-center rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+                    className="inline-flex items-center justify-center rounded-full p-1 text-muted-foreground transition-colors hover:bg-foreground/15 hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40 dark:hover:bg-foreground/15"
                   >
                     <Pencil className="size-3.5" />
                   </button>
@@ -440,7 +460,7 @@ const MessageActions = memo(function MessageActions({
                     aria-label={t('chat.message.regenerate')}
                     disabled={isLoading}
                     onClick={() => regenerateMessage(message.id)}
-                    className="inline-flex items-center justify-center rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+                    className="inline-flex items-center justify-center rounded-full p-1 text-muted-foreground transition-colors hover:bg-foreground/15 hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40 dark:hover:bg-foreground/15"
                   >
                     <RefreshCw className="size-3.5" />
                   </button>

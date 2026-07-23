@@ -85,11 +85,11 @@ function RadioGroupButton<T extends string = string>({
   return (
     <div
       ref={containerRef}
-      className={cn('relative inline-flex rounded-lg border', className)}
+      className={cn('relative inline-flex rounded-full border', className)}
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute z-20 rounded-lg border border-amber-400 bg-amber-400/15 transition-transform duration-300 ease-out"
+        className="pointer-events-none absolute z-20 rounded-full border border-amber-400 bg-amber-400/15 transition-transform duration-300 ease-out"
         style={ringStyle}
       />
       {options.map((option) => (
@@ -98,7 +98,7 @@ function RadioGroupButton<T extends string = string>({
           variant="ghost"
           data-value={option.value}
           className={cn(
-            'relative z-10 cursor-pointer transition-[background-color] duration-300 ease-out hover:text-inherit active:not-aria-[haspopup]:translate-y-0',
+            'relative z-10 cursor-pointer rounded-full transition-[background-color] duration-300 ease-out hover:text-inherit active:not-aria-[haspopup]:translate-y-0',
             option.value === currentValue &&
               'text-amber-400 hover:bg-white hover:text-amber-400',
           )}

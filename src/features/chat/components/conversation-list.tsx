@@ -90,7 +90,7 @@ export function ConversationList() {
                   render={
                     <button
                       className={cn(
-                        'inline-flex size-6 shrink-0 items-center justify-center rounded-lg hover:bg-sidebar-accent',
+                        'inline-flex size-6 shrink-0 items-center justify-center rounded-full hover:bg-sidebar-accent-foreground/15',
                         isMobile || conv.id === currentConversationId
                           ? 'opacity-100'
                           : 'opacity-0 group-hover/item:opacity-100',

@@ -58,7 +58,7 @@ export function ChatInput({
   return (
     <div
       data-testid="chat-input"
-      className="rounded-lg border bg-background p-3 shadow-sm"
+      className="rounded-3xl border bg-background p-3 shadow-sm"
     >
       <div
         ref={editorRef}
@@ -85,6 +85,7 @@ export function ChatInput({
           className={cn(
             deepThink &&
               'border-amber-400 bg-amber-400/15 text-amber-400 hover:bg-amber-400/15 hover:text-amber-400 dark:border-amber-400 dark:bg-amber-400/15 dark:hover:bg-amber-400/15 dark:hover:text-amber-400',
+            'rounded-full',
           )}
         >
           {t('chat.input.deepThink')}
@@ -94,7 +95,7 @@ export function ChatInput({
             data-testid="stop-button"
             size="default"
             onClick={onCancel}
-            className="gap-1.5"
+            className="gap-1.5 rounded-full"
           >
             <Square className="size-3" />
             {t('chat.area.stop')}
@@ -105,6 +106,7 @@ export function ChatInput({
             size="default"
             disabled={disabled || isEmpty}
             onClick={handleSend}
+            className="rounded-full"
           >
             {t('chat.input.send')}
           </Button>

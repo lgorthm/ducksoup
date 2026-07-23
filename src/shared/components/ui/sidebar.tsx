@@ -310,7 +310,11 @@ function SidebarTrigger({
       data-slot="sidebar-trigger"
       variant="ghost"
       size={isMobile ? undefined : 'icon-sm'}
-      className={cn(isMobile && 'size-11', className)}
+      className={cn(
+        isMobile && 'size-11',
+        'rounded-full hover:bg-foreground/15 dark:hover:bg-foreground/15',
+        className,
+      )}
       onClick={(event) => {
         onClick?.(event);
         toggleSidebar();
