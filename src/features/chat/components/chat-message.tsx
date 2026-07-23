@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
@@ -51,20 +51,23 @@ export const ChatMessage = memo(function ChatMessage({
   const toggleActiveMessage = useChatStore((s) => s.toggleActiveMessage);
 
   // 单行气泡使用 rounded-full，多行回退到 rounded-lg（按实际渲染高度判断，含换行折行）
+  // 用 useLayoutEffect 在绘制前完成首次测量，避免多行消息先渲染一帧 rounded-full 再纠正的闪动
   const contentRef = useRef<HTMLParagraphElement>(null);
   const [isSingleLine, setIsSingleLine] = useState(true);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = contentRef.current;
     if (!el) return;
     const check = () => {
       const lineHeight = parseFloat(getComputedStyle(el).lineHeight);
-      setIsSingleLine(el.scrollHeight <= lineHeight + 1);
+      const single = el.scrollHeight <= lineHeight + 1;
+      setIsSingleLine((prev) => (prev === single ? prev : single));
     };
     check();
     const ro = new ResizeObserver(check);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+    // isEditing 切换时 <p> 会卸载重挂，需要重新观测新节点
+  }, [isEditing]);
 
   // 移动端主输入不支持 hover：点击气泡切换操作栏激活态（全局同时仅一条激活）
   const handleBubbleClick =
