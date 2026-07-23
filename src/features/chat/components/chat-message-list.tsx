@@ -120,7 +120,7 @@ export function ChatMessageList({
       className="chat-scrollbar flex-1 overflow-y-auto"
     >
       <div
-        className="relative mx-auto w-full max-w-[776px]"
+        className="relative mx-auto w-full max-w-[744px]"
         style={{ height: `${virtualizer.getTotalSize()}px` }}
       >
         {virtualItems.map((virtualItem) => {
@@ -180,7 +180,7 @@ export function ChatMessageList({
         })}
       </div>
       {children && (
-        <div className="mx-auto w-full max-w-[776px] px-4">{children}</div>
+        <div className="mx-auto w-full max-w-[744px] px-4">{children}</div>
       )}
     </div>
   );

@@ -77,9 +77,9 @@ test.describe('可访问性审计', () => {
 
   test('输入框有正确的 ARIA 角色', async ({ page }) => {
     await setupApp(page);
+    // textarea 隐式具有 textbox 角色和 aria-multiline="true"
     const editor = page.getByTestId('chat-input-editor');
-    await expect(editor).toHaveAttribute('role', 'textbox');
-    await expect(editor).toHaveAttribute('aria-multiline', 'true');
+    await expect(editor).toHaveRole('textbox');
   });
 
   test('侧边栏 trigger 有 sr-only 文本', async ({ page }) => {

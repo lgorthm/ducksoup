@@ -20,24 +20,15 @@ function setupInput(overrides: Partial<Parameters<typeof ChatInput>[0]> = {}) {
 }
 
 function setEditorText(text: string) {
-  const editor = screen.getByRole('textbox') as HTMLDivElement;
-  // jsdom 不支持 contentEditable 的 innerText，手动定义
-  let currentText = text;
-  Object.defineProperty(editor, 'innerText', {
-    get: () => currentText,
-    set: (v: string) => {
-      currentText = v;
-    },
-    configurable: true,
-  });
-  fireEvent.input(editor);
+  const editor = screen.getByRole('textbox');
+  fireEvent.change(editor, { target: { value: text } });
 }
 
 describe('ChatInput', () => {
   it('渲染 placeholder', () => {
     setupInput();
     const editor = screen.getByRole('textbox');
-    expect(editor).toHaveAttribute('data-placeholder', expect.any(String));
+    expect(editor).toHaveAttribute('placeholder', expect.any(String));
   });
 
   it('初始状态发送按钮禁用', () => {
@@ -62,6 +53,7 @@ describe('ChatInput', () => {
     setupInput();
     setEditorText('你好');
     fireEvent.click(screen.getByText('发送'));
+    expect(screen.getByRole('textbox')).toHaveValue('');
     expect(screen.getByText('发送')).toBeDisabled();
   });
 
@@ -119,13 +111,11 @@ describe('ChatInput', () => {
 
   it('disabled 时输入框不可编辑', () => {
     setupInput({ disabled: true });
-    const editor = screen.getByRole('textbox');
-    expect(editor).toHaveAttribute('contenteditable', 'false');
+    expect(screen.getByRole('textbox')).toBeDisabled();
   });
 
   it('流式时输入框不可编辑', () => {
     setupInput({ isStreaming: true });
-    const editor = screen.getByRole('textbox');
-    expect(editor).toHaveAttribute('contenteditable', 'false');
+    expect(screen.getByRole('textbox')).toBeDisabled();
   });
 });

@@ -1,4 +1,11 @@
-import { useRef, useCallback, useState, type KeyboardEvent } from 'react';
+import {
+  useRef,
+  useCallback,
+  useEffect,
+  useState,
+  type KeyboardEvent,
+  type ChangeEvent,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { Square } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
@@ -22,21 +29,19 @@ export function ChatInput({
   onToggleDeepThink,
 }: ChatInputProps) {
   const { t } = useTranslation();
-  const editorRef = useRef<HTMLDivElement>(null);
-  const [isEmpty, setIsEmpty] = useState(true);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [value, setValue] = useState('');
+  const isEmpty = !value.trim();
 
   const handleSend = useCallback(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    const content = editor.innerText.trim();
+    const content = value.trim();
     if (!content || disabled) return;
     onSend(content, deepThink);
-    editor.innerText = '';
-    setIsEmpty(true);
-  }, [onSend, disabled, deepThink]);
+    setValue('');
+  }, [value, onSend, disabled, deepThink]);
 
   const handleKeyDown = useCallback(
-    (e: KeyboardEvent<HTMLDivElement>) => {
+    (e: KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
         e.preventDefault();
         if (!isStreaming) {
@@ -47,11 +52,17 @@ export function ChatInput({
     [handleSend, isStreaming],
   );
 
-  const handleInput = useCallback(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    setIsEmpty(!editor.innerText.trim());
+  const handleChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
+    setValue(e.target.value);
   }, []);
+
+  // 内容变化时自动调整高度（上限由 max-h-50 控制）
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  }, [value]);
 
   const inputDisabled = disabled || isStreaming;
 
@@ -60,20 +71,20 @@ export function ChatInput({
       data-testid="chat-input"
       className="rounded-3xl border bg-background p-3 shadow-sm"
     >
-      <div
-        ref={editorRef}
+      <textarea
+        ref={textareaRef}
         data-testid="chat-input-editor"
-        contentEditable={!inputDisabled}
+        value={value}
+        disabled={inputDisabled}
+        rows={1}
         className={cn(
-          'max-h-50 min-h-11 w-full overflow-y-auto bg-background px-0.5 py-0.5 text-base outline-none',
-          'empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)]',
+          'max-h-50 min-h-11 w-full resize-none overflow-y-auto bg-background px-0.5 py-0.5 text-base outline-none',
+          'placeholder:text-muted-foreground',
           inputDisabled && 'cursor-not-allowed opacity-50',
         )}
-        data-placeholder={t('chat.input.placeholder')}
-        role="textbox"
-        aria-multiline="true"
+        placeholder={t('chat.input.placeholder')}
         onKeyDown={handleKeyDown}
-        onInput={handleInput}
+        onChange={handleChange}
       />
       <div className="mt-2 flex items-center justify-between">
         <Button

@@ -74,6 +74,6 @@ test.describe('冒烟测试', () => {
     });
     const editor = page.getByTestId('chat-input-editor');
     await expect(editor).toBeVisible();
-    await expect(editor).toHaveAttribute('contenteditable', 'true');
+    await expect(editor).toBeEditable();
   });
 });
