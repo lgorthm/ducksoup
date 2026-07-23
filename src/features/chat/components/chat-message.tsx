@@ -1,4 +1,4 @@
-import { lazy, memo, Suspense, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
@@ -24,12 +24,7 @@ import {
 } from '@/shared/components/ui/tooltip';
 import { useCanHover } from '@/shared/hooks/use-media-query';
 import { useChatStore } from '@/features/chat/store/chat-store';
-
-const MarkdownRenderer = lazy(() =>
-  import('@/shared/components/markdown-renderer').then((m) => ({
-    default: m.MarkdownRenderer,
-  })),
-);
+import { MarkdownRenderer } from '@/shared/components/markdown-renderer';
 
 interface ChatMessageProps {
   message: StoredMessage;
@@ -93,15 +88,9 @@ export const ChatMessage = memo(function ChatMessage({
             <ThinkingSection message={message} isStreaming={isStreaming} />
 
             {message.content ? (
-              <Suspense
-                fallback={
-                  <span className="animate-pulse text-muted-foreground">▊</span>
-                }
-              >
-                <MarkdownRenderer isStreaming={isStreaming}>
-                  {message.content}
-                </MarkdownRenderer>
-              </Suspense>
+              <MarkdownRenderer isStreaming={isStreaming}>
+                {message.content}
+              </MarkdownRenderer>
             ) : isStreaming || hasThinking ? (
               <span className="animate-pulse text-muted-foreground">▊</span>
             ) : null}

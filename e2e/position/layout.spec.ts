@@ -105,10 +105,11 @@ test.describe('移动端布局', () => {
 
   test('移动端 FixedToolbar 隐藏', async ({ page }) => {
     const toolbar = page.getByTestId('fixed-toolbar');
-    // WebKit 用 matrix(1,0,0,1,-100,0)，Chromium 用 translateX(-100%)
+    // Chromium 返回 translateX(-100%)；WebKit 解析为像素矩阵，
+    // tx = -工具栏宽度（随字体度量变化，不断言具体数值）
     await expect(toolbar).toHaveCSS(
       'transform',
-      /(translateX\(-100%\)|matrix\(1,\s*0,\s*0,\s*1,\s*-100,\s*0\))/,
+      /(translateX\(-100%\)|matrix\(1,\s*0,\s*0,\s*1,\s*-\d+(\.\d+)?,\s*0\))/,
     );
   });
 });

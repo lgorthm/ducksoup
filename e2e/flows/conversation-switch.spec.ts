@@ -91,6 +91,8 @@ test.describe('会话切换', () => {
 
     // 点击删除
     await page.getByTestId('conversation-delete-menu').click();
+    // 确认删除对话框
+    await page.getByTestId('confirm-delete-conversation').click();
 
     // 删除当前会话后显示欢迎页
     await expect(page.getByTestId('chat-welcome')).toBeVisible({
@@ -124,6 +126,8 @@ test.describe('会话切换', () => {
     await page.waitForTimeout(300);
     await item.locator('[data-slot="dropdown-menu-trigger"]').click();
     await page.getByTestId('conversation-delete-menu').click();
+    // 确认删除对话框
+    await page.getByTestId('confirm-delete-conversation').click();
 
     // 当前消息不变
     await expect(page.getByTestId('message-item')).toHaveCount(2);

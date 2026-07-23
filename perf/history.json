@@ -267,5 +267,94 @@
       "url": "http://localhost:4173/",
       "runs": 3
     }
+  },
+  {
+    "timestamp": "2026-07-23T11:38:17.891Z",
+    "commit": "6872a84",
+    "branch": "main",
+    "bundle": {
+      "total": {
+        "raw": 1134762,
+        "gzip": 382759,
+        "brotli": 331065,
+        "fileCount": 6
+      },
+      "byExt": {
+        "svg": {
+          "raw": 71709,
+          "gzip": 25757,
+          "brotli": 21166,
+          "count": 2
+        },
+        "css": {
+          "raw": 72370,
+          "gzip": 12510,
+          "brotli": 10846,
+          "count": 1
+        },
+        "js": {
+          "raw": 942427,
+          "gzip": 296238,
+          "brotli": 250793,
+          "count": 2
+        },
+        "woff2": {
+          "raw": 48256,
+          "gzip": 48254,
+          "brotli": 48260,
+          "count": 1
+        }
+      },
+      "files": [
+        {
+          "name": "duck-BbcKSJnC.svg",
+          "normalized": "duck-*.svg",
+          "ext": "svg",
+          "raw": 36457,
+          "gzip": 12888,
+          "brotli": 10662
+        },
+        {
+          "name": "index-B6YjOJNa.css",
+          "normalized": "index-*.css",
+          "ext": "css",
+          "raw": 72370,
+          "gzip": 12510,
+          "brotli": 10846
+        },
+        {
+          "name": "index-BUedFEFs.js",
+          "normalized": "index-*.js",
+          "ext": "js",
+          "raw": 926366,
+          "gzip": 290732,
+          "brotli": 246147
+        },
+        {
+          "name": "inter-latin-wght-normal-Dx4kXJAl.woff2",
+          "normalized": "inter-latin-wght-normal-*.woff2",
+          "ext": "woff2",
+          "raw": 48256,
+          "gzip": 48254,
+          "brotli": 48260
+        },
+        {
+          "name": "logo-Dre7pWsx.svg",
+          "normalized": "logo-*.svg",
+          "ext": "svg",
+          "raw": 35252,
+          "gzip": 12869,
+          "brotli": 10504
+        },
+        {
+          "name": "settings-dialog-BAozrHrR.js",
+          "normalized": "settings-dialog-*.js",
+          "ext": "js",
+          "raw": 16061,
+          "gzip": 5506,
+          "brotli": 4646
+        }
+      ]
+    }
   }
 ]

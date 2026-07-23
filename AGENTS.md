@@ -98,7 +98,7 @@ State: Zustand stores live at `src/features/<name>/store/` (see `features/chat/s
 - **`e2e/helpers/sse-mock.ts`** — `page.route` based SSE mock. No-delay mode uses string body (reliable); delay mode uses `ReadableStream` + `setTimeout`.
 - **`data-testid` attributes** are added to key components for E2E selectors. See `e2e/helpers/selectors.ts` for the full list.
 - **Visual regression**: `e2e/visual/*.spec.ts` — screenshots with 1% pixel diff tolerance. Baselines in `*.spec.ts-snapshots/` (committed). Update with `pnpm exec playwright test e2e/visual/ -u`.
-- **Performance**: `e2e/performance/large-dataset.spec.ts` — multi-tier benchmarks: 1K msgs <300ms, 5K <350ms, 10K <500ms, 500 conversations sidebar render, 10× sequential switch no degradation.
+- **Performance**: `e2e/performance/large-dataset.spec.ts` — multi-tier benchmarks: 1K msgs <300ms, 5K <350ms, 10K <500ms, 500 conversations sidebar render, 10× sequential switch no degradation. `e2e/performance/lcp.spec.ts` — first-load LCP with seeded history messages (`PerformanceObserver('largest-contentful-paint')`, threshold 3000ms; logs the LCP element for diagnostics).
 - **Accessibility**: `e2e/a11y/a11y.spec.ts` — `@axe-core/playwright` audits for WCAG 2.0/2.1 A/AA. Excludes `[data-slot="dropdown-menu-trigger"]` (known a11y issue: buttons without discernible text).
 
 ### Test directory structure
