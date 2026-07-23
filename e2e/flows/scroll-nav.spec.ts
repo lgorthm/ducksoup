@@ -38,8 +38,11 @@ async function scrollMessageToCenter(page: Page, index: number) {
   await page.getByTestId('message-list').evaluate((el, i) => {
     const item = el.querySelector<HTMLElement>(`[data-index="${i}"]`);
     if (!item) throw new Error(`message ${i} not rendered`);
-    // 虚拟项通过 transform: translateY 定位，offsetTop 恒为 0，需解析 transform
-    const match = /translateY\(([\d.]+)px\)/.exec(item.style.transform);
+    // 虚拟项通过 transform 定位（translateY 或 translate3d），offsetTop 恒为 0，需解析 transform
+    const style = item.style.transform;
+    const match =
+      /translateY\(([\d.]+)px\)/.exec(style) ??
+      /translate3d\([^,]+,\s*([\d.]+)px/.exec(style);
     const start = match ? Number(match[1]) : 0;
     el.scrollTo({
       top: start + item.offsetHeight / 2 - el.clientHeight / 2,
