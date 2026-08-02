@@ -47,5 +47,28 @@ export default defineConfig({
     // "hidden" = emit maps without a sourceMappingURL comment; only needed
     // when uploading to Sentry, and the plugin deletes them before deploy.
     sourcemap: enableSentryUpload ? 'hidden' : false,
+    rolldownOptions: {
+      output: {
+        advancedChunks: {
+          // Split stable vendor code into long-term-cacheable chunks so app
+          // releases don't invalidate them. Tests match the inner
+          // `node_modules/<pkg>/` segment of pnpm-store paths.
+          groups: [
+            {
+              name: 'framework',
+              test: /node_modules[\\/](?:react|react-dom|scheduler)[\\/]/,
+            },
+            {
+              name: 'sentry',
+              test: /node_modules[\\/]@sentry[\\/]/,
+            },
+            {
+              name: 'base-ui',
+              test: /node_modules[\\/](?:@base-ui|@floating-ui)[\\/]/,
+            },
+          ],
+        },
+      },
+    },
   },
 });

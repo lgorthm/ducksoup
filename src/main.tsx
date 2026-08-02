@@ -11,6 +11,10 @@ import { router } from '@/routes';
 import { ThemeProvider } from '@/shared/providers/theme-provider';
 import { Toaster } from '@/shared/components/ui/sonner';
 
+// Prefetch the markdown chunk in parallel with app boot and IndexedDB
+// hydration, so lazy message rendering adds no network waterfall (LCP-safe).
+void import('@/shared/components/markdown-renderer');
+
 createRoot(document.getElementById('root')!, {
   onUncaughtError: reactErrorHandler(),
   onCaughtError: reactErrorHandler(),

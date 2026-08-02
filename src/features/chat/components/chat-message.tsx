@@ -24,7 +24,7 @@ import {
 } from '@/shared/components/ui/tooltip';
 import { useCanHover } from '@/shared/hooks/use-media-query';
 import { useChatStore } from '@/features/chat/store/chat-store';
-import { MarkdownRenderer } from '@/shared/components/markdown-renderer';
+import { LazyMarkdownRenderer } from '@/shared/components/lazy-markdown-renderer';
 
 interface ChatMessageProps {
   message: StoredMessage;
@@ -109,9 +109,9 @@ export const ChatMessage = memo(function ChatMessage({
             <ThinkingSection message={message} isStreaming={isStreaming} />
 
             {message.content ? (
-              <MarkdownRenderer isStreaming={isStreaming}>
+              <LazyMarkdownRenderer isStreaming={isStreaming}>
                 {message.content}
-              </MarkdownRenderer>
+              </LazyMarkdownRenderer>
             ) : isStreaming || hasThinking ? (
               <span className="animate-pulse text-muted-foreground">▊</span>
             ) : null}

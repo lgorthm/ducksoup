@@ -356,5 +356,145 @@
         }
       ]
     }
+  },
+  {
+    "timestamp": "2026-08-02T01:35:39.828Z",
+    "commit": "e8bb0f8",
+    "branch": "main",
+    "bundle": {
+      "total": {
+        "raw": 1163010,
+        "gzip": 392491,
+        "brotli": 345209,
+        "fileCount": 11
+      },
+      "byExt": {
+        "js": {
+          "raw": 970377,
+          "gzip": 305955,
+          "brotli": 264966,
+          "count": 7
+        },
+        "svg": {
+          "raw": 71709,
+          "gzip": 25757,
+          "brotli": 21166,
+          "count": 2
+        },
+        "css": {
+          "raw": 72668,
+          "gzip": 12525,
+          "brotli": 10817,
+          "count": 1
+        },
+        "woff2": {
+          "raw": 48256,
+          "gzip": 48254,
+          "brotli": 48260,
+          "count": 1
+        }
+      },
+      "files": [
+        {
+          "name": "base-ui-CZgtkO7I.js",
+          "normalized": "base-ui-*.js",
+          "ext": "js",
+          "raw": 151607,
+          "gzip": 49859,
+          "brotli": 43325
+        },
+        {
+          "name": "duck-BbcKSJnC.svg",
+          "normalized": "duck-*.svg",
+          "ext": "svg",
+          "raw": 36457,
+          "gzip": 12888,
+          "brotli": 10662
+        },
+        {
+          "name": "framework-dXFo3PrY.js",
+          "normalized": "framework-*.js",
+          "ext": "js",
+          "raw": 189811,
+          "gzip": 58966,
+          "brotli": 50824
+        },
+        {
+          "name": "index-B-I0fUjo.css",
+          "normalized": "index-B-*.css",
+          "ext": "css",
+          "raw": 72668,
+          "gzip": 12525,
+          "brotli": 10817
+        },
+        {
+          "name": "index-BJH87KP_.js",
+          "normalized": "index-*.js",
+          "ext": "js",
+          "raw": 321154,
+          "gzip": 99415,
+          "brotli": 85423
+        },
+        {
+          "name": "inter-latin-wght-normal-Dx4kXJAl.woff2",
+          "normalized": "inter-latin-wght-normal-*.woff2",
+          "ext": "woff2",
+          "raw": 48256,
+          "gzip": 48254,
+          "brotli": 48260
+        },
+        {
+          "name": "logo-Dre7pWsx.svg",
+          "normalized": "logo-*.svg",
+          "ext": "svg",
+          "raw": 35252,
+          "gzip": 12869,
+          "brotli": 10504
+        },
+        {
+          "name": "markdown-renderer-CVhTyTb7.js",
+          "normalized": "markdown-renderer-*.js",
+          "ext": "js",
+          "raw": 264842,
+          "gzip": 82528,
+          "brotli": 71960
+        },
+        {
+          "name": "rolldown-runtime-QTnfLwEv.js",
+          "normalized": "rolldown-runtime-*.js",
+          "ext": "js",
+          "raw": 694,
+          "gzip": 422,
+          "brotli": 373
+        },
+        {
+          "name": "sentry-CGPCklTz.js",
+          "normalized": "sentry-*.js",
+          "ext": "js",
+          "raw": 26132,
+          "gzip": 9224,
+          "brotli": 8371
+        },
+        {
+          "name": "settings-dialog-jYezgKVO.js",
+          "normalized": "settings-dialog-*.js",
+          "ext": "js",
+          "raw": 16137,
+          "gzip": 5541,
+          "brotli": 4690
+        }
+      ]
+    },
+    "lighthouse": {
+      "performance": 100,
+      "fcp": 624.946875,
+      "lcp": 685.93625,
+      "tbt": 0,
+      "cls": 0,
+      "inp": null,
+      "ttfb": 0.8839999999999999,
+      "url": "http://localhost:4173/",
+      "runs": 1
+    }
   }
 ]
