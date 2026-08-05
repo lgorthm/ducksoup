@@ -32,13 +32,25 @@ vi.mock('@/features/chat/components/chat-input', () => ({
       data-disabled={disabled}
       data-deep-think={deepThink}
     >
-      <button data-testid="send-false" onClick={() => onSend('hello', false)}>
+      <button
+        type="button"
+        data-testid="send-false"
+        onClick={() => onSend('hello', false)}
+      >
         send-false
       </button>
-      <button data-testid="send-true" onClick={() => onSend('hello', true)}>
+      <button
+        type="button"
+        data-testid="send-true"
+        onClick={() => onSend('hello', true)}
+      >
         send-true
       </button>
-      <button data-testid="toggle-deep-think" onClick={onToggleDeepThink}>
+      <button
+        type="button"
+        data-testid="toggle-deep-think"
+        onClick={onToggleDeepThink}
+      >
         toggle
       </button>
     </div>

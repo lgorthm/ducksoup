@@ -426,7 +426,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         const now = Date.now();
         conv = {
           id: generateId(),
-          title: content.length > 20 ? content.slice(0, 20) + '...' : content,
+          title: content.length > 20 ? `${content.slice(0, 20)}...` : content,
           createdAt: now,
           updatedAt: now,
           messageCount: 0,
@@ -534,7 +534,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       if (get().isLoading) return;
       const { allMessages } = get();
       const original = allMessages.find((m) => m.id === messageId);
-      if (!original || original.role !== 'user' || !get().apiKey) return;
+      if (original?.role !== 'user' || !get().apiKey) return;
 
       get().cancelStream();
 
@@ -600,7 +600,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       if (get().isLoading) return;
       const { allMessages } = get();
       const original = allMessages.find((m) => m.id === messageId);
-      if (!original || original.role !== 'assistant' || !get().apiKey) return;
+      if (original?.role !== 'assistant' || !get().apiKey) return;
 
       get().cancelStream();
 

@@ -14,13 +14,13 @@ function setupMatchMediaForWidth(width: number) {
     const maxMatch = query.match(/max-width:\s*(\d+)px/);
     const minMatch = query.match(/min-width:\s*(\d+)px/);
     if (maxMatch && minMatch) {
-      const min = parseInt(minMatch[1]);
-      const max = parseInt(maxMatch[1]);
+      const min = parseInt(minMatch[1], 10);
+      const max = parseInt(maxMatch[1], 10);
       matches = width >= min && width <= max;
     } else if (maxMatch) {
-      matches = width <= parseInt(maxMatch[1]);
+      matches = width <= parseInt(maxMatch[1], 10);
     } else if (minMatch) {
-      matches = width >= parseInt(minMatch[1]);
+      matches = width >= parseInt(minMatch[1], 10);
     }
     return {
       matches,

@@ -8,8 +8,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "format": "prettier --write \"**/*.{ts,tsx}\"",
+    "lint": "biome check .",
+    "format": "biome check --write .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -51,7 +51,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.11.3",
     "@babel/core": "^8.0.1",
-    "@eslint/js": "^10",
+    "@biomejs/biome": "2.5.7",
     "@lhci/cli": "^0.15.1",
     "@playwright/test": "^1.60.0",
     "@rolldown/plugin-babel": "^0.2.3",
@@ -68,30 +68,19 @@
     "@vitest/coverage-v8": "^4.1.7",
     "@vitest/ui": "^4.1.7",
     "babel-plugin-react-compiler": "^1.0.0",
-    "eslint": "^10",
-    "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-refresh": "^0.5.2",
     "fake-indexeddb": "^6.2.5",
-    "globals": "^17",
     "husky": "^9.1.7",
     "jsdom": "^29.1.1",
     "lint-staged": "^17.0.8",
     "msw": "^2.14.6",
-    "prettier": "^3.8.3",
-    "prettier-plugin-tailwindcss": "^0.8.0",
     "rollup-plugin-visualizer": "^7.0.1",
     "typescript": "~6",
-    "typescript-eslint": "^8",
     "vite": "^8",
     "vitest": "^4.1.7"
   },
   "lint-staged": {
-    "*.{ts,tsx}": [
-      "prettier --write",
-      "eslint --fix"
-    ],
-    "*.{json,css,md}": [
-      "prettier --write"
+    "*.{ts,tsx,json,jsonc}": [
+      "biome check --write --no-errors-on-unmatched --files-ignore-unknown=true"
     ]
   }
 }

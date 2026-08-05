@@ -103,7 +103,7 @@ function parseLine(state: SSEParserState, line: string): SSEEvent | null {
       break;
     case 'retry': {
       const ms = parseInt(value, 10);
-      if (!isNaN(ms)) state.retry = ms;
+      if (!Number.isNaN(ms)) state.retry = ms;
       break;
     }
   }
@@ -253,7 +253,7 @@ export function createSSEConnection(
       // 自动重连
       if (retryCount < maxRetries && state !== 'closed') {
         retryCount++;
-        const delay = retryDelay * Math.pow(2, retryCount - 1); // 指数退避
+        const delay = retryDelay * 2 ** (retryCount - 1); // 指数退避
         retryTimeoutId = setTimeout(() => {
           connect();
         }, delay);

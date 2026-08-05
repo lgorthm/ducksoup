@@ -93,6 +93,7 @@ function SidebarProvider({
 
   // This sets the cookie to keep the sidebar state.
   React.useEffect(() => {
+    // biome-ignore lint/suspicious/noDocumentCookie: shadcn sidebar 用 cookie 持久化折叠状态
     document.cookie = `${SIDEBAR_COOKIE_NAME}=${open}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
   }, [open]);
 
@@ -769,6 +770,6 @@ export {
   SidebarRail,
   SidebarSeparator,
   SidebarTrigger,
-  // eslint-disable-next-line react-refresh/only-export-components
+  // biome-ignore lint/style/useComponentExportOnlyModules: shadcn 约定：hook 与组件同文件导出
   useSidebar,
 };

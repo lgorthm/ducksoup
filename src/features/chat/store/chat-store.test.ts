@@ -357,7 +357,7 @@ describe('sendMessage', () => {
     await useChatStore.getState().sendMessage(longContent);
 
     const conv = vi.mocked(db.addConversation).mock.calls[0][0];
-    expect(conv.title).toBe(longContent.slice(0, 20) + '...');
+    expect(conv.title).toBe(`${longContent.slice(0, 20)}...`);
   });
 
   it('发送后设置 isLoading 和 streamingMessage', async () => {

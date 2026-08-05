@@ -84,8 +84,8 @@ No `.env` file is required — all configuration is stored in the browser's `loc
 | `pnpm dev`           | Start the Vite dev server                                                 |
 | `pnpm build`         | Type-check (`tsc -b`) + production build                                  |
 | `pnpm typecheck`     | Run type-checking only (`tsc --noEmit`)                                   |
-| `pnpm lint`          | ESLint check                                                              |
-| `pnpm format`        | Prettier formatting                                                       |
+| `pnpm lint`          | Biome check (lint + format)                                                 |
+| `pnpm format`        | Biome format + safe fixes                                                   |
 | `pnpm preview`       | Preview the production build locally                                      |
 | `pnpm test`          | Run unit / integration tests (Vitest)                                     |
 | `pnpm test:watch`    | Watch mode for tests                                                      |

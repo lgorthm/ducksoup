@@ -1,4 +1,4 @@
-/* eslint-disable react-refresh/only-export-components */
+/** biome-ignore-all lint/style/useComponentExportOnlyModules: Provider 需要与 useTheme hook 同文件导出 */
 import * as React from 'react';
 
 type Theme = 'dark' | 'light' | 'system';

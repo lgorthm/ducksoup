@@ -21,6 +21,7 @@ import {
 } from '@/features/chat/hooks/use-chat-list-controller';
 
 // 向后兼容：保留 ChatListController 类型的 re-export
+// biome-ignore lint/style/useComponentExportOnlyModules: 类型导出不影响 Fast Refresh（规则误报）
 export type { ChatListController };
 
 interface ChatMessageListProps {
@@ -90,7 +91,7 @@ export function ChatMessageList({
     return { lastUser, lastAssistant };
   }, [messages]);
 
-  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual 返回不稳定函数引用，已通过 'use no memo' 显式跳过记忆化
+  // TanStack Virtual 返回不稳定函数引用，已通过 'use no memo' 显式跳过记忆化
   const virtualizer = useVirtualizer({
     count: totalCount,
     getScrollElement: useCallback(() => scrollContainerRef.current, []),

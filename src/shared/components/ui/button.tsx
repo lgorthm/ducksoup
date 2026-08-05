@@ -1,4 +1,4 @@
-/* eslint-disable react-refresh/only-export-components */
+/** biome-ignore-all lint/style/useComponentExportOnlyModules: shadcn 约定：组件与 variants 同文件导出 */
 import { Button as ButtonPrimitive } from '@base-ui/react/button';
 import { cva, type VariantProps } from 'class-variance-authority';
 

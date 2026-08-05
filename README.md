@@ -84,8 +84,8 @@ pnpm dev
 | `pnpm dev`           | 启动 Vite 开发服务器                              |
 | `pnpm build`         | 类型检查(`tsc -b`)+ 生产构建                      |
 | `pnpm typecheck`     | 仅运行类型检查(`tsc --noEmit`)                    |
-| `pnpm lint`          | ESLint 检查                                       |
-| `pnpm format`        | Prettier 格式化                                   |
+| `pnpm lint`          | Biome 检查(lint + format)                       |
+| `pnpm format`        | Biome 格式化 + 安全修复                           |
 | `pnpm preview`       | 本地预览构建产物                                  |
 | `pnpm test`          | 运行单元 / 集成测试(Vitest)                       |
 | `pnpm test:watch`    | 测试监听模式                                      |

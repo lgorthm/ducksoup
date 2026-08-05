@@ -33,9 +33,15 @@ function ThemeConsumer({ onTheme }: { onTheme?: (t: string) => void }) {
   }, [theme, onTheme]);
   return (
     <div data-testid="consumer" data-theme={theme}>
-      <button onClick={() => setTheme('dark')}>set dark</button>
-      <button onClick={() => setTheme('light')}>set light</button>
-      <button onClick={() => setTheme('system')}>set system</button>
+      <button type="button" onClick={() => setTheme('dark')}>
+        set dark
+      </button>
+      <button type="button" onClick={() => setTheme('light')}>
+        set light
+      </button>
+      <button type="button" onClick={() => setTheme('system')}>
+        set system
+      </button>
     </div>
   );
 }

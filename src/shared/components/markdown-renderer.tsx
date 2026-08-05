@@ -1,4 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/** biome-ignore-all lint/suspicious/noExplicitAny: react-markdown 组件映射需要 any */
+/** biome-ignore-all lint/security/noDangerouslySetInnerHtml: 高亮 HTML 由 Prism 在本地生成，不含用户输入 */
 import { useState, useMemo, memo, type ComponentPropsWithoutRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';

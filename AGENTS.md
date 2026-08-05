@@ -14,8 +14,8 @@ DeepSeek-powered chat web app: streaming chat, conversation history persisted to
 pnpm dev            # Vite dev server (press d to toggle dark/light theme)
 pnpm build          # tsc -b (project references) then vite build
 pnpm typecheck      # tsc --noEmit
-pnpm lint           # eslint .
-pnpm format         # prettier --write **/*.{ts,tsx}
+pnpm lint           # biome check . (lint + format 检查)
+pnpm format         # biome check --write . (格式化 + 安全修复)
 pnpm test           # vitest run (unit + integration, 205 tests)
 pnpm test:watch     # vitest watch
 pnpm test:coverage  # vitest run --coverage (thresholds: 75/65/70/75)
@@ -41,7 +41,7 @@ Pushing to `main` runs `.github/workflows/deploy.yml`: `pnpm build` (Node 22, `-
 
 ## Code conventions
 
-- Prettier: `semi`, `singleQuote`, `trailingComma: "all"`, `printWidth: 80`. `prettier-plugin-tailwindcss` sorts classes inside `cn`/`cva` (`tailwindStylesheet: src/index.css`).
+- **Biome** 取代了 ESLint + Prettier(配置在 `biome.json`):格式化 `semi`、`singleQuote`、`trailingComma: "all"`、`printWidth: 80`。`src/index.css`(Tailwind v4 语法)与 `scripts/**` 被排除在 Biome 之外。注意:Biome 不支持 Tailwind class 排序(原 `prettier-plugin-tailwindcss` 的功能),也不再格式化 CSS/Markdown。
 - `@/*` path alias → `src/*` (configured in `vite.config.ts` and `tsconfig*.json`).
 - TypeScript is strict: `verbatimModuleSyntax` (use `import type` for type-only imports), `noUnusedLocals`/`noUnusedParameters`, `erasableSyntaxOnly` (no enums / namespaces / parameter properties).
 - UI strings go through i18next (`useTranslation` / `i18n.t`). Locales: `src/shared/i18n/locales/{zh-CN,en}.json`. Detection order: `localStorage["i18nLang"]` → `navigator`; fallback `en`.
@@ -76,7 +76,7 @@ State: Zustand stores live at `src/features/<name>/store/` (see `features/chat/s
 - **react-router v7**: import from `react-router` (not `react-router-dom`). Data Mode (`createBrowserRouter` + `RouterProvider`).
 - **shadcn**: `components.json` uses style `radix-lyra`, baseColor `neutral`, iconLibrary `lucide`. Add with `pnpm dlx shadcn@latest add <name>` → installs to `src/shared/components/ui/`. The root `README.md` is stale (claims `src/components/`); trust `components.json`.
 - **`next-themes` is installed but unused** — the app uses the custom `ThemeProvider` at `src/shared/providers/theme-provider.tsx`. Don't reach for `next-themes`.
-- **ESLint** `react-refresh/only-export-components` is active — a provider that exports non-components needs `/* eslint-disable react-refresh/only-export-components */` (see theme-provider.tsx).
+- **Biome** `lint/style/useComponentExportOnlyModules`(原 `react-refresh/only-export-components`)以 warn 启用 — 导出非组件的 provider 需要 `/** biome-ignore-all lint/style/useComponentExportOnlyModules: <理由> */`(见 theme-provider.tsx);测试文件已在 overrides 中关闭该规则。
 
 ## Testing
 
@@ -125,6 +125,6 @@ e2e/
 
 - `perf/history.json` and `perf/report.md` are **committed** (shared baseline across machines/CI). `perf/stats.html` and `.lighthouseci/` are gitignored. `history.json` keeps at most 100 entries and dedupes by commit (re-running `pnpm perf` on the same commit replaces the prior entry instead of appending), so it won't grow unbounded.
 - Regression thresholds live at the top of `scripts/perf/compare.mjs` (gzip total >+2%, LCP >+200ms, CLS >+0.02, INP >+50ms, performance score >-3 points). Tune there.
-- The `scripts/perf/*.mjs` files are standalone Node ESM and are **not** covered by `tsc`/`eslint` (those only target `**/*.{ts,tsx}`); keep them dependency-free (only `node:*` builtins + `./_lib.mjs`).
+- The `scripts/perf/*.mjs` files are standalone Node ESM and are **not** covered by `tsc`/`biome` (excluded via `files.includes` in `biome.json`); keep them dependency-free (only `node:*` builtins + `./_lib.mjs`).
 - `PERF=1` env var gates `visualizer` in `vite.config.ts` so everyday `pnpm build` stays fast and doesn't emit `stats.html`.
 - LHCI needs Chrome installed locally. To run in CI (ubuntu), add a Chrome install step to the workflow.

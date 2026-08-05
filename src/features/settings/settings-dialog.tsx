@@ -80,6 +80,7 @@ function GeneralSettings() {
             const isActive = theme === option.value;
             return (
               <button
+                type="button"
                 key={option.value}
                 onClick={() => setTheme(option.value)}
                 className={cn(
@@ -108,6 +109,7 @@ function GeneralSettings() {
             const isActive = i18n.language === option.value;
             return (
               <button
+                type="button"
                 key={option.value}
                 onClick={() => i18n.changeLanguage(option.value)}
                 className={cn(
@@ -200,8 +202,8 @@ function BalanceCard({ info }: { info: BalanceInfo }) {
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium">
           {info.currency === 'CNY'
-            ? t('balance.currency') + ': CNY'
-            : t('balance.currency') + ': USD'}
+            ? `${t('balance.currency')}: CNY`
+            : `${t('balance.currency')}: USD`}
         </span>
       </div>
       <div className="space-y-2">
@@ -392,7 +394,11 @@ function BalanceSettings() {
           {balance.balance_infos.length > 0 ? (
             <div className="space-y-2">
               {balance.balance_infos.map((info, i) => (
-                <BalanceCard key={`${info.currency}-${i}`} info={info} />
+                <BalanceCard
+                  // biome-ignore lint/suspicious/noArrayIndexKey: 同币种可能有多条记录，key 需要索引区分
+                  key={`${info.currency}-${i}`}
+                  info={info}
+                />
               ))}
             </div>
           ) : (
@@ -430,6 +436,7 @@ function TabButtons({
         { key: 'balance' as const, label: t('settings.tabBalance') },
       ].map((tab) => (
         <button
+          type="button"
           key={tab.key}
           onClick={() => onChange(tab.key)}
           className={cn(

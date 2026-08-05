@@ -5,7 +5,7 @@
  * collect-lighthouse.mjs, and compare.mjs. It intentionally uses only
  * Node.js built-in modules (`node:fs`, `node:zlib`, `node:child_process`,
  * `node:path`, `node:url`) so the perf pipeline stays dependency-free and
- * is not covered by tsc / eslint (which only target **//*.{ts,tsx}).
+ * is not covered by tsc / biome (excluded via `files.includes` in biome.json).
  *
  * Exposes:
  *   - Filesystem path constants (ROOT, HISTORY_PATH, …)

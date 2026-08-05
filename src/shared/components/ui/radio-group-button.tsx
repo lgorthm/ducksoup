@@ -112,4 +112,5 @@ function RadioGroupButton<T extends string = string>({
 }
 
 export { RadioGroupButton };
+// biome-ignore lint/style/useComponentExportOnlyModules: 类型导出不影响 Fast Refresh（规则误报）
 export type { RadioGroupButtonProps };

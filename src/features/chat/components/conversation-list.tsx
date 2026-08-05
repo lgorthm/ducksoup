@@ -78,6 +78,7 @@ export function ConversationList() {
             <span className="min-w-0 flex-1 truncate">{conv.title}</span>
             {isMobile && conv.id !== currentConversationId ? (
               <button
+                type="button"
                 disabled
                 className="inline-flex size-6 shrink-0 items-center justify-center rounded-lg opacity-30"
                 onClick={(e) => e.stopPropagation()}
@@ -89,6 +90,7 @@ export function ConversationList() {
                 <DropdownMenuTrigger
                   render={
                     <button
+                      type="button"
                       className={cn(
                         'inline-flex size-6 shrink-0 items-center justify-center rounded-full hover:bg-sidebar-accent-foreground/15',
                         isMobile || conv.id === currentConversationId
