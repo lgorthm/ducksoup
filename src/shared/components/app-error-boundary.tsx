@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 import { TriangleAlertIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import * as Sentry from '@sentry/react';
 
 import { Button } from '@/shared/components/ui/button';
 
@@ -41,15 +40,8 @@ export function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
 
 export function AppErrorBoundary({ children }: { children: ReactNode }) {
   return (
-    <ErrorBoundary
-      FallbackComponent={ErrorFallback}
-      onError={(error, info) => {
-        Sentry.captureException(error, {
-          extra: { componentStack: info.componentStack },
-        });
-      }}
-    >
-      {children}
-    </ErrorBoundary>
+    // Reporting is handled by the root's onCaughtError (reactErrorHandler)
+    // in main.tsx — capturing here too would double-report every error.
+    <ErrorBoundary FallbackComponent={ErrorFallback}>{children}</ErrorBoundary>
   );
 }

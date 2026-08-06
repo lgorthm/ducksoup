@@ -14,12 +14,22 @@ import { Toaster } from '@/shared/components/ui/sonner';
 
 // Prefetch the markdown chunk in parallel with app boot and IndexedDB
 // hydration, so lazy message rendering adds no network waterfall (LCP-safe).
-void import('@/shared/components/markdown-renderer');
+// Swallow failures: the lazy import at render time retries on its own.
+void import('@/shared/components/markdown-renderer').catch(() => {});
 
-createRoot(document.getElementById('root')!, {
-  onUncaughtError: reactErrorHandler(),
-  onCaughtError: reactErrorHandler(),
-  onRecoverableError: reactErrorHandler(),
+const container = document.getElementById('root');
+if (!container) {
+  throw new Error('Root element #root not found in index.html');
+}
+
+// onCaughtError reports boundary-caught errors to Sentry, so error
+// boundaries (e.g. AppErrorBoundary) must not capture them manually.
+const handleReactError = reactErrorHandler();
+
+createRoot(container, {
+  onUncaughtError: handleReactError,
+  onCaughtError: handleReactError,
+  onRecoverableError: handleReactError,
 }).render(
   <StrictMode>
     <AppErrorBoundary>
