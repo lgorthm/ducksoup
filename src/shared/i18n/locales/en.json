@@ -4,6 +4,12 @@
     "cancel": "Cancel",
     "saved": "Saved"
   },
+  "error": {
+    "title": "Something went wrong",
+    "description": "The app ran into an unexpected error. You can try again, or reload the page.",
+    "retry": "Try again",
+    "reload": "Reload page"
+  },
   "chat": {
     "input": {
       "placeholder": "Type a message... (Enter to send, Shift+Enter for new line)",

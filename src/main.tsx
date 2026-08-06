@@ -8,6 +8,7 @@ import { reactErrorHandler } from '@sentry/react';
 import './index.css';
 import '@/shared/i18n';
 import { router } from '@/routes';
+import { AppErrorBoundary } from '@/shared/components/app-error-boundary';
 import { ThemeProvider } from '@/shared/providers/theme-provider';
 import { Toaster } from '@/shared/components/ui/sonner';
 
@@ -21,9 +22,11 @@ createRoot(document.getElementById('root')!, {
   onRecoverableError: reactErrorHandler(),
 }).render(
   <StrictMode>
-    <ThemeProvider>
-      <RouterProvider router={router} />
-      <Toaster />
-    </ThemeProvider>
+    <AppErrorBoundary>
+      <ThemeProvider>
+        <RouterProvider router={router} />
+        <Toaster />
+      </ThemeProvider>
+    </AppErrorBoundary>
   </StrictMode>,
 );

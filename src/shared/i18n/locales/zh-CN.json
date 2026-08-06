@@ -4,6 +4,12 @@
     "cancel": "取消",
     "saved": "已保存"
   },
+  "error": {
+    "title": "页面出错了",
+    "description": "应用遇到了意外错误。你可以重试，或刷新页面。",
+    "retry": "重试",
+    "reload": "刷新页面"
+  },
   "chat": {
     "input": {
       "placeholder": "输入消息... (Enter 发送, Shift+Enter 换行)",
