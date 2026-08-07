@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import type { Conversation } from '@/features/chat/types/deepseek';
 import { ConversationList } from './conversation-list';
 import { useChatStore } from '@/features/chat/store/chat-store';
@@ -81,6 +81,7 @@ beforeEach(() => {
     const state = {
       conversations: [] as Conversation[],
       currentConversationId: null,
+      initialized: true,
       ...mockActions,
     };
     return typeof selector === 'function'
@@ -106,6 +107,58 @@ describe('ConversationList', () => {
     expect(screen.getByText('暂无对话')).toBeInTheDocument();
   });
 
+  it('未初始化时显示骨架屏而不是"暂无对话"', () => {
+    vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
+      const state = {
+        conversations: [] as Conversation[],
+        currentConversationId: null,
+        initialized: false,
+        ...mockActions,
+      };
+      return typeof selector === 'function'
+        ? (selector as (s: typeof state) => unknown)(state)
+        : state;
+    });
+
+    render(<ConversationList />);
+    expect(screen.getByTestId('conversation-list-loading')).toBeInTheDocument();
+    expect(screen.queryByText('暂无对话')).not.toBeInTheDocument();
+  });
+
+  it('加载很快时骨架屏也至少展示 200ms 再显示列表', () => {
+    vi.useFakeTimers();
+    let initialized = false;
+    const convs = [makeConv({ id: 'c1', title: '会话一' })];
+    vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
+      const state = {
+        conversations: convs,
+        currentConversationId: null,
+        initialized,
+        ...mockActions,
+      };
+      return typeof selector === 'function'
+        ? (selector as (s: typeof state) => unknown)(state)
+        : state;
+    });
+
+    const { rerender } = render(<ConversationList />);
+    // 30ms 后数据加载完成
+    act(() => {
+      vi.advanceTimersByTime(30);
+    });
+    initialized = true;
+    rerender(<ConversationList />);
+    // 不足最短展示时长，仍显示骨架屏
+    expect(screen.getByTestId('conversation-list-loading')).toBeInTheDocument();
+    expect(screen.queryByText('会话一')).not.toBeInTheDocument();
+    // 到达最短展示时长后显示列表
+    act(() => {
+      vi.advanceTimersByTime(170);
+    });
+    expect(screen.getByText('会话一')).toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
   it('渲染会话列表', () => {
     const convs = [
       makeConv({ id: 'c1', title: '会话一' }),
@@ -115,6 +168,7 @@ describe('ConversationList', () => {
       const state = {
         conversations: convs,
         currentConversationId: 'c1',
+        initialized: true,
         ...mockActions,
       };
       return typeof selector === 'function'
@@ -133,6 +187,7 @@ describe('ConversationList', () => {
       const state = {
         conversations: convs,
         currentConversationId: null,
+        initialized: true,
         ...mockActions,
       };
       return typeof selector === 'function'
@@ -151,6 +206,7 @@ describe('ConversationList', () => {
       const state = {
         conversations: convs,
         currentConversationId: 'c1',
+        initialized: true,
         ...mockActions,
       };
       return typeof selector === 'function'
@@ -175,6 +231,7 @@ describe('ConversationList', () => {
       const state = {
         conversations: convs,
         currentConversationId: 'c1',
+        initialized: true,
         ...mockActions,
       };
       return typeof selector === 'function'
@@ -200,6 +257,7 @@ describe('ConversationList', () => {
       const state = {
         conversations: convs,
         currentConversationId: 'c1',
+        initialized: true,
         ...mockActions,
       };
       return typeof selector === 'function'

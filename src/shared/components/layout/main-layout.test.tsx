@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { act, render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
 import { MainLayout } from './main-layout';
 
 // matchMedia mock 已在 src/tests/setup.ts 中全局注册
@@ -80,5 +80,49 @@ describe('MainLayout', () => {
     );
 
     expect(screen.getByTestId('main-content')).toBeInTheDocument();
+  });
+
+  it('titleLoading 时显示标题骨架屏而不是标题', () => {
+    render(
+      <MainLayout titleLoading conversationTitle="我的会话">
+        <div>内容</div>
+      </MainLayout>,
+    );
+
+    expect(
+      screen.getByTestId('conversation-title-skeleton'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('我的会话')).not.toBeInTheDocument();
+  });
+
+  it('titleLoading 快速结束时骨架屏至少展示 200ms 再显示标题', () => {
+    vi.useFakeTimers();
+    const { rerender } = render(
+      <MainLayout titleLoading conversationTitle="我的会话">
+        <div>内容</div>
+      </MainLayout>,
+    );
+
+    // 30ms 后加载完成
+    act(() => {
+      vi.advanceTimersByTime(30);
+    });
+    rerender(
+      <MainLayout titleLoading={false} conversationTitle="我的会话">
+        <div>内容</div>
+      </MainLayout>,
+    );
+    // 不足最短展示时长，仍显示骨架屏
+    expect(
+      screen.getByTestId('conversation-title-skeleton'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('我的会话')).not.toBeInTheDocument();
+
+    // 到达最短展示时长后显示标题
+    act(() => {
+      vi.advanceTimersByTime(170);
+    });
+    expect(screen.getByText('我的会话')).toBeInTheDocument();
+    vi.useRealTimers();
   });
 });

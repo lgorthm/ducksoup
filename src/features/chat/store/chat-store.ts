@@ -77,6 +77,7 @@ interface ChatState {
   currentConversationId: string | null;
   allMessages: StoredMessage[];
   messages: StoredMessage[];
+  initialized: boolean;
   streamingMessage: StreamingMessage | null;
   editingMessageId: string | null;
   activeMessageId: string | null;
@@ -284,6 +285,7 @@ export const useChatStore = create<ChatState>((set, get) => {
     currentConversationId: null,
     allMessages: [],
     messages: [],
+    initialized: false,
     streamingMessage: null,
     editingMessageId: null,
     activeMessageId: null,
@@ -315,13 +317,14 @@ export const useChatStore = create<ChatState>((set, get) => {
           currentConversationId: currentId,
           allMessages,
           messages,
+          initialized: true,
           streamingMessage: null,
           editingMessageId: null,
           activeMessageId: null,
           error: null,
         });
       } catch {
-        set({ apiKey: storedKey, hasApiKey: hasKey });
+        set({ apiKey: storedKey, hasApiKey: hasKey, initialized: true });
       }
     },
 

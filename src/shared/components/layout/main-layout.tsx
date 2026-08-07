@@ -11,6 +11,8 @@ import { useTranslation } from 'react-i18next';
 import { Settings } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import logoSvg from '@/assets/logo.svg';
+import { Skeleton } from '@/shared/components/ui/skeleton';
+import { useMinLoadingDisplay } from '@/shared/hooks/use-min-loading-display';
 import { FixedToolbar } from './fixed-toolbar';
 
 const LOGO_IMG = <img src={logoSvg} alt="Logo" className="h-7 w-auto" />;
@@ -43,6 +45,7 @@ interface MainLayoutProps {
   buttonGroup?: React.ReactNode;
   onSettingsClick?: () => void;
   conversationTitle?: string;
+  titleLoading?: boolean;
   modelName?: string;
   children: React.ReactNode;
 }
@@ -54,6 +57,7 @@ export function MainLayout({
   buttonGroup,
   onSettingsClick,
   conversationTitle,
+  titleLoading,
   modelName,
   children,
 }: MainLayoutProps) {
@@ -65,6 +69,7 @@ export function MainLayout({
         buttonGroup={buttonGroup}
         onSettingsClick={onSettingsClick}
         conversationTitle={conversationTitle}
+        titleLoading={titleLoading}
         modelName={modelName}
       >
         {children}
@@ -79,6 +84,7 @@ const MainLayoutInner = memo(function MainLayoutInner({
   buttonGroup,
   onSettingsClick,
   conversationTitle,
+  titleLoading,
   modelName,
   children,
 }: Omit<MainLayoutProps, 'defaultOpen'>) {
@@ -99,6 +105,10 @@ const MainLayoutInner = memo(function MainLayoutInner({
 
   const enableTransition = !isMobile && !isMobileChanged;
   const showFixed = !isMobile && !open;
+
+  // 标题加载期间显示骨架屏，加载完成后保留最短展示时长再淡入
+  const { revealed: titleRevealed, wasLoading: titleWasLoading } =
+    useMinLoadingDisplay(!titleLoading);
 
   const handleSettingsClick = useCallback(() => {
     if (onSettingsClick) {
@@ -153,8 +163,21 @@ const MainLayoutInner = memo(function MainLayoutInner({
           style={showFixed ? HEADER_STYLE_FIXED : HEADER_STYLE_DEFAULT}
         >
           {isMobile ? <SidebarTrigger isMobile /> : null}
-          {conversationTitle != null ? (
-            <div className="flex min-w-0 flex-col">
+          {!titleRevealed ? (
+            <div
+              data-testid="conversation-title-skeleton"
+              className="flex min-w-0 flex-col gap-1"
+            >
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-3 w-20" />
+            </div>
+          ) : conversationTitle != null ? (
+            <div
+              className={cn(
+                'flex min-w-0 flex-col',
+                titleWasLoading && 'animate-in fade-in-0 duration-300',
+              )}
+            >
               <span className="truncate text-sm font-medium">
                 {conversationTitle}
               </span>

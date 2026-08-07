@@ -71,6 +71,7 @@ const initialState = {
   messages: [] as StoredMessage[],
   streamingMessage: null,
   allMessages: [] as StoredMessage[],
+  initialized: false,
   editingMessageId: null,
   activeMessageId: null,
   isLoading: false,
@@ -102,6 +103,7 @@ describe('init', () => {
     const state = useChatStore.getState();
     expect(state.currentConversationId).toBe('c2');
     expect(state.conversations).toHaveLength(2);
+    expect(state.initialized).toBe(true);
     expect(state.apiKey).toBe('test-key');
     expect(state.hasApiKey).toBe(true);
   });
@@ -127,6 +129,7 @@ describe('init', () => {
     const state = useChatStore.getState();
     expect(state.apiKey).toBe('fallback-key');
     expect(state.hasApiKey).toBe(true);
+    expect(state.initialized).toBe(true);
   });
 });
 

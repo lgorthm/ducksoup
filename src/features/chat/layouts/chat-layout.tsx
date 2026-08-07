@@ -7,13 +7,15 @@ import { NewConversationButton } from '@/features/chat/components/new-conversati
 import { useChatStore, MODEL_LABELS } from '@/features/chat/store/chat-store';
 
 export function ChatLayout() {
-  const { conversations, currentConversationId, selectedModel } = useChatStore(
-    useShallow((s) => ({
-      conversations: s.conversations,
-      currentConversationId: s.currentConversationId,
-      selectedModel: s.selectedModel,
-    })),
-  );
+  const { conversations, currentConversationId, selectedModel, initialized } =
+    useChatStore(
+      useShallow((s) => ({
+        conversations: s.conversations,
+        currentConversationId: s.currentConversationId,
+        selectedModel: s.selectedModel,
+        initialized: s.initialized,
+      })),
+    );
 
   const currentConversation = conversations.find(
     (c) => c.id === currentConversationId,
@@ -26,6 +28,7 @@ export function ChatLayout() {
       sidebarContent={<ConversationList />}
       buttonGroup={<NewConversationButton />}
       conversationTitle={conversationTitle}
+      titleLoading={!initialized}
       modelName={modelName}
     >
       <Outlet />
