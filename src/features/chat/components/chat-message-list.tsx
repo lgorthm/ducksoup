@@ -38,9 +38,6 @@ export function ChatMessageList({
   children,
   controllerRef,
 }: ChatMessageListProps) {
-  // TanStack Virtual 的 useVirtualizer 返回不稳定函数引用，
-  // 与 React Compiler 自动记忆化不兼容，故显式跳过本组件的记忆化。
-  'use no memo';
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const { allMessages, editingMessageId } = useChatStore(
     useShallow((s) => ({

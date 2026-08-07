@@ -70,7 +70,6 @@ State: Zustand stores live at `src/features/<name>/store/` (see `features/chat/s
 
 ## Key technical notes
 
-- **React Compiler is enabled.** `vite.config.ts` runs `@rolldown/plugin-babel` with `reactCompilerPreset()` on every dev/build run — keep code compiler-safe (rules of hooks, no state mutation, stable refs).
 - **Tailwind v4**: no `tailwind.config.js`. `@import "tailwindcss"` + `@custom-variant dark` in `src/index.css`; theme tokens are CSS variables (oklch) in `:root` / `.dark`. Dark mode = `.dark` class on `<html>`.
 - **Theme toggle**: press `d` anywhere (handled in ThemeProvider; ignored in editable fields and with modifier keys). Persisted to localStorage key `theme`; supports `system`.
 - **react-router v7**: import from `react-router` (not `react-router-dom`). Data Mode (`createBrowserRouter` + `RouterProvider`).

@@ -24,7 +24,6 @@
 - **🌍 双语界面** —— 中文(简体)为默认语言,英文回退,可随时切换
 - **🧩 Markdown 渲染** —— 支持 GFM 语法、Prism 代码高亮
 - **♿ 无障碍优先** —— 通过 `@axe-core/playwright` 进行 WCAG 2.0 / 2.1 A/AA 审计,键盘可达
-- **🚀 React Compiler** —— 编译期优化,无需手写 `useMemo` / `useCallback`
 - **🎨 shadcn/ui + Tailwind v4** —— 原子化样式,主题基于 CSS 变量(`oklch`)定义
 
 ## 🛠️ 技术栈
@@ -38,7 +37,7 @@
 | 国际化   | i18next + react-i18next                        |
 | 持久化   | `idb`(IndexedDB)                               |
 | UI 交互  | Radix UI、lucide-react、sonner                 |
-| 构建工具 | Vite 8、babel-plugin-react-compiler            |
+| 构建工具 | Vite 8                                         |
 
 ## 📋 前置要求
 

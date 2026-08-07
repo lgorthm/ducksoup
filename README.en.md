@@ -24,7 +24,6 @@
 - **🌍 Bilingual UI** — Chinese (Simplified) as default, English fallback, switchable anytime
 - **🧩 Markdown rendering** — GFM syntax support, Prism code highlighting
 - **♿ Accessibility-first** — audited against WCAG 2.0 / 2.1 A/AA via `@axe-core/playwright`, keyboard navigable
-- **🚀 React Compiler** — compile-time optimization, no manual `useMemo` / `useCallback` needed
 - **🎨 shadcn/ui + Tailwind v4** — atomic styling, theme tokens defined as CSS variables (`oklch`)
 
 ## 🛠️ Tech Stack
@@ -38,7 +37,7 @@
 | i18n          | i18next + react-i18next                          |
 | Persistence   | `idb` (IndexedDB)                                |
 | UI primitives | Radix UI, lucide-react, sonner                   |
-| Build tooling | Vite 8, babel-plugin-react-compiler              |
+| Build tooling | Vite 8                                           |
 
 ## 📋 Prerequisites
 
