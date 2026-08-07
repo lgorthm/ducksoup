@@ -418,7 +418,6 @@ export const useChatStore = create<ChatState>((set, get) => {
       const { apiKey, currentConversationId, allMessages, conversations } =
         get();
       if (!apiKey) return;
-      void deepThink;
 
       get().cancelStream();
 
