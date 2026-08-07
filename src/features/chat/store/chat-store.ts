@@ -414,7 +414,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       }
     },
 
-    async sendMessage(content: string, deepThink = false) {
+    async sendMessage(content: string) {
       const { apiKey, currentConversationId, allMessages, conversations } =
         get();
       if (!apiKey) return;
