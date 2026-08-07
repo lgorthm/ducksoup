@@ -17,6 +17,13 @@ import { FixedToolbar } from './fixed-toolbar';
 
 const LOGO_IMG = <img src={logoSvg} alt="Logo" className="h-7 w-auto" />;
 
+// 移动端 sidebar 关闭时不渲染 logo 的 <img>，首次打开才会发起请求，
+// 导致短暂空白。模块加载时预热缓存，保证打开 sidebar 时立即显示。
+if (typeof window !== 'undefined') {
+  const logoPreload = new Image();
+  logoPreload.src = logoSvg;
+}
+
 import {
   Sidebar,
   SidebarContent,
