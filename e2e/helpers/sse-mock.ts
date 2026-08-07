@@ -83,7 +83,9 @@ export async function mockDeepSeekSSE(
       await route.fulfill({
         status: 200,
         headers: SSE_HEADERS,
-        body: stream,
+        // Playwright supports ReadableStream bodies at runtime, but its
+        // types still declare string | Buffer only.
+        body: stream as unknown as Buffer,
       });
     });
   } else {
