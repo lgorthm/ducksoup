@@ -11,7 +11,7 @@ DeepSeek-powered chat web app: streaming chat, conversation history persisted to
 ## Commands
 
 ```bash
-pnpm dev            # Vite dev server (press d to toggle dark/light theme)
+pnpm dev            # Vite dev server
 pnpm build          # tsc -b (project references) then vite build
 pnpm typecheck      # tsc --noEmit
 pnpm lint           # biome check . (lint + format 检查)
@@ -34,6 +34,25 @@ pnpm perf:bundle    # bundle-only (faster, no browser): build → sizes → comp
 - **pre-commit**: `pnpm lint-staged && pnpm typecheck && pnpm test` — formats/lints staged files, typechecks, runs unit tests.
 - **pre-push**: `pnpm exec playwright test` — runs full E2E suite (requires dev server, auto-started by Playwright).
 - Bypass with `--no-verify` in emergencies.
+
+## Commit conventions
+
+Git history follows [Conventional Commits](https://www.conventionalcommits.org/): `type(scope): subject`.
+
+- **Types** (from history): `feat`, `fix`, `refactor`, `style` (UI/style-only), `perf`, `test`, `docs`, `chore` (deps/config/tooling).
+- **Scope**: optional; prefer a single module/feature name — `chat`, `layout`, `sidebar`, `theme`, `ui`, `sentry`, `e2e`, `deps`, `build`. Avoid spaces in scopes (no `sidebar layout`).
+- **Subject**: **English only**, imperative mood, lowercase first letter, no trailing period. One concise line describing what changed and, when useful, why.
+- **Body**: optional; used for larger changes — bullet points (`- ...`) or short prose, in English.
+
+Examples from history:
+
+```
+feat(chat): implement lazy loading for MarkdownRenderer to improve performance
+fix(chat): scope conversation menu visibility to item hover
+refactor(chat): replace useEffect with useLayoutEffect for accurate measurement of message height
+style(chat): adjust text size in EditForm component for better readability
+chore(build): remove React Compiler
+```
 
 ## Deploy
 
@@ -71,7 +90,7 @@ State: Zustand stores live at `src/features/<name>/store/` (see `features/chat/s
 ## Key technical notes
 
 - **Tailwind v4**: no `tailwind.config.js`. `@import "tailwindcss"` + `@custom-variant dark` in `src/index.css`; theme tokens are CSS variables (oklch) in `:root` / `.dark`. Dark mode = `.dark` class on `<html>`.
-- **Theme toggle**: press `d` anywhere (handled in ThemeProvider; ignored in editable fields and with modifier keys). Persisted to localStorage key `theme`; supports `system`.
+- **Theme toggle**: switched via the settings dialog (`useTheme().setTheme`). Persisted to localStorage key `theme`; supports `system`.
 - **react-router v7**: import from `react-router` (not `react-router-dom`). Data Mode (`createBrowserRouter` + `RouterProvider`).
 - **shadcn**: `components.json` uses style `radix-lyra`, baseColor `neutral`, iconLibrary `lucide`. Add with `pnpm dlx shadcn@latest add <name>` → installs to `src/shared/components/ui/`. The root `README.md` is stale (claims `src/components/`); trust `components.json`.
 - **`next-themes` is installed but unused** — the app uses the custom `ThemeProvider` at `src/shared/providers/theme-provider.tsx`. Don't reach for `next-themes`.

@@ -89,7 +89,7 @@ describe('ThemeProvider', () => {
   it('system 主题根据 matchMedia 解析为 light 或 dark', () => {
     setMatchMedia(true); // prefers dark
     render(
-      <ThemeProvider defaultTheme="system">
+      <ThemeProvider>
         <ThemeConsumer />
       </ThemeProvider>,
     );
@@ -99,7 +99,7 @@ describe('ThemeProvider', () => {
   it('system 主题 matchMedia=false 解析为 light', () => {
     setMatchMedia(false); // prefers light
     render(
-      <ThemeProvider defaultTheme="system">
+      <ThemeProvider>
         <ThemeConsumer />
       </ThemeProvider>,
     );
@@ -107,8 +107,9 @@ describe('ThemeProvider', () => {
   });
 
   it('应用 dark class 到 html 元素', () => {
+    localStorage.setItem('theme', 'dark');
     render(
-      <ThemeProvider defaultTheme="dark">
+      <ThemeProvider>
         <ThemeConsumer />
       </ThemeProvider>,
     );
@@ -117,8 +118,9 @@ describe('ThemeProvider', () => {
   });
 
   it('切换主题时移除旧 class 添加新 class', () => {
+    localStorage.setItem('theme', 'dark');
     render(
-      <ThemeProvider defaultTheme="dark">
+      <ThemeProvider>
         <ThemeConsumer />
       </ThemeProvider>,
     );
@@ -130,30 +132,23 @@ describe('ThemeProvider', () => {
   });
 });
 
-describe('d 键切换主题', () => {
-  it('按 d 键 dark → light', () => {
-    render(
-      <ThemeProvider defaultTheme="dark">
-        <ThemeConsumer />
-      </ThemeProvider>,
-    );
+describe('跨标签页 storage 同步', () => {
+  function dispatchStorage(init: StorageEventInit) {
     act(() => {
-      fireEvent.keyDown(window, { key: 'd' });
+      window.dispatchEvent(new StorageEvent('storage', init));
     });
-    expect(screen.getByTestId('consumer')).toHaveAttribute(
-      'data-theme',
-      'light',
-    );
-  });
+  }
 
-  it('按 d 键 light → dark', () => {
+  it('其他标签页修改主题时同步更新', () => {
     render(
-      <ThemeProvider defaultTheme="light">
+      <ThemeProvider>
         <ThemeConsumer />
       </ThemeProvider>,
     );
-    act(() => {
-      fireEvent.keyDown(window, { key: 'd' });
+    dispatchStorage({
+      key: 'theme',
+      newValue: 'dark',
+      storageArea: localStorage,
     });
     expect(screen.getByTestId('consumer')).toHaveAttribute(
       'data-theme',
@@ -161,109 +156,47 @@ describe('d 键切换主题', () => {
     );
   });
 
-  it('按 d 键 system → 反向系统主题', () => {
-    setMatchMedia(true); // system = dark → toggle to light
+  it('其他标签页 localStorage.clear() 时重置为默认主题', () => {
+    localStorage.setItem('theme', 'dark');
     render(
-      <ThemeProvider defaultTheme="system">
+      <ThemeProvider>
         <ThemeConsumer />
       </ThemeProvider>,
     );
-    act(() => {
-      fireEvent.keyDown(window, { key: 'd' });
-    });
+    dispatchStorage({ key: null, newValue: null, storageArea: localStorage });
     expect(screen.getByTestId('consumer')).toHaveAttribute(
       'data-theme',
-      'light',
+      'system',
     );
   });
 
-  it('带修饰键(metaKey)时忽略', () => {
+  it('storageArea 为 null 时仍能同步(部分浏览器行为)', () => {
     render(
-      <ThemeProvider defaultTheme="dark">
+      <ThemeProvider>
         <ThemeConsumer />
       </ThemeProvider>,
     );
-    act(() => {
-      fireEvent.keyDown(window, { key: 'd', metaKey: true });
-    });
+    dispatchStorage({ key: 'theme', newValue: 'dark', storageArea: null });
     expect(screen.getByTestId('consumer')).toHaveAttribute(
       'data-theme',
       'dark',
     );
   });
 
-  it('带修饰键(ctrlKey)时忽略', () => {
+  it('忽略 sessionStorage 的变更', () => {
     render(
-      <ThemeProvider defaultTheme="dark">
+      <ThemeProvider>
         <ThemeConsumer />
       </ThemeProvider>,
     );
-    act(() => {
-      fireEvent.keyDown(window, { key: 'd', ctrlKey: true });
+    dispatchStorage({
+      key: 'theme',
+      newValue: 'dark',
+      storageArea: sessionStorage,
     });
     expect(screen.getByTestId('consumer')).toHaveAttribute(
       'data-theme',
-      'dark',
-    );
-  });
-
-  it('在 input 中按键时忽略', () => {
-    render(
-      <ThemeProvider defaultTheme="dark">
-        <input data-testid="test-input" />
-      </ThemeProvider>,
-    );
-    const input = screen.getByTestId('test-input');
-    act(() => {
-      fireEvent.keyDown(input, { key: 'd' });
-    });
-    expect(document.documentElement.classList.contains('dark')).toBe(true);
-  });
-
-  it('在 contentEditable 中按键时忽略', () => {
-    render(
-      <ThemeProvider defaultTheme="dark">
-        <div
-          data-testid="test-editor"
-          contentEditable
-          suppressContentEditableWarning
-        />
-      </ThemeProvider>,
-    );
-    const editor = screen.getByTestId('test-editor');
-    act(() => {
-      fireEvent.keyDown(editor, { key: 'd' });
-    });
-    expect(document.documentElement.classList.contains('dark')).toBe(true);
-  });
-
-  it('按键重复(repeat)时忽略', () => {
-    render(
-      <ThemeProvider defaultTheme="dark">
-        <ThemeConsumer />
-      </ThemeProvider>,
-    );
-    act(() => {
-      fireEvent.keyDown(window, { key: 'd', repeat: true });
-    });
-    expect(screen.getByTestId('consumer')).toHaveAttribute(
-      'data-theme',
-      'dark',
-    );
-  });
-
-  it('大写 D 也能切换', () => {
-    render(
-      <ThemeProvider defaultTheme="dark">
-        <ThemeConsumer />
-      </ThemeProvider>,
-    );
-    act(() => {
-      fireEvent.keyDown(window, { key: 'D' });
-    });
-    expect(screen.getByTestId('consumer')).toHaveAttribute(
-      'data-theme',
-      'light',
+      'system',
     );
   });
 });

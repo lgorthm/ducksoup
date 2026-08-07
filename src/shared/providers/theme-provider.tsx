@@ -6,9 +6,6 @@ type ResolvedTheme = 'dark' | 'light';
 
 type ThemeProviderProps = {
   children: React.ReactNode;
-  defaultTheme?: Theme;
-  storageKey?: string;
-  disableTransitionOnChange?: boolean;
 };
 
 type ThemeProviderState = {
@@ -16,6 +13,8 @@ type ThemeProviderState = {
   setTheme: (theme: Theme) => void;
 };
 
+const THEME_STORAGE_KEY = 'theme';
+const DEFAULT_THEME: Theme = 'system';
 const COLOR_SCHEME_QUERY = '(prefers-color-scheme: dark)';
 const THEME_VALUES: Theme[] = ['dark', 'light', 'system'];
 
@@ -58,67 +57,30 @@ function disableTransitionsTemporarily() {
   };
 }
 
-function isEditableTarget(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) {
-    return false;
-  }
-
-  if (target.isContentEditable) {
-    return true;
-  }
-
-  const editableParent = target.closest(
-    "input, textarea, select, [contenteditable='true']",
-  );
-  if (editableParent) {
-    return true;
-  }
-
-  return false;
-}
-
-export function ThemeProvider({
-  children,
-  defaultTheme = 'system',
-  storageKey = 'theme',
-  disableTransitionOnChange = true,
-  ...props
-}: ThemeProviderProps) {
+export function ThemeProvider({ children }: ThemeProviderProps) {
   const [theme, setThemeState] = React.useState<Theme>(() => {
-    const storedTheme = localStorage.getItem(storageKey);
+    const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
     if (isTheme(storedTheme)) {
       return storedTheme;
     }
 
-    return defaultTheme;
+    return DEFAULT_THEME;
   });
 
-  const setTheme = React.useCallback(
-    (nextTheme: Theme) => {
-      localStorage.setItem(storageKey, nextTheme);
-      setThemeState(nextTheme);
-    },
-    [storageKey],
-  );
+  const setTheme = React.useCallback((nextTheme: Theme) => {
+    localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+    setThemeState(nextTheme);
+  }, []);
 
-  const applyTheme = React.useCallback(
-    (nextTheme: Theme) => {
-      const root = document.documentElement;
-      const resolvedTheme =
-        nextTheme === 'system' ? getSystemTheme() : nextTheme;
-      const restoreTransitions = disableTransitionOnChange
-        ? disableTransitionsTemporarily()
-        : null;
+  const applyTheme = React.useCallback((nextTheme: Theme) => {
+    const root = document.documentElement;
+    const resolvedTheme = nextTheme === 'system' ? getSystemTheme() : nextTheme;
+    const restoreTransitions = disableTransitionsTemporarily();
 
-      root.classList.remove('light', 'dark');
-      root.classList.add(resolvedTheme);
-
-      if (restoreTransitions) {
-        restoreTransitions();
-      }
-    },
-    [disableTransitionOnChange],
-  );
+    root.classList.remove('light', 'dark');
+    root.classList.add(resolvedTheme);
+    restoreTransitions();
+  }, []);
 
   React.useEffect(() => {
     applyTheme(theme);
@@ -140,52 +102,13 @@ export function ThemeProvider({
   }, [theme, applyTheme]);
 
   React.useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.repeat) {
-        return;
-      }
-
-      if (event.metaKey || event.ctrlKey || event.altKey) {
-        return;
-      }
-
-      if (isEditableTarget(event.target)) {
-        return;
-      }
-
-      if (event.key.toLowerCase() !== 'd') {
-        return;
-      }
-
-      setThemeState((currentTheme) => {
-        const nextTheme =
-          currentTheme === 'dark'
-            ? 'light'
-            : currentTheme === 'light'
-              ? 'dark'
-              : getSystemTheme() === 'dark'
-                ? 'light'
-                : 'dark';
-
-        localStorage.setItem(storageKey, nextTheme);
-        return nextTheme;
-      });
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [storageKey]);
-
-  React.useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.storageArea !== localStorage) {
+      if (event.storageArea && event.storageArea !== localStorage) {
         return;
       }
 
-      if (event.key !== storageKey) {
+      // key 为 null 表示其他标签页执行了 localStorage.clear()，此时按默认主题重置
+      if (event.key !== null && event.key !== THEME_STORAGE_KEY) {
         return;
       }
 
@@ -194,7 +117,7 @@ export function ThemeProvider({
         return;
       }
 
-      setThemeState(defaultTheme);
+      setThemeState(DEFAULT_THEME);
     };
 
     window.addEventListener('storage', handleStorageChange);
@@ -202,7 +125,7 @@ export function ThemeProvider({
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, [defaultTheme, storageKey]);
+  }, []);
 
   const value = React.useMemo(
     () => ({
@@ -212,11 +135,7 @@ export function ThemeProvider({
     [theme, setTheme],
   );
 
-  return (
-    <ThemeProviderContext {...props} value={value}>
-      {children}
-    </ThemeProviderContext>
-  );
+  return <ThemeProviderContext value={value}>{children}</ThemeProviderContext>;
 }
 
 export const useTheme = () => {

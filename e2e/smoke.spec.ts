@@ -47,27 +47,6 @@ test.describe('冒烟测试', () => {
     });
   });
 
-  test('d 键切换主题', async ({ page }) => {
-    await expect(page.getByTestId('chat-welcome')).toBeVisible({
-      timeout: 10000,
-    });
-
-    // 点击 body 使焦点离开 contentEditable
-    await page.locator('body').click();
-
-    const isDarkBefore = await page
-      .locator('html')
-      .evaluate((el) => el.classList.contains('dark'));
-
-    await page.keyboard.press('d');
-    await page.waitForTimeout(500);
-
-    const isDarkAfter = await page
-      .locator('html')
-      .evaluate((el) => el.classList.contains('dark'));
-    expect(isDarkAfter).not.toBe(isDarkBefore);
-  });
-
   test('输入框存在且可编辑', async ({ page }) => {
     await expect(page.getByTestId('chat-input')).toBeVisible({
       timeout: 10000,
