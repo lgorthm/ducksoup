@@ -18,10 +18,15 @@ import { FixedToolbar } from './fixed-toolbar';
 const LOGO_IMG = <img src={logoSvg} alt="Logo" className="h-7 w-auto" />;
 
 // 移动端 sidebar 关闭时不渲染 logo 的 <img>，首次打开才会发起请求，
-// 导致短暂空白。模块加载时预热缓存，保证打开 sidebar 时立即显示。
-if (typeof window !== 'undefined') {
-  const logoPreload = new Image();
-  logoPreload.src = logoSvg;
+// 导致短暂空白。注入 <link rel="preload"> 让浏览器在页面加载时提前拉取，
+// 保证打开 sidebar 时图片已在缓存中立即显示。
+// 注意不能用无引用的 new Image()：GC 可能取消未完成的请求。
+if (typeof document !== 'undefined') {
+  const preloadLink = document.createElement('link');
+  preloadLink.rel = 'preload';
+  preloadLink.as = 'image';
+  preloadLink.href = logoSvg;
+  document.head.appendChild(preloadLink);
 }
 
 import {
