@@ -28,8 +28,8 @@ describe('pwaManifest', () => {
     }
   });
 
-  it('precaches icons and splash screens for offline boot', () => {
-    expect(pwaPrecacheAssets).toContain('apple-splash-*.png');
+  it('precaches icons but not splash screens (fetched on demand by iOS)', () => {
+    expect(pwaPrecacheAssets).not.toContain('apple-splash-*.png');
     expect(pwaPrecacheAssets).toContain('maskable-icon-*.png');
     expect(pwaPrecacheAssets).toContain('apple-touch-icon*.png');
   });

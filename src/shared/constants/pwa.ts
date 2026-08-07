@@ -45,10 +45,13 @@ export const pwaManifest: Partial<ManifestOptions> &
 };
 
 // Precached by the service worker so the installed app boots offline.
+// apple-splash-* images are deliberately excluded: browsers never fetch
+// them during normal page loads, and iOS downloads only the single image
+// matching the device when launching the installed web app. Precaching
+// all 76 would force ~1MB of background downloads on every visitor.
 export const pwaPrecacheAssets = [
   'pwa-*.png',
   'maskable-icon-*.png',
   'apple-touch-icon*.png',
-  'apple-splash-*.png',
   'duck.svg',
 ];
