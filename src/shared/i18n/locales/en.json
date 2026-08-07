@@ -87,5 +87,9 @@
     "currency": "Currency",
     "queryFailed": "Query Failed",
     "lastUpdated": "Last Updated"
+  },
+  "pwa": {
+    "newVersion": "A new version is available. Reload to update.",
+    "reload": "Reload"
   }
 }
