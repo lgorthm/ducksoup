@@ -46,24 +46,39 @@ function ChatPageSkeleton() {
   );
 }
 
-export function ChatPage() {
-  const { init, hasApiKey } = useChatStore(
-    useShallow((s) => ({ init: s.init, hasApiKey: s.hasApiKey })),
+function ChatPagePending() {
+  const { t } = useTranslation();
+
+  return (
+    <div role="status" className="h-full" data-testid="chat-page-pending">
+      <span className="sr-only">{t('chat.page.loading')}</span>
+    </div>
   );
+}
+
+interface ChatPageContentProps {
+  initialHasContent: boolean;
+}
+
+function ChatPageContent({ initialHasContent }: ChatPageContentProps) {
+  const hasApiKey = useChatStore((s) => s.hasApiKey);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [initDone, setInitDone] = useState(false);
-  // 加载完成时若不足最短展示时长，等剩余时间再切换，避免加载态闪烁
-  const { revealed } = useMinLoadingDisplay(initDone);
+  const [showInitialSkeleton] = useState(initialHasContent);
+  const [ready, setReady] = useState(!initialHasContent);
+  // 历史内容首次加载时保留最短骨架屏时长；欢迎页路径直接 revealed
+  const { revealed } = useMinLoadingDisplay(ready);
 
   useEffect(() => {
-    init().then(() => setInitDone(true));
-  }, [init]);
+    if (!ready) {
+      setReady(true);
+    }
+  }, [ready]);
 
   // 首次加载完成后，如果没有 API Key 则弹出设置框
   const needShowKeyDialog = revealed && !hasApiKey;
   const dialogIsOpen = needShowKeyDialog || dialogOpen;
 
-  if (!revealed) {
+  if (showInitialSkeleton && !revealed) {
     return <ChatPageSkeleton />;
   }
 
@@ -73,4 +88,24 @@ export function ChatPage() {
       <ApiKeyDialog open={dialogIsOpen} onOpenChange={setDialogOpen} />
     </div>
   );
+}
+
+export function ChatPage() {
+  const { init, initialized, hasContent } = useChatStore(
+    useShallow((s) => ({
+      init: s.init,
+      initialized: s.initialized,
+      hasContent: s.messages.length > 0 || s.streamingMessage !== null,
+    })),
+  );
+
+  useEffect(() => {
+    void init();
+  }, [init]);
+
+  if (!initialized) {
+    return <ChatPagePending />;
+  }
+
+  return <ChatPageContent initialHasContent={hasContent} />;
 }

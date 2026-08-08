@@ -107,7 +107,7 @@ const MainLayoutInner = memo(function MainLayoutInner({
   const enableTransition = !isMobile && !isMobileChanged;
   const showFixed = !isMobile && !open;
 
-  // 标题加载期间显示骨架屏，加载完成后保留最短展示时长再淡入
+  // 标题加载期间保留最短展示时长；标题未知（欢迎页路径）时保持空白，不闪骨架屏
   const { revealed: titleRevealed, wasLoading: titleWasLoading } =
     useMinLoadingDisplay(!titleLoading);
 
@@ -164,7 +164,7 @@ const MainLayoutInner = memo(function MainLayoutInner({
           style={showFixed ? HEADER_STYLE_FIXED : HEADER_STYLE_DEFAULT}
         >
           {isMobile ? <SidebarTrigger isMobile /> : null}
-          {!titleRevealed ? (
+          {!titleRevealed && conversationTitle != null ? (
             <div
               data-testid="conversation-title-skeleton"
               className="flex min-w-0 flex-col gap-1"

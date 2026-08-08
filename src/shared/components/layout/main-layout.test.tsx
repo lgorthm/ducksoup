@@ -95,6 +95,28 @@ describe('MainLayout', () => {
     expect(screen.queryByText('我的会话')).not.toBeInTheDocument();
   });
 
+  it('titleLoading 但没有会话标题时保持标题区域空白', () => {
+    const { rerender } = render(
+      <MainLayout titleLoading>
+        <div>内容</div>
+      </MainLayout>,
+    );
+
+    expect(
+      screen.queryByTestId('conversation-title-skeleton'),
+    ).not.toBeInTheDocument();
+
+    rerender(
+      <MainLayout titleLoading={false}>
+        <div>内容</div>
+      </MainLayout>,
+    );
+
+    expect(
+      screen.queryByTestId('conversation-title-skeleton'),
+    ).not.toBeInTheDocument();
+  });
+
   it('titleLoading 快速结束时骨架屏至少展示 200ms 再显示标题', () => {
     vi.useFakeTimers();
     const { rerender } = render(
