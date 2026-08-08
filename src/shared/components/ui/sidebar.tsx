@@ -25,8 +25,6 @@ import {
 } from '@/shared/components/ui/tooltip';
 import { MenuIcon, PanelLeftIcon } from 'lucide-react';
 
-const SIDEBAR_COOKIE_NAME = 'sidebar_state';
-const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
 const SIDEBAR_WIDTH = '16rem';
 const SIDEBAR_WIDTH_MOBILE = '16rem';
 const SIDEBAR_WIDTH_ICON = '3rem';
@@ -90,12 +88,6 @@ function SidebarProvider({
     },
     [setOpenProp, open],
   );
-
-  // This sets the cookie to keep the sidebar state.
-  React.useEffect(() => {
-    // biome-ignore lint/suspicious/noDocumentCookie: shadcn sidebar 用 cookie 持久化折叠状态
-    document.cookie = `${SIDEBAR_COOKIE_NAME}=${open}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
-  }, [open]);
 
   // Helper to toggle the sidebar.
   const toggleSidebar = React.useCallback(() => {
