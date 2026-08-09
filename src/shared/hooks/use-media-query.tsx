@@ -3,10 +3,10 @@ import * as React from 'react';
 const MOBILE_BREAKPOINT = 768;
 const TABLET_BREAKPOINT = 1024;
 
-function subscribe(query: string, callback: () => void) {
+function subscribe(query: string, onStoreChange: () => void) {
   const mql = window.matchMedia(query);
-  mql.addEventListener('change', callback);
-  return () => mql.removeEventListener('change', callback);
+  mql.addEventListener('change', onStoreChange);
+  return () => mql.removeEventListener('change', onStoreChange);
 }
 
 function getSnapshot(query: string) {
@@ -16,7 +16,7 @@ function getSnapshot(query: string) {
 
 export function useMediaQuery(query: string) {
   return React.useSyncExternalStore(
-    (cb) => subscribe(query, cb),
+    (onStoreChange) => subscribe(query, onStoreChange),
     () => getSnapshot(query),
   );
 }
