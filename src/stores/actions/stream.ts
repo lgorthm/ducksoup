@@ -1,5 +1,6 @@
 import type {
   ChatMessage,
+  Conversation,
   StoredMessage,
 } from '@/features/chat/types/deepseek';
 import {
@@ -156,7 +157,7 @@ export function runStream(opts: {
           useStore.setState(
             (state) => {
               const conv = state.conversations.find(
-                (c) => c.id === conversationId,
+                (c: Conversation) => c.id === conversationId,
               );
               state.streamingMessage = null;
               state.isLoading = false;

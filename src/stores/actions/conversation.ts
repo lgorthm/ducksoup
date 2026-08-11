@@ -76,7 +76,9 @@ export async function deleteConversation(id: string) {
   await db.deleteConversation(id);
   useStore.setState(
     (state) => {
-      state.conversations = state.conversations.filter((c) => c.id !== id);
+      state.conversations = state.conversations.filter(
+        (c: Conversation) => c.id !== id,
+      );
     },
     undefined,
     name(),
