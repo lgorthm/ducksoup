@@ -1,7 +1,7 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { act, render, screen, fireEvent } from '@testing-library/react';
 import type { StoredMessage } from '@/features/chat/types/deepseek';
-import { useChatStore } from '@/features/chat/store/chat-store';
+import { useStore } from '@/stores';
 import { ChatMessage } from './chat-message';
 
 vi.mock('@/shared/components/markdown-renderer', () => ({
@@ -352,7 +352,7 @@ describe('ChatMessage 移动端点击激活操作栏', () => {
   // 全局 matchMedia mock 对所有 query 返回 matches:false，
   // 即默认模拟不可 hover 的移动端环境。
   beforeEach(() => {
-    useChatStore.setState({ activeMessageId: null });
+    useStore.setState({ activeMessageId: null });
   });
 
   it('点击气泡激活操作栏，再次点击取消激活', () => {
@@ -362,12 +362,12 @@ describe('ChatMessage 移动端点击激活操作栏', () => {
     expect(hasClass(group, 'opacity-0')).toBe(true);
 
     fireEvent.click(screen.getByText('你好'));
-    expect(useChatStore.getState().activeMessageId).toBe(msg.id);
+    expect(useStore.getState().activeMessageId).toBe(msg.id);
     expect(hasClass(group, 'opacity-100')).toBe(true);
     expect(hasClass(group, 'pointer-events-auto')).toBe(true);
 
     fireEvent.click(screen.getByText('你好'));
-    expect(useChatStore.getState().activeMessageId).toBeNull();
+    expect(useStore.getState().activeMessageId).toBeNull();
     expect(hasClass(group, 'opacity-0')).toBe(true);
   });
 
@@ -396,7 +396,7 @@ describe('ChatMessage 移动端点击激活操作栏', () => {
     expect(hasClass(groupB, 'opacity-0')).toBe(true);
 
     fireEvent.click(screen.getByText('消息B'));
-    expect(useChatStore.getState().activeMessageId).toBe(msgB.id);
+    expect(useStore.getState().activeMessageId).toBe(msgB.id);
     expect(hasClass(groupA, 'opacity-0')).toBe(true);
     expect(hasClass(groupB, 'opacity-100')).toBe(true);
   });
@@ -443,7 +443,7 @@ describe('ChatMessage 移动端点击激活操作栏', () => {
     const msg = makeMessage({ role: 'assistant', content: '部分内容' });
     render(<ChatMessage message={msg} isStreaming />);
     fireEvent.click(screen.getByText('部分内容'));
-    expect(useChatStore.getState().activeMessageId).toBeNull();
+    expect(useStore.getState().activeMessageId).toBeNull();
   });
 
   it('可 hover 设备（桌面端）点击气泡不激活操作栏', () => {
@@ -462,7 +462,7 @@ describe('ChatMessage 移动端点击激活操作栏', () => {
       const msg = makeMessage({ role: 'user', content: '你好' });
       const { container } = render(<ChatMessage message={msg} />);
       fireEvent.click(screen.getByText('你好'));
-      expect(useChatStore.getState().activeMessageId).toBeNull();
+      expect(useStore.getState().activeMessageId).toBeNull();
       const group = getActionsGroup(container);
       expect(hasClass(group, 'opacity-0')).toBe(true);
       expect(hasClass(group, 'group-hover:opacity-100')).toBe(true);

@@ -71,8 +71,9 @@ Pushing to `main` runs `.github/workflows/deploy.yml`: `pnpm build` (Node 22, `-
 src/
   main.tsx                       # StrictMode → ThemeProvider → RouterProvider + Toaster; side-effect imports index.css and @/shared/i18n
   routes/index.tsx               # createBrowserRouter — single route: ChatLayout > ChatPage at "/"
+  stores/                        # Zustand: createAppStore + slices / actions / selectors / models
   features/
-    chat/                        # Main feature: components/, layouts/, store/, types/, utils/ (chat-stream.ts, db.ts = IndexedDB)
+    chat/                        # Main feature: components/, layouts/, types/, utils/ (chat-stream.ts, db.ts = IndexedDB)
     settings/                    # settings-dialog.tsx
   shared/
     components/ui/               # shadcn components — install target is here, NOT src/components/
@@ -85,7 +86,7 @@ src/
   tests/setup.ts                 # jest-dom matchers, fake-indexeddb, matchMedia/ResizeObserver/IntersectionObserver mocks, MSW lifecycle, i18n init
 ```
 
-State: Zustand stores live at `src/features/<name>/store/` (see `features/chat/store/chat-store.ts`, which owns streaming, IndexedDB persistence, and the DeepSeek API key under localStorage key `deepseek-api-key`).
+State: Zustand lives at `src/stores/` (single `useStore` composed of slices; business logic in `src/stores/actions/`; reusable hooks in `src/stores/selectors/`). Chat streaming, IndexedDB persistence, and the DeepSeek API key (localStorage key `deepseek-api-key`) are owned by the chat-related slices/actions.
 
 ## Key technical notes
 
@@ -102,7 +103,7 @@ State: Zustand stores live at `src/features/<name>/store/` (see `features/chat/s
 
 - Vitest: `jsdom`, `globals: true`, setup `src/tests/setup.ts`. Test files match `src/**/*.{test,spec}.{ts,tsx}` and are co-located with source.
 - **`src/tests/setup.ts` provides global mocks**: `fake-indexeddb/auto` (real IDB API in-memory), `window.matchMedia`, `ResizeObserver`, `IntersectionObserver`, `window.scrollTo`, MSW server lifecycle (`beforeAll`/`afterEach`/`afterAll`), i18n init (zh-CN), and `localStorage`/`sessionStorage` cleanup per test. No need to manually mock these in individual test files.
-- **IDB testing strategy**: `db.ts` tests use `fake-indexeddb` (real IDB integration); `chat-store.ts` tests mock the `db` module (isolated unit tests). Both strategies run in parallel.
+- **IDB testing strategy**: `db.ts` tests use `fake-indexeddb` (real IDB integration); `src/stores/app-store.test.ts` mocks the `db` module (isolated unit tests). Both strategies run in parallel.
 - **MSW handlers** live in `src/mocks/handlers/`. `deepseek.ts` exports `mockDeepSeekStream`/`mockDeepSeekError`/`mockDeepSeekNetworkError` factory functions for custom responses. The default handler returns a streaming SSE response.
 - **Coverage**: `pnpm test:coverage` — thresholds at 75/65/70/75 (statements/branches/functions/lines). shadcn UI components, type definitions, prism, markdown-renderer, and routes are excluded from coverage.
 - **`tsconfig.app.json`** includes `"vitest/globals"` in `types` — no need to explicitly import `describe`/`it`/`expect` from vitest (but existing tests do so for clarity).

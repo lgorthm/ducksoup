@@ -30,7 +30,8 @@ import { Input } from '@/shared/components/ui/input';
 import { Button } from '@/shared/components/ui/button';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { cn } from '@/shared/lib/utils';
-import { useChatStore } from '@/features/chat/store/chat-store';
+import { setApiKey as setApiKeyAction } from '@/stores/actions';
+import { useStore } from '@/stores';
 import {
   fetchBalance,
   BalanceError,
@@ -134,21 +135,20 @@ function GeneralSettings() {
 
 function ApiKeySettings() {
   const { t } = useTranslation();
-  const apiKeyFromStore = useChatStore((s) => s.apiKey);
-  const setApiKeyInStore = useChatStore((s) => s.setApiKey);
+  const apiKeyFromStore = useStore((s) => s.apiKey);
   const [apiKey, setApiKey] = useState(apiKeyFromStore);
   const [saved, setSaved] = useState(false);
   const [showKey, setShowKey] = useState(false);
 
   const handleSave = useCallback(() => {
     if (apiKey.trim()) {
-      setApiKeyInStore(apiKey.trim());
+      setApiKeyAction(apiKey.trim());
     } else {
-      setApiKeyInStore('');
+      setApiKeyAction('');
     }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-  }, [apiKey, setApiKeyInStore]);
+  }, [apiKey]);
 
   return (
     <div className="space-y-3">
@@ -260,7 +260,7 @@ function BalanceSkeleton() {
 
 function BalanceSettings() {
   const { t } = useTranslation();
-  const apiKey = useChatStore((s) => s.apiKey);
+  const apiKey = useStore((s) => s.apiKey);
 
   // 挂载时从 sessionStorage 恢复缓存
   const cached = useMemo(() => loadBalanceCache(apiKey), [apiKey]);

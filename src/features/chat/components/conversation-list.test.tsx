@@ -2,11 +2,22 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { act, render, screen, fireEvent } from '@testing-library/react';
 import type { Conversation } from '@/features/chat/types/deepseek';
 import { ConversationList } from './conversation-list';
-import { useChatStore } from '@/features/chat/store/chat-store';
+import {
+  deleteConversation,
+  startNewConversation,
+  switchConversation,
+} from '@/stores/actions';
+import { useConversationListState } from '@/stores/selectors';
 import { useIsMobile } from '@/shared/hooks/use-media-query';
 
-vi.mock('@/features/chat/store/chat-store', () => ({
-  useChatStore: vi.fn(),
+vi.mock('@/stores/selectors', () => ({
+  useConversationListState: vi.fn(),
+}));
+
+vi.mock('@/stores/actions', () => ({
+  deleteConversation: vi.fn(),
+  startNewConversation: vi.fn(),
+  switchConversation: vi.fn(),
 }));
 
 vi.mock('@/shared/hooks/use-media-query', () => ({
@@ -68,25 +79,13 @@ function makeConv(overrides: Partial<Conversation> = {}): Conversation {
   };
 }
 
-const mockActions = {
-  startNewConversation: vi.fn(),
-  switchConversation: vi.fn(),
-  deleteConversation: vi.fn(),
-};
-
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(useIsMobile).mockReturnValue(false);
-  vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-    const state = {
-      conversations: [] as Conversation[],
-      currentConversationId: null,
-      initialized: true,
-      ...mockActions,
-    };
-    return typeof selector === 'function'
-      ? (selector as (s: typeof state) => unknown)(state)
-      : state;
+  vi.mocked(useConversationListState).mockReturnValue({
+    conversations: [],
+    currentConversationId: null,
+    initialized: true,
   });
 });
 
@@ -99,7 +98,7 @@ describe('ConversationList', () => {
   it('点击新对话按钮调用 startNewConversation', () => {
     render(<ConversationList />);
     fireEvent.click(screen.getByText('开启新对话'));
-    expect(mockActions.startNewConversation).toHaveBeenCalledOnce();
+    expect(startNewConversation).toHaveBeenCalledOnce();
   });
 
   it('无会话时显示"暂无对话"', () => {
@@ -108,16 +107,10 @@ describe('ConversationList', () => {
   });
 
   it('未初始化时显示骨架屏而不是"暂无对话"', () => {
-    vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-      const state = {
-        conversations: [] as Conversation[],
-        currentConversationId: null,
-        initialized: false,
-        ...mockActions,
-      };
-      return typeof selector === 'function'
-        ? (selector as (s: typeof state) => unknown)(state)
-        : state;
+    vi.mocked(useConversationListState).mockReturnValue({
+      conversations: [],
+      currentConversationId: null,
+      initialized: false,
     });
 
     render(<ConversationList />);
@@ -129,17 +122,11 @@ describe('ConversationList', () => {
     vi.useFakeTimers();
     let initialized = false;
     const convs = [makeConv({ id: 'c1', title: '会话一' })];
-    vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-      const state = {
-        conversations: convs,
-        currentConversationId: null,
-        initialized,
-        ...mockActions,
-      };
-      return typeof selector === 'function'
-        ? (selector as (s: typeof state) => unknown)(state)
-        : state;
-    });
+    vi.mocked(useConversationListState).mockImplementation(() => ({
+      conversations: convs,
+      currentConversationId: null,
+      initialized,
+    }));
 
     const { rerender } = render(<ConversationList />);
     // 30ms 后数据加载完成
@@ -164,16 +151,10 @@ describe('ConversationList', () => {
       makeConv({ id: 'c1', title: '会话一' }),
       makeConv({ id: 'c2', title: '会话二' }),
     ];
-    vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-      const state = {
-        conversations: convs,
-        currentConversationId: 'c1',
-        initialized: true,
-        ...mockActions,
-      };
-      return typeof selector === 'function'
-        ? (selector as (s: typeof state) => unknown)(state)
-        : state;
+    vi.mocked(useConversationListState).mockReturnValue({
+      conversations: convs,
+      currentConversationId: 'c1',
+      initialized: true,
     });
 
     render(<ConversationList />);
@@ -183,60 +164,42 @@ describe('ConversationList', () => {
 
   it('点击会话项调用 switchConversation', () => {
     const convs = [makeConv({ id: 'c1', title: '会话一' })];
-    vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-      const state = {
-        conversations: convs,
-        currentConversationId: null,
-        initialized: true,
-        ...mockActions,
-      };
-      return typeof selector === 'function'
-        ? (selector as (s: typeof state) => unknown)(state)
-        : state;
+    vi.mocked(useConversationListState).mockReturnValue({
+      conversations: convs,
+      currentConversationId: null,
+      initialized: true,
     });
 
     render(<ConversationList />);
     fireEvent.click(screen.getByText('会话一'));
-    expect(mockActions.switchConversation).toHaveBeenCalledWith('c1');
+    expect(switchConversation).toHaveBeenCalledWith('c1');
   });
 
   it('点击删除菜单项弹出确认对话框，确认后调用 deleteConversation', () => {
     const convs = [makeConv({ id: 'c1', title: '会话一' })];
-    vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-      const state = {
-        conversations: convs,
-        currentConversationId: 'c1',
-        initialized: true,
-        ...mockActions,
-      };
-      return typeof selector === 'function'
-        ? (selector as (s: typeof state) => unknown)(state)
-        : state;
+    vi.mocked(useConversationListState).mockReturnValue({
+      conversations: convs,
+      currentConversationId: 'c1',
+      initialized: true,
     });
 
     render(<ConversationList />);
     const deleteItem = screen.getByTestId('dropdown-item');
     fireEvent.click(deleteItem);
     // 点击删除菜单项后不应直接调用 deleteConversation
-    expect(mockActions.deleteConversation).not.toHaveBeenCalled();
+    expect(deleteConversation).not.toHaveBeenCalled();
     // 应弹出确认对话框，点击确认后才执行删除
     const confirmBtn = screen.getByTestId('confirm-delete-conversation');
     fireEvent.click(confirmBtn);
-    expect(mockActions.deleteConversation).toHaveBeenCalledWith('c1');
+    expect(deleteConversation).toHaveBeenCalledWith('c1');
   });
 
   it('点击删除菜单项后点击取消不调用 deleteConversation', () => {
     const convs = [makeConv({ id: 'c1', title: '会话一' })];
-    vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-      const state = {
-        conversations: convs,
-        currentConversationId: 'c1',
-        initialized: true,
-        ...mockActions,
-      };
-      return typeof selector === 'function'
-        ? (selector as (s: typeof state) => unknown)(state)
-        : state;
+    vi.mocked(useConversationListState).mockReturnValue({
+      conversations: convs,
+      currentConversationId: 'c1',
+      initialized: true,
     });
 
     render(<ConversationList />);
@@ -244,7 +207,7 @@ describe('ConversationList', () => {
     // 点击取消按钮（ghost 样式）不执行删除
     const cancelBtn = screen.getByText('取消');
     fireEvent.click(cancelBtn);
-    expect(mockActions.deleteConversation).not.toHaveBeenCalled();
+    expect(deleteConversation).not.toHaveBeenCalled();
   });
 
   it('移动端非当前会话显示禁用的 MoreHorizontal', () => {
@@ -253,16 +216,10 @@ describe('ConversationList', () => {
       makeConv({ id: 'c1', title: '会话一' }),
       makeConv({ id: 'c2', title: '会话二' }),
     ];
-    vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-      const state = {
-        conversations: convs,
-        currentConversationId: 'c1',
-        initialized: true,
-        ...mockActions,
-      };
-      return typeof selector === 'function'
-        ? (selector as (s: typeof state) => unknown)(state)
-        : state;
+    vi.mocked(useConversationListState).mockReturnValue({
+      conversations: convs,
+      currentConversationId: 'c1',
+      initialized: true,
     });
 
     render(<ConversationList />);

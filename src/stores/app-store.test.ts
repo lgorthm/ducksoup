@@ -3,7 +3,31 @@ import type {
   Conversation,
   StoredMessage,
 } from '@/features/chat/types/deepseek';
-import { useChatStore } from './chat-store';
+import { useStore } from '@/stores';
+import {
+  init,
+  setApiKey,
+  clearApiKey,
+  setModel,
+  toggleDeepThink,
+  createConversation,
+  startNewConversation,
+  switchConversation,
+  deleteConversation,
+  sendMessage,
+  cancelStream,
+  clearMessages,
+  editMessage,
+  regenerateMessage,
+  switchSibling,
+  getBranchInfo,
+  toggleActiveMessage,
+} from '@/stores/actions';
+import {
+  initialSettingsState,
+  initialConversationState,
+  initialMessageState,
+} from '@/stores/models';
 import * as db from '@/features/chat/utils/db';
 import { createChatStream } from '@/features/chat/utils/chat-stream';
 import type {
@@ -62,24 +86,13 @@ function makeMessage(overrides: Partial<StoredMessage> = {}): StoredMessage {
 }
 
 const initialState = {
-  apiKey: '',
-  hasApiKey: false,
-  selectedModel: 'deepseek-v4-flash' as const,
-  deepThink: false,
-  conversations: [] as Conversation[],
-  currentConversationId: null as string | null,
-  messages: [] as StoredMessage[],
-  streamingMessage: null,
-  allMessages: [] as StoredMessage[],
-  initialized: false,
-  editingMessageId: null,
-  activeMessageId: null,
-  isLoading: false,
-  error: null,
+  ...initialSettingsState,
+  ...initialConversationState,
+  ...initialMessageState,
 };
 
 beforeEach(() => {
-  useChatStore.setState(initialState);
+  useStore.setState(initialState);
   vi.clearAllMocks();
 
   vi.mocked(createChatStream).mockImplementation((options) => {
@@ -98,9 +111,9 @@ describe('init', () => {
     vi.mocked(db.getMessagesByConversation).mockResolvedValue([]);
 
     localStorage.setItem('deepseek-api-key', 'test-key');
-    await useChatStore.getState().init();
+    await init();
 
-    const state = useChatStore.getState();
+    const state = useStore.getState();
     expect(state.currentConversationId).toBe('c2');
     expect(state.conversations).toHaveLength(2);
     expect(state.initialized).toBe(true);
@@ -111,10 +124,10 @@ describe('init', () => {
   it('无会话时不自动创建，保持 null + 空数组', async () => {
     vi.mocked(db.getAllConversations).mockResolvedValue([]);
 
-    await useChatStore.getState().init();
+    await init();
 
     expect(db.addConversation).not.toHaveBeenCalled();
-    const state = useChatStore.getState();
+    const state = useStore.getState();
     expect(state.currentConversationId).toBeNull();
     expect(state.conversations).toEqual([]);
     expect(state.messages).toEqual([]);
@@ -124,9 +137,9 @@ describe('init', () => {
     vi.mocked(db.getAllConversations).mockRejectedValue(new Error('DB error'));
     localStorage.setItem('deepseek-api-key', 'fallback-key');
 
-    await useChatStore.getState().init();
+    await init();
 
-    const state = useChatStore.getState();
+    const state = useStore.getState();
     expect(state.apiKey).toBe('fallback-key');
     expect(state.hasApiKey).toBe(true);
     expect(state.initialized).toBe(true);
@@ -137,20 +150,20 @@ describe('init', () => {
 
 describe('setApiKey / clearApiKey', () => {
   it('setApiKey 持久化到 localStorage 并更新 state', () => {
-    useChatStore.getState().setApiKey('my-key');
+    setApiKey('my-key');
     expect(localStorage.getItem('deepseek-api-key')).toBe('my-key');
-    expect(useChatStore.getState().apiKey).toBe('my-key');
-    expect(useChatStore.getState().hasApiKey).toBe(true);
+    expect(useStore.getState().apiKey).toBe('my-key');
+    expect(useStore.getState().hasApiKey).toBe(true);
   });
 
   it('clearApiKey 移除 localStorage 并清空 state', () => {
     localStorage.setItem('deepseek-api-key', 'old-key');
-    useChatStore.getState().setApiKey('temp');
+    setApiKey('temp');
 
-    useChatStore.getState().clearApiKey();
+    clearApiKey();
     expect(localStorage.getItem('deepseek-api-key')).toBeNull();
-    expect(useChatStore.getState().apiKey).toBe('');
-    expect(useChatStore.getState().hasApiKey).toBe(false);
+    expect(useStore.getState().apiKey).toBe('');
+    expect(useStore.getState().hasApiKey).toBe(false);
   });
 });
 
@@ -158,8 +171,8 @@ describe('setApiKey / clearApiKey', () => {
 
 describe('setModel', () => {
   it('更新 selectedModel', () => {
-    useChatStore.getState().setModel('deepseek-v4-pro');
-    expect(useChatStore.getState().selectedModel).toBe('deepseek-v4-pro');
+    setModel('deepseek-v4-pro');
+    expect(useStore.getState().selectedModel).toBe('deepseek-v4-pro');
   });
 });
 
@@ -167,11 +180,11 @@ describe('setModel', () => {
 
 describe('toggleDeepThink', () => {
   it('切换 deepThink 状态', () => {
-    expect(useChatStore.getState().deepThink).toBe(false);
-    useChatStore.getState().toggleDeepThink();
-    expect(useChatStore.getState().deepThink).toBe(true);
-    useChatStore.getState().toggleDeepThink();
-    expect(useChatStore.getState().deepThink).toBe(false);
+    expect(useStore.getState().deepThink).toBe(false);
+    toggleDeepThink();
+    expect(useStore.getState().deepThink).toBe(true);
+    toggleDeepThink();
+    expect(useStore.getState().deepThink).toBe(false);
   });
 });
 
@@ -181,10 +194,10 @@ describe('createConversation', () => {
   it('写入 DB 并设为当前会话', async () => {
     vi.mocked(db.addConversation).mockResolvedValue(undefined);
 
-    await useChatStore.getState().createConversation();
+    await createConversation();
 
     expect(db.addConversation).toHaveBeenCalledOnce();
-    const state = useChatStore.getState();
+    const state = useStore.getState();
     expect(state.currentConversationId).toBeTruthy();
     expect(state.conversations).toHaveLength(1);
     expect(state.messages).toEqual([]);
@@ -196,15 +209,15 @@ describe('createConversation', () => {
 
 describe('startNewConversation', () => {
   it('设 currentConversationId 为 null 且不写 DB', () => {
-    useChatStore.setState({
+    useStore.setState({
       conversations: [makeConversation({ id: 'c1' })],
       currentConversationId: 'c1',
       messages: [makeMessage()],
     });
 
-    useChatStore.getState().startNewConversation();
+    startNewConversation();
 
-    const state = useChatStore.getState();
+    const state = useStore.getState();
     expect(state.currentConversationId).toBeNull();
     expect(state.messages).toEqual([]);
     expect(state.streamingMessage).toBeNull();
@@ -220,10 +233,10 @@ describe('switchConversation', () => {
     const msgs = [makeMessage({ id: 'm1', content: '历史消息' })];
     vi.mocked(db.getMessagesByConversation).mockResolvedValue(msgs);
 
-    await useChatStore.getState().switchConversation('c2');
+    await switchConversation('c2');
 
     expect(db.getMessagesByConversation).toHaveBeenCalledWith('c2');
-    const state = useChatStore.getState();
+    const state = useStore.getState();
     expect(state.currentConversationId).toBe('c2');
     expect(state.allMessages).toBe(msgs);
     expect(state.messages).toEqual(msgs);
@@ -232,12 +245,12 @@ describe('switchConversation', () => {
   });
 
   it('切换会话时清空激活消息', async () => {
-    useChatStore.setState({ activeMessageId: 'm1' });
+    useStore.setState({ activeMessageId: 'm1' });
     vi.mocked(db.getMessagesByConversation).mockResolvedValue([]);
 
-    await useChatStore.getState().switchConversation('c2');
+    await switchConversation('c2');
 
-    expect(useChatStore.getState().activeMessageId).toBeNull();
+    expect(useStore.getState().activeMessageId).toBeNull();
   });
 });
 
@@ -245,17 +258,17 @@ describe('switchConversation', () => {
 
 describe('toggleActiveMessage', () => {
   it('激活指定消息，再次调用取消激活', () => {
-    useChatStore.getState().toggleActiveMessage('m1');
-    expect(useChatStore.getState().activeMessageId).toBe('m1');
+    toggleActiveMessage('m1');
+    expect(useStore.getState().activeMessageId).toBe('m1');
 
-    useChatStore.getState().toggleActiveMessage('m1');
-    expect(useChatStore.getState().activeMessageId).toBeNull();
+    toggleActiveMessage('m1');
+    expect(useStore.getState().activeMessageId).toBeNull();
   });
 
   it('激活新消息时替换上一条激活消息', () => {
-    useChatStore.getState().toggleActiveMessage('m1');
-    useChatStore.getState().toggleActiveMessage('m2');
-    expect(useChatStore.getState().activeMessageId).toBe('m2');
+    toggleActiveMessage('m1');
+    toggleActiveMessage('m2');
+    expect(useStore.getState().activeMessageId).toBe('m2');
   });
 });
 
@@ -265,16 +278,16 @@ describe('deleteConversation', () => {
   it('删除当前会话时调用 startNewConversation（即使还有其他会话）', async () => {
     const c1 = makeConversation({ id: 'c1', updatedAt: 100 });
     const c2 = makeConversation({ id: 'c2', updatedAt: 200 });
-    useChatStore.setState({
+    useStore.setState({
       conversations: [c1, c2],
       currentConversationId: 'c2',
       messages: [makeMessage({ id: 'm1' })],
     });
     vi.mocked(db.deleteConversation).mockResolvedValue(undefined);
 
-    await useChatStore.getState().deleteConversation('c2');
+    await deleteConversation('c2');
 
-    const state = useChatStore.getState();
+    const state = useStore.getState();
     expect(state.conversations).toHaveLength(1);
     expect(state.currentConversationId).toBeNull();
     expect(state.messages).toEqual([]);
@@ -285,15 +298,15 @@ describe('deleteConversation', () => {
 
   it('删除唯一的当前会话时不自动创建新会话', async () => {
     const c1 = makeConversation({ id: 'c1' });
-    useChatStore.setState({
+    useStore.setState({
       conversations: [c1],
       currentConversationId: 'c1',
     });
     vi.mocked(db.deleteConversation).mockResolvedValue(undefined);
 
-    await useChatStore.getState().deleteConversation('c1');
+    await deleteConversation('c1');
 
-    const state = useChatStore.getState();
+    const state = useStore.getState();
     expect(state.conversations).toHaveLength(0);
     expect(state.currentConversationId).toBeNull();
     expect(state.messages).toEqual([]);
@@ -303,16 +316,16 @@ describe('deleteConversation', () => {
   it('删除非当前会话时只更新列表', async () => {
     const c1 = makeConversation({ id: 'c1' });
     const c2 = makeConversation({ id: 'c2' });
-    useChatStore.setState({
+    useStore.setState({
       conversations: [c1, c2],
       currentConversationId: 'c1',
       messages: [makeMessage({ id: 'm1' })],
     });
     vi.mocked(db.deleteConversation).mockResolvedValue(undefined);
 
-    await useChatStore.getState().deleteConversation('c2');
+    await deleteConversation('c2');
 
-    const state = useChatStore.getState();
+    const state = useStore.getState();
     expect(state.conversations).toHaveLength(1);
     expect(state.currentConversationId).toBe('c1');
     expect(state.messages).toHaveLength(1);
@@ -324,7 +337,7 @@ describe('deleteConversation', () => {
 
 describe('sendMessage', () => {
   beforeEach(() => {
-    useChatStore.setState({
+    useStore.setState({
       apiKey: 'test-key',
       hasApiKey: true,
       conversations: [makeConversation({ id: 'c1' })],
@@ -335,38 +348,38 @@ describe('sendMessage', () => {
   });
 
   it('无 apiKey 时直接返回', async () => {
-    useChatStore.setState({ apiKey: '', hasApiKey: false });
-    await useChatStore.getState().sendMessage('hello');
+    useStore.setState({ apiKey: '', hasApiKey: false });
+    await sendMessage('hello');
     expect(createChatStream).not.toHaveBeenCalled();
   });
 
   it('无当前会话时惰性创建', async () => {
-    useChatStore.setState({ currentConversationId: null });
+    useStore.setState({ currentConversationId: null });
     vi.mocked(db.addConversation).mockResolvedValue(undefined);
 
-    await useChatStore.getState().sendMessage('第一条消息');
+    await sendMessage('第一条消息');
 
     expect(db.addConversation).toHaveBeenCalledOnce();
     const conv = vi.mocked(db.addConversation).mock.calls[0][0];
     expect(conv.title).toBe('第一条消息');
-    expect(useChatStore.getState().currentConversationId).toBe(conv.id);
+    expect(useStore.getState().currentConversationId).toBe(conv.id);
   });
 
   it('长标题截断为 20 字符', async () => {
-    useChatStore.setState({ currentConversationId: null });
+    useStore.setState({ currentConversationId: null });
     vi.mocked(db.addConversation).mockResolvedValue(undefined);
 
     const longContent = '这是一段非常非常长的消息内容超过二十个字符';
-    await useChatStore.getState().sendMessage(longContent);
+    await sendMessage(longContent);
 
     const conv = vi.mocked(db.addConversation).mock.calls[0][0];
     expect(conv.title).toBe(`${longContent.slice(0, 20)}...`);
   });
 
   it('发送后设置 isLoading 和 streamingMessage', async () => {
-    await useChatStore.getState().sendMessage('hello');
+    await sendMessage('hello');
 
-    const state = useChatStore.getState();
+    const state = useStore.getState();
     expect(state.isLoading).toBe(true);
     expect(state.streamingMessage).not.toBeNull();
     expect(state.streamingMessage!.content).toBe('');
@@ -377,34 +390,34 @@ describe('sendMessage', () => {
   });
 
   it('thinking 事件累积到 reasoningContent', async () => {
-    await useChatStore.getState().sendMessage('hello');
+    await sendMessage('hello');
 
     capturedOnEvent({
       type: 'thinking',
       text: '思考中',
     });
 
-    expect(useChatStore.getState().streamingMessage!.reasoningContent).toBe(
+    expect(useStore.getState().streamingMessage!.reasoningContent).toBe(
       '思考中',
     );
   });
 
   it('content 事件追加到 content', async () => {
-    await useChatStore.getState().sendMessage('hello');
+    await sendMessage('hello');
 
     capturedOnEvent({ type: 'content', text: '你好' });
     capturedOnEvent({ type: 'content', text: '世界' });
 
-    expect(useChatStore.getState().streamingMessage!.content).toBe('你好世界');
+    expect(useStore.getState().streamingMessage!.content).toBe('你好世界');
   });
 
   it('done 事件持久化消息并更新会话', async () => {
-    await useChatStore.getState().sendMessage('hello');
+    await sendMessage('hello');
 
     capturedOnEvent({ type: 'content', text: '回复内容' });
     capturedOnEvent({ type: 'done' });
 
-    const state = useChatStore.getState();
+    const state = useStore.getState();
     expect(state.streamingMessage).toBeNull();
     expect(state.isLoading).toBe(false);
     expect(state.messages).toHaveLength(2);
@@ -418,7 +431,7 @@ describe('sendMessage', () => {
   });
 
   it('done 事件拼接 reasoningContent', async () => {
-    await useChatStore.getState().sendMessage('hello', true);
+    await sendMessage('hello', true);
 
     capturedOnEvent({
       type: 'thinking',
@@ -431,16 +444,16 @@ describe('sendMessage', () => {
     capturedOnEvent({ type: 'content', text: '结论' });
     capturedOnEvent({ type: 'done' });
 
-    const assistantMsg = useChatStore.getState().messages[1];
+    const assistantMsg = useStore.getState().messages[1];
     expect(assistantMsg.reasoningContent).toBe('第一步第二步');
   });
 
   it('error 事件设置 error 状态', async () => {
-    await useChatStore.getState().sendMessage('hello');
+    await sendMessage('hello');
 
     capturedOnEvent({ type: 'error', error: new Error('API 错误') });
 
-    const state = useChatStore.getState();
+    const state = useStore.getState();
     expect(state.isLoading).toBe(false);
     expect(state.streamingMessage).toBeNull();
     expect(state.error).toBe('API 错误');
@@ -451,20 +464,20 @@ describe('sendMessage', () => {
 
 describe('cancelStream', () => {
   it('调用 controller.abort()', async () => {
-    useChatStore.setState({
+    useStore.setState({
       apiKey: 'test-key',
       hasApiKey: true,
       currentConversationId: 'c1',
     });
-    await useChatStore.getState().sendMessage('hello');
+    await sendMessage('hello');
     mockAbort.mockClear();
 
-    useChatStore.getState().cancelStream();
+    cancelStream();
     expect(mockAbort).toHaveBeenCalledOnce();
   });
 
   it('无活跃流时安全调用', () => {
-    useChatStore.getState().cancelStream();
+    cancelStream();
     expect(mockAbort).not.toHaveBeenCalled();
   });
 });
@@ -493,7 +506,7 @@ describe('regenerateMessage', () => {
       parentId: 'u1',
       createdAt: 100,
     });
-    useChatStore.setState({
+    useStore.setState({
       apiKey: 'test-key',
       hasApiKey: true,
       currentConversationId: 'c1',
@@ -502,9 +515,9 @@ describe('regenerateMessage', () => {
       messages: [u1, a1],
     });
 
-    await useChatStore.getState().regenerateMessage('a1');
+    await regenerateMessage('a1');
 
-    const state = useChatStore.getState();
+    const state = useStore.getState();
     expect(state.isLoading).toBe(true);
     expect(state.streamingMessage).not.toBeNull();
     // 全树新增一条 assistant 占位
@@ -536,7 +549,7 @@ describe('regenerateMessage', () => {
       parentId: 'u1',
       createdAt: 100,
     });
-    useChatStore.setState({
+    useStore.setState({
       apiKey: 'test-key',
       hasApiKey: true,
       currentConversationId: 'c1',
@@ -545,11 +558,11 @@ describe('regenerateMessage', () => {
       messages: [u1, a1],
     });
 
-    await useChatStore.getState().regenerateMessage('a1');
+    await regenerateMessage('a1');
     capturedOnEvent({ type: 'content', text: '新回答' });
     capturedOnEvent({ type: 'done' });
 
-    const state = useChatStore.getState();
+    const state = useStore.getState();
     expect(state.streamingMessage).toBeNull();
     expect(state.isLoading).toBe(false);
     expect(state.messages).toHaveLength(2);
@@ -568,23 +581,23 @@ describe('regenerateMessage', () => {
   });
 
   it('非 assistant 消息直接返回', async () => {
-    useChatStore.setState({
+    useStore.setState({
       apiKey: 'test-key',
       hasApiKey: true,
       allMessages: [makeMessage({ id: 'u1', role: 'user' })],
     });
-    await useChatStore.getState().regenerateMessage('u1');
+    await regenerateMessage('u1');
     expect(createChatStream).not.toHaveBeenCalled();
   });
 
   it('流式中禁止重新生成', async () => {
-    useChatStore.setState({
+    useStore.setState({
       apiKey: 'test-key',
       hasApiKey: true,
       isLoading: true,
       allMessages: [makeMessage({ id: 'a1', role: 'assistant' })],
     });
-    await useChatStore.getState().regenerateMessage('a1');
+    await regenerateMessage('a1');
     expect(createChatStream).not.toHaveBeenCalled();
   });
 });
@@ -613,7 +626,7 @@ describe('editMessage', () => {
       parentId: 'u1',
       createdAt: 100,
     });
-    useChatStore.setState({
+    useStore.setState({
       apiKey: 'test-key',
       hasApiKey: true,
       currentConversationId: 'c1',
@@ -623,9 +636,9 @@ describe('editMessage', () => {
       editingMessageId: 'u1',
     });
 
-    await useChatStore.getState().editMessage('u1', '修改后的问题');
+    await editMessage('u1', '修改后的问题');
 
-    const state = useChatStore.getState();
+    const state = useStore.getState();
     expect(state.editingMessageId).toBeNull();
     expect(state.isLoading).toBe(true);
     expect(state.allMessages).toHaveLength(4);
@@ -651,23 +664,23 @@ describe('editMessage', () => {
   });
 
   it('非 user 消息直接返回', async () => {
-    useChatStore.setState({
+    useStore.setState({
       apiKey: 'test-key',
       hasApiKey: true,
       allMessages: [makeMessage({ id: 'a1', role: 'assistant' })],
     });
-    await useChatStore.getState().editMessage('a1', 'x');
+    await editMessage('a1', 'x');
     expect(createChatStream).not.toHaveBeenCalled();
   });
 
   it('流式中禁止编辑', async () => {
-    useChatStore.setState({
+    useStore.setState({
       apiKey: 'test-key',
       hasApiKey: true,
       isLoading: true,
       allMessages: [makeMessage({ id: 'u1', role: 'user' })],
     });
-    await useChatStore.getState().editMessage('u1', 'x');
+    await editMessage('u1', 'x');
     expect(createChatStream).not.toHaveBeenCalled();
   });
 });
@@ -702,16 +715,16 @@ describe('switchSibling', () => {
       parentId: 'u1',
       createdAt: 200,
     });
-    useChatStore.setState({
+    useStore.setState({
       currentConversationId: 'c1',
       conversations: [makeConversation({ id: 'c1', activeLeafId: 'a2' })],
       allMessages: [u1, a1, a2],
       messages: [u1, a2],
     });
 
-    useChatStore.getState().switchSibling('a2', -1);
+    switchSibling('a2', -1);
 
-    const state = useChatStore.getState();
+    const state = useStore.getState();
     expect(state.messages.map((m) => m.id)).toEqual(['u1', 'a1']);
     expect(state.conversations[0].activeLeafId).toBe('a1');
     expect(db.updateMessage).toHaveBeenCalledWith(
@@ -742,16 +755,16 @@ describe('switchSibling', () => {
       parentId: 'u1',
       createdAt: 200,
     });
-    useChatStore.setState({
+    useStore.setState({
       currentConversationId: 'c1',
       conversations: [makeConversation({ id: 'c1', activeLeafId: 'a1' })],
       allMessages: [u1, a1, a2],
       messages: [u1, a1],
     });
 
-    useChatStore.getState().switchSibling('a1', 1);
+    switchSibling('a1', 1);
 
-    const state = useChatStore.getState();
+    const state = useStore.getState();
     expect(state.messages.map((m) => m.id)).toEqual(['u1', 'a2']);
     expect(state.conversations[0].activeLeafId).toBe('a2');
   });
@@ -770,26 +783,26 @@ describe('switchSibling', () => {
       content: '答1',
       parentId: 'u1',
     });
-    useChatStore.setState({
+    useStore.setState({
       currentConversationId: 'c1',
       conversations: [makeConversation({ id: 'c1', activeLeafId: 'a1' })],
       allMessages: [u1, a1],
       messages: [u1, a1],
     });
 
-    useChatStore.getState().switchSibling('a1', -1);
+    switchSibling('a1', -1);
 
-    const state = useChatStore.getState();
+    const state = useStore.getState();
     expect(state.messages.map((m) => m.id)).toEqual(['u1', 'a1']);
     expect(db.updateMessage).not.toHaveBeenCalled();
   });
 
   it('流式中禁止切换', () => {
-    useChatStore.setState({
+    useStore.setState({
       isLoading: true,
       allMessages: [makeMessage({ id: 'u1' }), makeMessage({ id: 'a1' })],
     });
-    useChatStore.getState().switchSibling('a1', -1);
+    switchSibling('a1', -1);
     expect(db.updateMessage).not.toHaveBeenCalled();
   });
 });
@@ -816,12 +829,12 @@ describe('getBranchInfo', () => {
       parentId: 'u1',
       createdAt: 200,
     });
-    useChatStore.setState({
+    useStore.setState({
       allMessages: [u1, a1, a2],
       conversations: [makeConversation({ id: 'c1' })],
     });
 
-    const info = useChatStore.getState().getBranchInfo('a2');
+    const info = getBranchInfo('a2');
     expect(info.total).toBe(2);
     expect(info.current).toBe(2);
     expect(info.prevSiblingId).toBe('a1');
@@ -834,12 +847,12 @@ describe('getBranchInfo', () => {
       role: 'user',
       parentId: null,
     });
-    useChatStore.setState({
+    useStore.setState({
       allMessages: [u1],
       conversations: [makeConversation({ id: 'c1' })],
     });
 
-    const info = useChatStore.getState().getBranchInfo('u1');
+    const info = getBranchInfo('u1');
     expect(info.total).toBe(1);
     expect(info.current).toBe(1);
   });
@@ -849,7 +862,7 @@ describe('getBranchInfo', () => {
 
 describe('clearMessages', () => {
   it('清空 DB 和内存消息', async () => {
-    useChatStore.setState({
+    useStore.setState({
       currentConversationId: 'c1',
       messages: [makeMessage()],
       streamingMessage: {
@@ -863,17 +876,17 @@ describe('clearMessages', () => {
     });
     vi.mocked(db.clearConversationMessages).mockResolvedValue(undefined);
 
-    await useChatStore.getState().clearMessages();
+    await clearMessages();
 
     expect(db.clearConversationMessages).toHaveBeenCalledWith('c1');
-    const state = useChatStore.getState();
+    const state = useStore.getState();
     expect(state.messages).toEqual([]);
     expect(state.streamingMessage).toBeNull();
   });
 
   it('无当前会话时不操作', async () => {
-    useChatStore.setState({ currentConversationId: null });
-    await useChatStore.getState().clearMessages();
+    useStore.setState({ currentConversationId: null });
+    await clearMessages();
     expect(db.clearConversationMessages).not.toHaveBeenCalled();
   });
 });

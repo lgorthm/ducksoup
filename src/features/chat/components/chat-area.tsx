@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useShallow } from 'zustand/react/shallow';
 import { Loader2 } from 'lucide-react';
 import { ChatMessageList } from '@/features/chat/components/chat-message-list';
 import type { ChatListController } from '@/features/chat/hooks/use-chat-list-controller';
@@ -8,38 +7,17 @@ import { ChatScrollNav } from '@/features/chat/components/chat-scroll-nav';
 import type { NavUserMessage } from '@/features/chat/components/chat-scroll-nav';
 import { ChatInput } from '@/features/chat/components/chat-input';
 import { ChatWelcome } from '@/features/chat/components/chat-welcome';
-import { useChatStore } from '@/features/chat/store/chat-store';
+import { cancelStream, sendMessage, toggleDeepThink } from '@/stores/actions';
+import { useChatAreaState } from '@/stores/selectors';
 
 export function ChatArea() {
   const { t } = useTranslation();
-  const {
-    messages,
-    streamingMessage,
-    isLoading,
-    error,
-    sendMessage,
-    cancelStream,
-    deepThink,
-    toggleDeepThink,
-  } = useChatStore(
-    useShallow((s) => ({
-      messages: s.messages,
-      streamingMessage: s.streamingMessage,
-      isLoading: s.isLoading,
-      error: s.error,
-      sendMessage: s.sendMessage,
-      cancelStream: s.cancelStream,
-      deepThink: s.deepThink,
-      toggleDeepThink: s.toggleDeepThink,
-    })),
-  );
+  const { messages, streamingMessage, isLoading, error, deepThink } =
+    useChatAreaState();
 
-  const handleSend = useCallback(
-    (content: string, deepThink: boolean) => {
-      sendMessage(content, deepThink);
-    },
-    [sendMessage],
-  );
+  const handleSend = useCallback((content: string, deepThinkFlag: boolean) => {
+    void sendMessage(content, deepThinkFlag);
+  }, []);
 
   // 虚拟列表控制器 ref，由 ChatMessageList 填充
   const controllerRef = useRef<ChatListController | null>(null);

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useShallow } from 'zustand/react/shallow';
 import { ApiKeyDialog } from '@/features/chat/components/api-key-dialog';
 import { ChatArea } from '@/features/chat/components/chat-area';
-import { useChatStore } from '@/features/chat/store/chat-store';
+import { init } from '@/stores/actions';
+import { useStore } from '@/stores';
+import { useHasContent, useInitialized } from '@/stores/selectors';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { useMinLoadingDisplay } from '@/shared/hooks/use-min-loading-display';
 
@@ -61,7 +62,7 @@ interface ChatPageContentProps {
 }
 
 function ChatPageContent({ initialHasContent }: ChatPageContentProps) {
-  const hasApiKey = useChatStore((s) => s.hasApiKey);
+  const hasApiKey = useStore((s) => s.hasApiKey);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [showInitialSkeleton] = useState(initialHasContent);
   const [ready, setReady] = useState(!initialHasContent);
@@ -91,17 +92,12 @@ function ChatPageContent({ initialHasContent }: ChatPageContentProps) {
 }
 
 export function ChatPage() {
-  const { init, initialized, hasContent } = useChatStore(
-    useShallow((s) => ({
-      init: s.init,
-      initialized: s.initialized,
-      hasContent: s.messages.length > 0 || s.streamingMessage !== null,
-    })),
-  );
+  const initialized = useInitialized();
+  const hasContent = useHasContent();
 
   useEffect(() => {
     void init();
-  }, [init]);
+  }, []);
 
   if (!initialized) {
     return <ChatPagePending />;

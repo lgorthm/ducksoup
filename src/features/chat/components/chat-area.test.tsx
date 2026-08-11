@@ -1,11 +1,17 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ChatArea } from './chat-area';
-import { useChatStore } from '@/features/chat/store/chat-store';
+import { useChatAreaState } from '@/stores/selectors';
 import type { StoredMessage } from '@/features/chat/types/deepseek';
 
-vi.mock('@/features/chat/store/chat-store', () => ({
-  useChatStore: vi.fn(),
+vi.mock('@/stores/selectors', () => ({
+  useChatAreaState: vi.fn(),
+}));
+
+vi.mock('@/stores/actions', () => ({
+  sendMessage: vi.fn(),
+  cancelStream: vi.fn(),
+  toggleDeepThink: vi.fn(),
 }));
 
 vi.mock('@/features/chat/components/chat-message-list', () => ({
@@ -52,20 +58,12 @@ function makeMsg(overrides: Partial<StoredMessage> = {}): StoredMessage {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-    const state = {
-      messages: [] as StoredMessage[],
-      streamingMessage: null,
-      isLoading: false,
-      error: null,
-      sendMessage: vi.fn(),
-      cancelStream: vi.fn(),
-      deepThink: false,
-      toggleDeepThink: vi.fn(),
-    };
-    return typeof selector === 'function'
-      ? (selector as (s: typeof state) => unknown)(state)
-      : state;
+  vi.mocked(useChatAreaState).mockReturnValue({
+    messages: [],
+    streamingMessage: null,
+    isLoading: false,
+    error: null,
+    deepThink: false,
   });
 });
 
@@ -78,20 +76,12 @@ describe('ChatArea', () => {
 
   it('有消息时显示消息列表和输入框', () => {
     const msgs = [makeMsg({ id: 'm1', content: '你好' })];
-    vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-      const state = {
-        messages: msgs,
-        streamingMessage: null,
-        isLoading: false,
-        error: null,
-        sendMessage: vi.fn(),
-        cancelStream: vi.fn(),
-        deepThink: false,
-        toggleDeepThink: vi.fn(),
-      };
-      return typeof selector === 'function'
-        ? (selector as (s: typeof state) => unknown)(state)
-        : state;
+    vi.mocked(useChatAreaState).mockReturnValue({
+      messages: msgs,
+      streamingMessage: null,
+      isLoading: false,
+      error: null,
+      deepThink: false,
     });
 
     render(<ChatArea />);
@@ -101,27 +91,19 @@ describe('ChatArea', () => {
   });
 
   it('有流式消息时显示消息列表', () => {
-    vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-      const state = {
-        messages: [],
-        streamingMessage: {
-          id: 's1',
-          conversationId: 'c1',
-          role: 'assistant' as const,
-          content: '流式中',
-          reasoningContent: '',
-          createdAt: Date.now(),
-        },
-        isLoading: true,
-        error: null,
-        sendMessage: vi.fn(),
-        cancelStream: vi.fn(),
-        deepThink: false,
-        toggleDeepThink: vi.fn(),
-      };
-      return typeof selector === 'function'
-        ? (selector as (s: typeof state) => unknown)(state)
-        : state;
+    vi.mocked(useChatAreaState).mockReturnValue({
+      messages: [],
+      streamingMessage: {
+        id: 's1',
+        conversationId: 'c1',
+        role: 'assistant' as const,
+        content: '流式中',
+        reasoningContent: '',
+        createdAt: Date.now(),
+      },
+      isLoading: true,
+      error: null,
+      deepThink: false,
     });
 
     render(<ChatArea />);
@@ -130,20 +112,12 @@ describe('ChatArea', () => {
   });
 
   it('loading 且无流式消息时显示思考中', () => {
-    vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-      const state = {
-        messages: [makeMsg()],
-        streamingMessage: null,
-        isLoading: true,
-        error: null,
-        sendMessage: vi.fn(),
-        cancelStream: vi.fn(),
-        deepThink: false,
-        toggleDeepThink: vi.fn(),
-      };
-      return typeof selector === 'function'
-        ? (selector as (s: typeof state) => unknown)(state)
-        : state;
+    vi.mocked(useChatAreaState).mockReturnValue({
+      messages: [makeMsg()],
+      streamingMessage: null,
+      isLoading: true,
+      error: null,
+      deepThink: false,
     });
 
     render(<ChatArea />);
@@ -151,20 +125,12 @@ describe('ChatArea', () => {
   });
 
   it('有错误时显示错误信息', () => {
-    vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-      const state = {
-        messages: [makeMsg()],
-        streamingMessage: null,
-        isLoading: false,
-        error: 'API 调用失败',
-        sendMessage: vi.fn(),
-        cancelStream: vi.fn(),
-        deepThink: false,
-        toggleDeepThink: vi.fn(),
-      };
-      return typeof selector === 'function'
-        ? (selector as (s: typeof state) => unknown)(state)
-        : state;
+    vi.mocked(useChatAreaState).mockReturnValue({
+      messages: [makeMsg()],
+      streamingMessage: null,
+      isLoading: false,
+      error: 'API 调用失败',
+      deepThink: false,
     });
 
     render(<ChatArea />);
@@ -173,20 +139,12 @@ describe('ChatArea', () => {
 
   it('显示免责声明', () => {
     const msgs = [makeMsg()];
-    vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-      const state = {
-        messages: msgs,
-        streamingMessage: null,
-        isLoading: false,
-        error: null,
-        sendMessage: vi.fn(),
-        cancelStream: vi.fn(),
-        deepThink: false,
-        toggleDeepThink: vi.fn(),
-      };
-      return typeof selector === 'function'
-        ? (selector as (s: typeof state) => unknown)(state)
-        : state;
+    vi.mocked(useChatAreaState).mockReturnValue({
+      messages: msgs,
+      streamingMessage: null,
+      isLoading: false,
+      error: null,
+      deepThink: false,
     });
 
     render(<ChatArea />);

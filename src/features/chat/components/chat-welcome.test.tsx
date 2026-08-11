@@ -1,14 +1,17 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ChatWelcome } from './chat-welcome';
-import { useChatStore } from '@/features/chat/store/chat-store';
+import { sendMessage, toggleDeepThink } from '@/stores/actions';
+import { useChatWelcomeState } from '@/stores/selectors';
 
-vi.mock('@/features/chat/store/chat-store', () => ({
-  useChatStore: vi.fn(),
-  MODEL_LABELS: {
-    'deepseek-v4-flash': 'DeepSeek V4 Flash',
-    'deepseek-v4-pro': 'DeepSeek V4 Pro',
-  },
+vi.mock('@/stores/selectors', () => ({
+  useChatWelcomeState: vi.fn(),
+}));
+
+vi.mock('@/stores/actions', () => ({
+  setModel: vi.fn(),
+  sendMessage: vi.fn(),
+  toggleDeepThink: vi.fn(),
 }));
 
 vi.mock('@/shared/components/ui/radio-group-button', () => ({
@@ -57,23 +60,12 @@ vi.mock('@/features/chat/components/chat-input', () => ({
   ),
 }));
 
-let sendMessage: ReturnType<typeof vi.fn>;
-
 beforeEach(() => {
   vi.clearAllMocks();
-  sendMessage = vi.fn();
-  vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-    const state = {
-      selectedModel: 'deepseek-v4-flash' as const,
-      setModel: vi.fn(),
-      sendMessage,
-      isLoading: false,
-      deepThink: false,
-      toggleDeepThink: vi.fn(),
-    };
-    return typeof selector === 'function'
-      ? (selector as (s: typeof state) => unknown)(state)
-      : state;
+  vi.mocked(useChatWelcomeState).mockReturnValue({
+    selectedModel: 'deepseek-v4-flash',
+    isLoading: false,
+    deepThink: false,
   });
 });
 
@@ -91,18 +83,10 @@ describe('ChatWelcome', () => {
   });
 
   it('从 store 读取 deepThink 并传给 ChatInput', () => {
-    vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-      const state = {
-        selectedModel: 'deepseek-v4-flash' as const,
-        setModel: vi.fn(),
-        sendMessage,
-        isLoading: false,
-        deepThink: true,
-        toggleDeepThink: vi.fn(),
-      };
-      return typeof selector === 'function'
-        ? (selector as (s: typeof state) => unknown)(state)
-        : state;
+    vi.mocked(useChatWelcomeState).mockReturnValue({
+      selectedModel: 'deepseek-v4-flash',
+      isLoading: false,
+      deepThink: true,
     });
     render(<ChatWelcome />);
     expect(screen.getByTestId('chat-input')).toHaveAttribute(
@@ -112,20 +96,6 @@ describe('ChatWelcome', () => {
   });
 
   it('点击深度思考按钮调用 store.toggleDeepThink', () => {
-    const toggleDeepThink = vi.fn();
-    vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-      const state = {
-        selectedModel: 'deepseek-v4-flash' as const,
-        setModel: vi.fn(),
-        sendMessage,
-        isLoading: false,
-        deepThink: false,
-        toggleDeepThink,
-      };
-      return typeof selector === 'function'
-        ? (selector as (s: typeof state) => unknown)(state)
-        : state;
-    });
     render(<ChatWelcome />);
     screen.getByTestId('toggle-deep-think').click();
     expect(toggleDeepThink).toHaveBeenCalledOnce();

@@ -1,10 +1,15 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ApiKeyDialog } from './api-key-dialog';
-import { useChatStore } from '@/features/chat/store/chat-store';
+import { useStore } from '@/stores';
+import { setApiKey } from '@/stores/actions';
 
-vi.mock('@/features/chat/store/chat-store', () => ({
-  useChatStore: vi.fn(),
+vi.mock('@/stores', () => ({
+  useStore: vi.fn(),
+}));
+
+vi.mock('@/stores/actions', () => ({
+  setApiKey: vi.fn(),
 }));
 
 vi.mock('sonner', () => ({
@@ -15,9 +20,8 @@ vi.mock('sonner', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
+  vi.mocked(useStore).mockImplementation((selector?: unknown) => {
     const state = {
-      setApiKey: vi.fn(),
       hasApiKey: false,
     };
     return typeof selector === 'function'
@@ -51,62 +55,40 @@ describe('ApiKeyDialog', () => {
 
   it('点击保存调用 setApiKey 并关闭对话框', () => {
     const onOpenChange = vi.fn();
-    const mockSetApiKey = vi.fn();
-    vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-      const state = { setApiKey: mockSetApiKey, hasApiKey: false };
-      return typeof selector === 'function'
-        ? (selector as (s: typeof state) => unknown)(state)
-        : state;
-    });
 
     render(<ApiKeyDialog open={true} onOpenChange={onOpenChange} />);
     const input = screen.getByPlaceholderText('sk-...');
     fireEvent.change(input, { target: { value: 'sk-my-key' } });
     fireEvent.click(screen.getByText('保存'));
 
-    expect(mockSetApiKey).toHaveBeenCalledWith('sk-my-key');
+    expect(setApiKey).toHaveBeenCalledWith('sk-my-key');
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
   it('保存时去除首尾空格', () => {
-    const mockSetApiKey = vi.fn();
-    vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-      const state = { setApiKey: mockSetApiKey, hasApiKey: false };
-      return typeof selector === 'function'
-        ? (selector as (s: typeof state) => unknown)(state)
-        : state;
-    });
-
     render(<ApiKeyDialog open={true} onOpenChange={vi.fn()} />);
     const input = screen.getByPlaceholderText('sk-...');
     fireEvent.change(input, { target: { value: '  sk-key  ' } });
     fireEvent.click(screen.getByText('保存'));
 
-    expect(mockSetApiKey).toHaveBeenCalledWith('sk-key');
+    expect(setApiKey).toHaveBeenCalledWith('sk-key');
   });
 
   it('Enter 键保存', () => {
-    const mockSetApiKey = vi.fn();
     const onOpenChange = vi.fn();
-    vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-      const state = { setApiKey: mockSetApiKey, hasApiKey: false };
-      return typeof selector === 'function'
-        ? (selector as (s: typeof state) => unknown)(state)
-        : state;
-    });
 
     render(<ApiKeyDialog open={true} onOpenChange={onOpenChange} />);
     const input = screen.getByPlaceholderText('sk-...');
     fireEvent.change(input, { target: { value: 'sk-key' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    expect(mockSetApiKey).toHaveBeenCalledWith('sk-key');
+    expect(setApiKey).toHaveBeenCalledWith('sk-key');
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
   it('已有 API Key 时显示取消按钮', () => {
-    vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-      const state = { setApiKey: vi.fn(), hasApiKey: true };
+    vi.mocked(useStore).mockImplementation((selector?: unknown) => {
+      const state = { hasApiKey: true };
       return typeof selector === 'function'
         ? (selector as (s: typeof state) => unknown)(state)
         : state;
@@ -123,8 +105,8 @@ describe('ApiKeyDialog', () => {
 
   it('点击取消按钮关闭对话框', () => {
     const onOpenChange = vi.fn();
-    vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-      const state = { setApiKey: vi.fn(), hasApiKey: true };
+    vi.mocked(useStore).mockImplementation((selector?: unknown) => {
+      const state = { hasApiKey: true };
       return typeof selector === 'function'
         ? (selector as (s: typeof state) => unknown)(state)
         : state;

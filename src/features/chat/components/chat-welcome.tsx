@@ -1,12 +1,9 @@
 import { useTranslation } from 'react-i18next';
-import { useShallow } from 'zustand/react/shallow';
 import duckSvg from '@/assets/duck.svg';
 import { ChatInput } from '@/features/chat/components/chat-input';
-import {
-  useChatStore,
-  MODEL_LABELS,
-  type ModelName,
-} from '@/features/chat/store/chat-store';
+import { sendMessage, setModel, toggleDeepThink } from '@/stores/actions';
+import { MODEL_LABELS, type ModelName } from '@/stores/models';
+import { useChatWelcomeState } from '@/stores/selectors';
 import { RadioGroupButton } from '@/shared/components/ui/radio-group-button';
 
 const MODEL_OPTIONS = (
@@ -18,23 +15,7 @@ const MODEL_OPTIONS = (
 
 export function ChatWelcome() {
   const { t } = useTranslation();
-  const {
-    selectedModel,
-    setModel,
-    sendMessage,
-    isLoading,
-    deepThink,
-    toggleDeepThink,
-  } = useChatStore(
-    useShallow((s) => ({
-      selectedModel: s.selectedModel,
-      setModel: s.setModel,
-      sendMessage: s.sendMessage,
-      isLoading: s.isLoading,
-      deepThink: s.deepThink,
-      toggleDeepThink: s.toggleDeepThink,
-    })),
-  );
+  const { selectedModel, isLoading, deepThink } = useChatWelcomeState();
 
   const currentLabel = MODEL_LABELS[selectedModel];
 
@@ -61,7 +42,9 @@ export function ChatWelcome() {
         {/* 第三行：输入组件 */}
         <div className="w-full">
           <ChatInput
-            onSend={(content, dt) => sendMessage(content, dt)}
+            onSend={(content, dt) => {
+              void sendMessage(content, dt);
+            }}
             disabled={isLoading}
             deepThink={deepThink}
             onToggleDeepThink={toggleDeepThink}

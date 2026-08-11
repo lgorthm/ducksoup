@@ -1,7 +1,6 @@
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useShallow } from 'zustand/react/shallow';
 import { cn } from '@/shared/lib/utils';
 import type { BranchInfo, StoredMessage } from '@/features/chat/types/deepseek';
 import {
@@ -23,7 +22,15 @@ import {
   TooltipTrigger,
 } from '@/shared/components/ui/tooltip';
 import { useCanHover } from '@/shared/hooks/use-media-query';
-import { useChatStore } from '@/features/chat/store/chat-store';
+import {
+  editMessage,
+  regenerateMessage,
+  setEditingMessage,
+  switchSibling,
+  toggleActiveMessage,
+} from '@/stores/actions';
+import { useStore } from '@/stores';
+import { useEditFormState, useMessageActionsState } from '@/stores/selectors';
 import { LazyMarkdownRenderer } from '@/shared/components/lazy-markdown-renderer';
 
 interface ChatMessageProps {
@@ -48,7 +55,6 @@ export const ChatMessage = memo(function ChatMessage({
   const isUser = message.role === 'user';
   const hasThinking = !!message.reasoningContent;
   const canHover = useCanHover();
-  const toggleActiveMessage = useChatStore((s) => s.toggleActiveMessage);
 
   // 单行气泡使用 rounded-full，多行回退到 rounded-lg（按实际渲染高度判断，含换行折行）
   // 用 useLayoutEffect 在绘制前完成首次测量，避免多行消息先渲染一帧 rounded-full 再纠正的闪动
@@ -198,13 +204,7 @@ interface EditFormProps {
 
 const EditForm = memo(function EditForm({ message }: EditFormProps) {
   const { t } = useTranslation();
-  const { setEditingMessage, editMessage, isLoading } = useChatStore(
-    useShallow((s) => ({
-      setEditingMessage: s.setEditingMessage,
-      editMessage: s.editMessage,
-      isLoading: s.isLoading,
-    })),
-  );
+  const { isLoading } = useEditFormState();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // 自动聚焦并将光标置于末尾
@@ -224,7 +224,7 @@ const EditForm = memo(function EditForm({ message }: EditFormProps) {
     if (!ta) return;
     const value = ta.value.trim();
     if (!value || isLoading) return;
-    editMessage(message.id, value);
+    void editMessage(message.id, value);
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -306,17 +306,9 @@ const MessageActions = memo(function MessageActions({
 }: MessageActionsProps) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
-  const { setEditingMessage, regenerateMessage, switchSibling, isLoading } =
-    useChatStore(
-      useShallow((s) => ({
-        setEditingMessage: s.setEditingMessage,
-        regenerateMessage: s.regenerateMessage,
-        switchSibling: s.switchSibling,
-        isLoading: s.isLoading,
-      })),
-    );
+  const { isLoading } = useMessageActionsState();
   const canHover = useCanHover();
-  const isActive = useChatStore((s) => s.activeMessageId === message.id);
+  const isActive = useStore((s) => s.activeMessageId === message.id);
 
   const isUser = message.role === 'user';
   const showBranch = !!branchInfo && branchInfo.total > 1;

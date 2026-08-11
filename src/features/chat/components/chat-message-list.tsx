@@ -7,18 +7,17 @@ import {
 } from 'react';
 import type { ReactNode, RefObject } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useShallow } from 'zustand/react/shallow';
 import { ChatMessage } from '@/features/chat/components/chat-message';
 import type {
   BranchInfo,
   StoredMessage,
   StreamingMessage,
 } from '@/features/chat/types/deepseek';
-import { useChatStore } from '@/features/chat/store/chat-store';
 import {
   useChatListController,
   type ChatListController,
 } from '@/features/chat/hooks/use-chat-list-controller';
+import { useMessageListState } from '@/stores/selectors';
 
 // 向后兼容：保留 ChatListController 类型的 re-export
 // biome-ignore lint/style/useComponentExportOnlyModules: 类型导出不影响 Fast Refresh（规则误报）
@@ -39,12 +38,7 @@ export function ChatMessageList({
   controllerRef,
 }: ChatMessageListProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const { allMessages, editingMessageId } = useChatStore(
-    useShallow((s) => ({
-      allMessages: s.allMessages,
-      editingMessageId: s.editingMessageId,
-    })),
-  );
+  const { allMessages, editingMessageId } = useMessageListState();
 
   // 由全树派生每条消息的分支信息，避免每条 ChatMessage 各自订阅 store
   const branchInfoMap = useMemo(() => {

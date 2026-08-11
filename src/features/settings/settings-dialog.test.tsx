@@ -8,7 +8,8 @@ import {
 } from '@testing-library/react';
 import { SettingsDialog } from './settings-dialog';
 import { useTheme } from '@/shared/providers/theme-provider';
-import { useChatStore } from '@/features/chat/store/chat-store';
+import { useStore } from '@/stores';
+import { setApiKey as setApiKeyAction } from '@/stores/actions';
 import { server } from '@/mocks/server';
 import {
   mockBalanceError,
@@ -19,8 +20,12 @@ vi.mock('@/shared/providers/theme-provider', () => ({
   useTheme: vi.fn(),
 }));
 
-vi.mock('@/features/chat/store/chat-store', () => ({
-  useChatStore: vi.fn(),
+vi.mock('@/stores', () => ({
+  useStore: vi.fn(),
+}));
+
+vi.mock('@/stores/actions', () => ({
+  setApiKey: vi.fn(),
 }));
 
 vi.mock('@/shared/components/ui/dialog', () => ({
@@ -57,10 +62,9 @@ beforeEach(() => {
     theme: 'light',
     setTheme: vi.fn(),
   });
-  vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
+  vi.mocked(useStore).mockImplementation((selector?: unknown) => {
     const state = {
       apiKey: 'existing-key',
-      setApiKey: vi.fn(),
     };
     return typeof selector === 'function'
       ? (selector as (s: typeof state) => unknown)(state)
@@ -118,9 +122,8 @@ describe('SettingsDialog', () => {
   });
 
   it('保存 API Key 调用 setApiKey', () => {
-    const mockSetApiKey = vi.fn();
-    vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-      const state = { apiKey: '', setApiKey: mockSetApiKey };
+    vi.mocked(useStore).mockImplementation((selector?: unknown) => {
+      const state = { apiKey: '' };
       return typeof selector === 'function'
         ? (selector as (s: typeof state) => unknown)(state)
         : state;
@@ -132,7 +135,7 @@ describe('SettingsDialog', () => {
     fireEvent.change(input, { target: { value: 'sk-new' } });
     fireEvent.click(screen.getByText('保存'));
 
-    expect(mockSetApiKey).toHaveBeenCalledWith('sk-new');
+    expect(setApiKeyAction).toHaveBeenCalledWith('sk-new');
   });
 
   it('眼睛按钮切换密码可见性', () => {
@@ -188,8 +191,8 @@ describe('SettingsDialog', () => {
   });
 
   it('未配置 API Key 时显示提示', () => {
-    vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-      const state = { apiKey: '', setApiKey: vi.fn() };
+    vi.mocked(useStore).mockImplementation((selector?: unknown) => {
+      const state = { apiKey: '' };
       return typeof selector === 'function'
         ? (selector as (s: typeof state) => unknown)(state)
         : state;
@@ -281,8 +284,8 @@ describe('SettingsDialog', () => {
 
     // 卸载并切换到不同的 apiKey
     unmount();
-    vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-      const state = { apiKey: 'different-key-9999', setApiKey: vi.fn() };
+    vi.mocked(useStore).mockImplementation((selector?: unknown) => {
+      const state = { apiKey: 'different-key-9999' };
       return typeof selector === 'function'
         ? (selector as (s: typeof state) => unknown)(state)
         : state;

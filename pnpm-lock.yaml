@@ -35,6 +35,9 @@ importers:
       idb:
         specifier: ^8.0.3
         version: 8.0.3
+      immer:
+        specifier: ^11.1.16
+        version: 11.1.16
       lucide-react:
         specifier: ^1.17.0
         version: 1.17.0(react@19.2.6)
@@ -79,7 +82,7 @@ importers:
         version: 1.4.0
       zustand:
         specifier: ^5.0.14
-        version: 5.0.14(@types/react@19.2.15)(react@19.2.6)(use-sync-external-store@1.6.0(react@19.2.6))
+        version: 5.0.14(@types/react@19.2.15)(immer@11.1.16)(react@19.2.6)(use-sync-external-store@1.6.0(react@19.2.6))
     devDependencies:
       '@axe-core/playwright':
         specifier: ^4.11.3
@@ -2941,6 +2944,9 @@ packages:
 
   immediate@3.0.6:
     resolution: {integrity: sha512-XXOFtyqDjNDAQxVfYxuF7g9Il/IbWmmlQg2MYKOH8ExIT1qg6xc4zyS3HaEEATgs1btfzxq15ciUiY7gjSXRGQ==}
+
+  immer@11.1.16:
+    resolution: {integrity: sha512-Xs7H9rBc+kti1J6RueUvbEBkmOz7jqj11XYgf+YMXAYzu8EeE7hwZ9poLXdVfVnGmJu7QAf41T7H2KuF6QoK6Q==}
 
   import-fresh@3.3.1:
     resolution: {integrity: sha512-TR3KfrTZTYLPB6jUjfx6MF9WcWrHL9su5TObK4ZkYgBdWKPOFoSoQIdEuTuR82pmtxH2spWG9h6etwfr1pLBqQ==}
@@ -8249,6 +8255,8 @@ snapshots:
 
   immediate@3.0.6: {}
 
+  immer@11.1.16: {}
+
   import-fresh@3.3.1:
     dependencies:
       parent-module: 1.0.1
@@ -10931,9 +10939,10 @@ snapshots:
 
   zod@3.25.76: {}
 
-  zustand@5.0.14(@types/react@19.2.15)(react@19.2.6)(use-sync-external-store@1.6.0(react@19.2.6)):
+  zustand@5.0.14(@types/react@19.2.15)(immer@11.1.16)(react@19.2.6)(use-sync-external-store@1.6.0(react@19.2.6)):
     optionalDependencies:
       '@types/react': 19.2.15
+      immer: 11.1.16
       react: 19.2.6
       use-sync-external-store: 1.6.0(react@19.2.6)
 

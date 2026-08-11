@@ -1,15 +1,33 @@
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatPage } from './chat-page';
-import { useChatStore } from '@/features/chat/store/chat-store';
+import { init } from '@/stores/actions';
+import { useStore } from '@/stores';
+import {
+  useChatAreaState,
+  useChatWelcomeState,
+  useHasContent,
+  useInitialized,
+} from '@/stores/selectors';
 import type { StoredMessage } from '@/features/chat/types/deepseek';
 
-vi.mock('@/features/chat/store/chat-store', () => ({
-  useChatStore: vi.fn(),
-  MODEL_LABELS: {
-    'deepseek-v4-flash': 'DeepSeek V4 Flash',
-    'deepseek-v4-pro': 'DeepSeek V4 Pro',
-  },
+vi.mock('@/stores', () => ({
+  useStore: vi.fn(),
+}));
+
+vi.mock('@/stores/selectors', () => ({
+  useInitialized: vi.fn(),
+  useHasContent: vi.fn(),
+  useChatAreaState: vi.fn(),
+  useChatWelcomeState: vi.fn(),
+}));
+
+vi.mock('@/stores/actions', () => ({
+  init: vi.fn().mockResolvedValue(undefined),
+  sendMessage: vi.fn(),
+  cancelStream: vi.fn(),
+  toggleDeepThink: vi.fn(),
+  setModel: vi.fn(),
 }));
 
 vi.mock('@/features/chat/components/api-key-dialog', () => ({
@@ -32,19 +50,14 @@ vi.mock('@/shared/components/ui/radio-group-button', () => ({
 }));
 
 interface MockChatState {
-  init: ReturnType<typeof vi.fn>;
   initialized: boolean;
   hasApiKey: boolean;
   messages: StoredMessage[];
   streamingMessage: null;
   isLoading: boolean;
   error: string | null;
-  sendMessage: ReturnType<typeof vi.fn>;
-  cancelStream: ReturnType<typeof vi.fn>;
   deepThink: boolean;
-  toggleDeepThink: ReturnType<typeof vi.fn>;
   selectedModel: 'deepseek-v4-flash';
-  setModel: ReturnType<typeof vi.fn>;
 }
 
 let state: MockChatState;
@@ -62,35 +75,52 @@ function makeMessage(overrides: Partial<StoredMessage> = {}): StoredMessage {
 
 function setMockState(overrides: Partial<MockChatState> = {}) {
   state = {
-    init: vi.fn().mockResolvedValue(undefined),
     initialized: false,
     hasApiKey: true,
     messages: [],
     streamingMessage: null,
     isLoading: false,
     error: null,
-    sendMessage: vi.fn(),
-    cancelStream: vi.fn(),
     deepThink: false,
-    toggleDeepThink: vi.fn(),
     selectedModel: 'deepseek-v4-flash',
-    setModel: vi.fn(),
     ...overrides,
   };
+  applyMocks();
 }
 
 function updateMockState(overrides: Partial<MockChatState>) {
   state = { ...state, ...overrides };
+  applyMocks();
+}
+
+function applyMocks() {
+  vi.mocked(useInitialized).mockReturnValue(state.initialized);
+  vi.mocked(useHasContent).mockReturnValue(
+    state.messages.length > 0 || state.streamingMessage !== null,
+  );
+  vi.mocked(useChatAreaState).mockReturnValue({
+    messages: state.messages,
+    streamingMessage: state.streamingMessage,
+    isLoading: state.isLoading,
+    error: state.error,
+    deepThink: state.deepThink,
+  });
+  vi.mocked(useChatWelcomeState).mockReturnValue({
+    selectedModel: state.selectedModel,
+    isLoading: state.isLoading,
+    deepThink: state.deepThink,
+  });
+  vi.mocked(useStore).mockImplementation((selector?: unknown) => {
+    const storeState = { hasApiKey: state.hasApiKey };
+    return typeof selector === 'function'
+      ? (selector as (s: typeof storeState) => unknown)(storeState)
+      : storeState;
+  });
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
   setMockState();
-  vi.mocked(useChatStore).mockImplementation((selector?: unknown) => {
-    return typeof selector === 'function'
-      ? (selector as (s: MockChatState) => unknown)(state)
-      : state;
-  });
 });
 
 afterEach(() => {
@@ -104,7 +134,7 @@ describe('ChatPage', () => {
     expect(screen.getByTestId('chat-page-pending')).toBeInTheDocument();
     expect(screen.queryByTestId('chat-page-skeleton')).not.toBeInTheDocument();
     expect(screen.queryByTestId('chat-welcome')).not.toBeInTheDocument();
-    expect(state.init).toHaveBeenCalledOnce();
+    expect(init).toHaveBeenCalledOnce();
   });
 
   it('初始化后无消息时直接进入 ChatWelcome，且不显示骨架屏', () => {

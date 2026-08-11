@@ -10,7 +10,8 @@ import {
   DialogTitle,
 } from '@/shared/components/ui/dialog';
 import { Input } from '@/shared/components/ui/input';
-import { useChatStore } from '@/features/chat/store/chat-store';
+import { setApiKey } from '@/stores/actions';
+import { useStore } from '@/stores';
 
 interface ApiKeyDialogProps {
   open: boolean;
@@ -20,8 +21,7 @@ interface ApiKeyDialogProps {
 export function ApiKeyDialog({ open, onOpenChange }: ApiKeyDialogProps) {
   const { t } = useTranslation();
   const [inputValue, setInputValue] = useState('');
-  const setApiKey = useChatStore((s) => s.setApiKey);
-  const hasApiKey = useChatStore((s) => s.hasApiKey);
+  const hasApiKey = useStore((s) => s.hasApiKey);
 
   const handleSave = () => {
     const trimmed = inputValue.trim();

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useShallow } from 'zustand/react/shallow';
 import { MoreHorizontal, Trash2 } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/components/ui/button';
@@ -19,29 +18,19 @@ import {
   DialogTitle,
 } from '@/shared/components/ui/dialog';
 import { useIsMobile } from '@/shared/hooks/use-media-query';
-import { useChatStore } from '@/features/chat/store/chat-store';
+import {
+  deleteConversation,
+  startNewConversation,
+  switchConversation,
+} from '@/stores/actions';
+import { useConversationListState } from '@/stores/selectors';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { useMinLoadingDisplay } from '@/shared/hooks/use-min-loading-display';
 
 export function ConversationList() {
   const { t } = useTranslation();
-  const {
-    conversations,
-    currentConversationId,
-    initialized,
-    startNewConversation,
-    switchConversation,
-    deleteConversation,
-  } = useChatStore(
-    useShallow((s) => ({
-      conversations: s.conversations,
-      currentConversationId: s.currentConversationId,
-      initialized: s.initialized,
-      startNewConversation: s.startNewConversation,
-      switchConversation: s.switchConversation,
-      deleteConversation: s.deleteConversation,
-    })),
-  );
+  const { conversations, currentConversationId, initialized } =
+    useConversationListState();
   const isMobile = useIsMobile();
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 

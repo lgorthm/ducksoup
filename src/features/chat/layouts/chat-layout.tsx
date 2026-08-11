@@ -1,21 +1,14 @@
 import { Outlet } from 'react-router';
-import { useShallow } from 'zustand/react/shallow';
 
 import { MainLayout } from '@/shared/components/layout/main-layout';
 import { ConversationList } from '@/features/chat/components/conversation-list';
 import { NewConversationButton } from '@/features/chat/components/new-conversation-button';
-import { useChatStore, MODEL_LABELS } from '@/features/chat/store/chat-store';
+import { MODEL_LABELS } from '@/stores/models';
+import { useChatLayoutState } from '@/stores/selectors';
 
 export function ChatLayout() {
   const { conversations, currentConversationId, selectedModel, initialized } =
-    useChatStore(
-      useShallow((s) => ({
-        conversations: s.conversations,
-        currentConversationId: s.currentConversationId,
-        selectedModel: s.selectedModel,
-        initialized: s.initialized,
-      })),
-    );
+    useChatLayoutState();
 
   const currentConversation = conversations.find(
     (c) => c.id === currentConversationId,
