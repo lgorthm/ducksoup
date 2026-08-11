@@ -1,103 +1,64 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ChatWelcome } from './chat-welcome';
-import { sendMessage, toggleDeepThink } from '@/stores/actions';
-import { useChatWelcomeState } from '@/stores/selectors';
-
-vi.mock('@/stores/selectors', () => ({
-  useChatWelcomeState: vi.fn(),
-}));
+import { setModel } from '@/stores/actions';
+import { useStore } from '@/stores';
 
 vi.mock('@/stores/actions', () => ({
   setModel: vi.fn(),
-  sendMessage: vi.fn(),
-  toggleDeepThink: vi.fn(),
 }));
 
 vi.mock('@/shared/components/ui/radio-group-button', () => ({
-  RadioGroupButton: () => <div data-testid="radio-group-button" />,
+  RadioGroupButton: ({
+    value,
+    onValueChange,
+  }: {
+    value: string;
+    onValueChange: (value: string) => void;
+  }) => (
+    <button
+      type="button"
+      data-testid="radio-group-button"
+      data-value={value}
+      onClick={() => onValueChange('deepseek-v4-pro')}
+    />
+  ),
 }));
 
-vi.mock('@/features/chat/components/chat-input', () => ({
-  ChatInput: ({
-    onSend,
-    disabled,
-    deepThink,
-    onToggleDeepThink,
-  }: {
-    onSend: (content: string, deepThink: boolean) => void;
-    disabled?: boolean;
-    deepThink: boolean;
-    onToggleDeepThink: () => void;
-  }) => (
-    <div
-      data-testid="chat-input"
-      data-disabled={disabled}
-      data-deep-think={deepThink}
-    >
-      <button
-        type="button"
-        data-testid="send-false"
-        onClick={() => onSend('hello', false)}
-      >
-        send-false
-      </button>
-      <button
-        type="button"
-        data-testid="send-true"
-        onClick={() => onSend('hello', true)}
-      >
-        send-true
-      </button>
-      <button
-        type="button"
-        data-testid="toggle-deep-think"
-        onClick={onToggleDeepThink}
-      >
-        toggle
-      </button>
-    </div>
-  ),
+vi.mock('@/features/chat/components/chat-composer', () => ({
+  ChatComposer: () => <div data-testid="chat-composer" />,
 }));
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(useChatWelcomeState).mockReturnValue({
-    selectedModel: 'deepseek-v4-flash',
-    isLoading: false,
-    deepThink: false,
-  });
+  useStore.setState({ selectedModel: 'deepseek-v4-flash' });
 });
 
 describe('ChatWelcome', () => {
-  it('将 deepThink=true 转发给 sendMessage（回归测试）', () => {
+  it('显示当前模型的欢迎语', () => {
     render(<ChatWelcome />);
-    screen.getByTestId('send-true').click();
-    expect(sendMessage).toHaveBeenCalledWith('hello', true);
+    expect(screen.getByTestId('chat-welcome')).toBeInTheDocument();
+    expect(
+      screen.getByText('使用 DeepSeek V4 Flash 开始对话'),
+    ).toBeInTheDocument();
   });
 
-  it('将 deepThink=false 转发给 sendMessage', () => {
+  it('模型选择的值为 store 中的 selectedModel', () => {
     render(<ChatWelcome />);
-    screen.getByTestId('send-false').click();
-    expect(sendMessage).toHaveBeenCalledWith('hello', false);
-  });
-
-  it('从 store 读取 deepThink 并传给 ChatInput', () => {
-    vi.mocked(useChatWelcomeState).mockReturnValue({
-      selectedModel: 'deepseek-v4-flash',
-      isLoading: false,
-      deepThink: true,
-    });
-    render(<ChatWelcome />);
-    expect(screen.getByTestId('chat-input')).toHaveAttribute(
-      'data-deep-think',
-      'true',
+    expect(screen.getByTestId('radio-group-button')).toHaveAttribute(
+      'data-value',
+      'deepseek-v4-flash',
     );
   });
 
-  it('点击深度思考按钮调用 store.toggleDeepThink', () => {
+  it('切换模型时调用 setModel', () => {
     render(<ChatWelcome />);
-    screen.getByTestId('toggle-deep-think').click();
-    expect(toggleDeepThink).toHaveBeenCalledOnce();
+    screen.getByTestId('radio-group-button').click();
+    expect(setModel).toHaveBeenCalledWith('deepseek-v4-pro');
+  });
+
+  it('渲染输入区（ChatComposer）', () => {
+    render(<ChatWelcome />);
+    expect(screen.getByTestId('chat-composer')).toBeInTheDocument();
   });
 });

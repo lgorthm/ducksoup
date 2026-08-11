@@ -73,7 +73,7 @@ src/
   routes/index.tsx               # createBrowserRouter — single route: ChatLayout > ChatPage at "/"
   stores/                        # Zustand: createAppStore + slices / actions / selectors / models
   features/
-    chat/                        # Main feature: components/, layouts/, types/, utils/ (chat-stream.ts, db.ts = IndexedDB)
+    chat/                        # Main feature: components/ (message/ + conversation/ 子目录按领域归类), hooks/, layouts/, types/, utils/ (chat-stream.ts, db.ts = IndexedDB)
     settings/                    # settings-dialog.tsx
   shared/
     components/ui/               # shadcn components — install target is here, NOT src/components/

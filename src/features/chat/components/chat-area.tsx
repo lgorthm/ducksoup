@@ -1,85 +1,38 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2 } from 'lucide-react';
-import { ChatMessageList } from '@/features/chat/components/chat-message-list';
+import { ChatMessageList } from '@/features/chat/components/message/chat-message-list';
 import type { ChatListController } from '@/features/chat/hooks/use-chat-list-controller';
-import { ChatScrollNav } from '@/features/chat/components/chat-scroll-nav';
-import type { NavUserMessage } from '@/features/chat/components/chat-scroll-nav';
-import { ChatInput } from '@/features/chat/components/chat-input';
+import { ChatScrollNav } from '@/features/chat/components/message/chat-scroll-nav';
+import { ChatStatus } from '@/features/chat/components/message/chat-status';
+import { ChatComposer } from '@/features/chat/components/chat-composer';
 import { ChatWelcome } from '@/features/chat/components/chat-welcome';
-import { cancelStream, sendMessage, toggleDeepThink } from '@/stores/actions';
-import { useChatAreaState } from '@/stores/selectors';
+import { useHasContent } from '@/stores/selectors';
 
+/**
+ * 聊天主区：布局编排。数据订阅全部下沉到各子组件
+ * （列表/导航/状态/输入各自就近订阅 store），
+ * 流式 token 更新只重渲染消息列表子树。
+ */
 export function ChatArea() {
   const { t } = useTranslation();
-  const { messages, streamingMessage, isLoading, error, deepThink } =
-    useChatAreaState();
-
-  const handleSend = useCallback((content: string, deepThinkFlag: boolean) => {
-    void sendMessage(content, deepThinkFlag);
-  }, []);
-
-  // 虚拟列表控制器 ref，由 ChatMessageList 填充
+  const hasContent = useHasContent();
+  // 虚拟列表控制器 ref，由 ChatMessageList 填充、ChatScrollNav 消费
   const controllerRef = useRef<ChatListController | null>(null);
 
-  // 从消息列表中提取用户消息（用于导航栏横杠）
-  const userMessages = useMemo<NavUserMessage[]>(
-    () =>
-      messages.reduce<NavUserMessage[]>((acc, msg, index) => {
-        if (msg.role === 'user') {
-          acc.push({ index, content: msg.content });
-        }
-        return acc;
-      }, []),
-    [messages],
-  );
-
-  if (messages.length === 0 && !streamingMessage) {
+  if (!hasContent) {
     return <ChatWelcome />;
   }
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <ChatMessageList
-        messages={messages}
-        streamingMessage={streamingMessage}
-        controllerRef={controllerRef}
-      >
-        {isLoading && !streamingMessage && (
-          <div
-            data-testid="loading-indicator"
-            className="flex items-center gap-2 text-sm text-muted-foreground"
-          >
-            <Loader2 className="size-4 animate-spin" />
-            {t('chat.area.thinking')}
-          </div>
-        )}
-        {error && (
-          <div
-            data-testid="error-message"
-            className="wrap-break-word rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive"
-          >
-            {error}
-          </div>
-        )}
+      <ChatMessageList controllerRef={controllerRef}>
+        <ChatStatus />
       </ChatMessageList>
 
-      {userMessages.length > 1 && (
-        <ChatScrollNav
-          userMessages={userMessages}
-          controllerRef={controllerRef}
-        />
-      )}
+      <ChatScrollNav controllerRef={controllerRef} />
 
       <div className="mx-auto w-full max-w-[776px] px-4">
-        <ChatInput
-          onSend={handleSend}
-          disabled={isLoading}
-          isStreaming={!!streamingMessage}
-          onCancel={cancelStream}
-          deepThink={deepThink}
-          onToggleDeepThink={toggleDeepThink}
-        />
+        <ChatComposer />
         <p
           data-testid="chat-disclaimer"
           className="py-2 text-center text-xs text-muted-foreground"

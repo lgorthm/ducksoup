@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FocusEvent, MouseEvent, RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMediaQuery } from '@/shared/hooks/use-media-query';
 import { cn } from '@/shared/lib/utils';
+import { useStore } from '@/stores';
 import type { ChatListController } from '@/features/chat/hooks/use-chat-list-controller';
 
 /** 导航栏中每条用户消息的元数据 */
@@ -14,8 +15,6 @@ export interface NavUserMessage {
 }
 
 interface ChatScrollNavProps {
-  /** 所有用户消息（已按索引升序排列） */
-  userMessages: NavUserMessage[];
   /** 虚拟列表控制器 ref */
   controllerRef: RefObject<ChatListController | null>;
 }
@@ -52,15 +51,27 @@ interface PreviewState {
  * - 高亮当前正在阅读的用户消息（TOC 锚线语义，rAF 节流）；
  * - 点击横杠滚动到对应消息；
  * - hover 或键盘聚焦横杠时，在左侧浮出消息内容预览。
+ *
+ * 仅当用户消息超过 1 条时渲染（单条消息没有导航需求）。
  */
-export function ChatScrollNav({
-  userMessages,
-  controllerRef,
-}: ChatScrollNavProps) {
+export function ChatScrollNav({ controllerRef }: ChatScrollNavProps) {
   const { t } = useTranslation();
   const isWideScreen = useMediaQuery(`(min-width: ${MIN_VIEWPORT_WIDTH}px)`);
+  const messages = useStore((s) => s.messages);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [preview, setPreview] = useState<PreviewState | null>(null);
+
+  // 从消息列表中提取用户消息（用于导航栏横杠）
+  const userMessages = useMemo<NavUserMessage[]>(
+    () =>
+      messages.reduce<NavUserMessage[]>((acc, msg, index) => {
+        if (msg.role === 'user') {
+          acc.push({ index, content: msg.content });
+        }
+        return acc;
+      }, []),
+    [messages],
+  );
 
   /**
    * 计算当前应激活的用户消息索引。
@@ -128,7 +139,7 @@ export function ChatScrollNav({
     };
   }, [controllerRef, computeActiveIndex]);
 
-  if (!isWideScreen || userMessages.length === 0) return null;
+  if (!isWideScreen || userMessages.length <= 1) return null;
 
   const scrollToMessage = (index: number) => {
     controllerRef.current?.scrollToIndex(index, 'center');

@@ -1,8 +1,8 @@
 import { Outlet } from 'react-router';
 
 import { MainLayout } from '@/shared/components/layout/main-layout';
-import { ConversationList } from '@/features/chat/components/conversation-list';
-import { NewConversationButton } from '@/features/chat/components/new-conversation-button';
+import { ConversationList } from '@/features/chat/components/conversation/conversation-list';
+import { NewConversationButton } from '@/features/chat/components/conversation/new-conversation-button';
 import { MODEL_LABELS } from '@/stores/models';
 import { useChatLayoutState } from '@/stores/selectors';
 

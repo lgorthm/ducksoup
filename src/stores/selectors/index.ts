@@ -1,18 +1,6 @@
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '@/stores';
 
-export function useChatAreaState() {
-  return useStore(
-    useShallow((s) => ({
-      messages: s.messages,
-      streamingMessage: s.streamingMessage,
-      isLoading: s.isLoading,
-      error: s.error,
-      deepThink: s.deepThink,
-    })),
-  );
-}
-
 export function useConversationListState() {
   return useStore(
     useShallow((s) => ({
@@ -34,21 +22,27 @@ export function useChatLayoutState() {
   );
 }
 
-export function useChatWelcomeState() {
+export function useMessageListState() {
   return useStore(
     useShallow((s) => ({
-      selectedModel: s.selectedModel,
-      isLoading: s.isLoading,
-      deepThink: s.deepThink,
+      messages: s.messages,
+      streamingMessage: s.streamingMessage,
+      allMessages: s.allMessages,
+      editingMessageId: s.editingMessageId,
     })),
   );
 }
 
-export function useMessageListState() {
+/**
+ * 流式会话状态，供 ChatComposer / ChatStatus 等只关心"是否在加载/流式"的组件使用。
+ * isStreaming 用布尔值而非 streamingMessage 对象：流式 token 累积不会触发重渲染。
+ */
+export function useStreamStatus() {
   return useStore(
     useShallow((s) => ({
-      allMessages: s.allMessages,
-      editingMessageId: s.editingMessageId,
+      isLoading: s.isLoading,
+      isStreaming: s.streamingMessage !== null,
+      error: s.error,
     })),
   );
 }

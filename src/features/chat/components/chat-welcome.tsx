@@ -1,9 +1,9 @@
 import { useTranslation } from 'react-i18next';
 import duckSvg from '@/assets/duck.svg';
-import { ChatInput } from '@/features/chat/components/chat-input';
-import { sendMessage, setModel, toggleDeepThink } from '@/stores/actions';
+import { ChatComposer } from '@/features/chat/components/chat-composer';
+import { setModel } from '@/stores/actions';
 import { MODEL_LABELS, type ModelName } from '@/stores/models';
-import { useChatWelcomeState } from '@/stores/selectors';
+import { useStore } from '@/stores';
 import { RadioGroupButton } from '@/shared/components/ui/radio-group-button';
 
 const MODEL_OPTIONS = (
@@ -15,7 +15,7 @@ const MODEL_OPTIONS = (
 
 export function ChatWelcome() {
   const { t } = useTranslation();
-  const { selectedModel, isLoading, deepThink } = useChatWelcomeState();
+  const selectedModel = useStore((s) => s.selectedModel);
 
   const currentLabel = MODEL_LABELS[selectedModel];
 
@@ -41,14 +41,7 @@ export function ChatWelcome() {
 
         {/* 第三行：输入组件 */}
         <div className="w-full">
-          <ChatInput
-            onSend={(content, dt) => {
-              void sendMessage(content, dt);
-            }}
-            disabled={isLoading}
-            deepThink={deepThink}
-            onToggleDeepThink={toggleDeepThink}
-          />
+          <ChatComposer />
         </div>
       </div>
     </div>
