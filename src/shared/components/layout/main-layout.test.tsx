@@ -1,8 +1,8 @@
-import { act, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { MainLayout } from './main-layout';
 
-// matchMedia mock 已在 src/tests/setup.ts 中全局注册
+// matchMedia mock 已在 src/tests/setup.ts 中全局注册（默认桌面端：matches=false）
 
 describe('MainLayout', () => {
   it('应该渲染 children 内容', () => {
@@ -15,6 +15,16 @@ describe('MainLayout', () => {
     expect(screen.getByTestId('main-content')).toHaveTextContent('主内容区域');
   });
 
+  it('应该渲染 header 插槽内容', () => {
+    render(
+      <MainLayout header={<div data-testid="header-slot">会话标题</div>}>
+        <div>内容</div>
+      </MainLayout>,
+    );
+
+    expect(screen.getByTestId('header-slot')).toHaveTextContent('会话标题');
+  });
+
   it('应该渲染 sidebarContent', () => {
     render(
       <MainLayout
@@ -25,16 +35,6 @@ describe('MainLayout', () => {
     );
 
     expect(screen.getByTestId('sidebar-item')).toHaveTextContent('对话列表');
-  });
-
-  it('当未传入 sidebarContent 时，应该显示占位文字"暂无对话"', () => {
-    render(
-      <MainLayout>
-        <div>内容</div>
-      </MainLayout>,
-    );
-
-    expect(screen.getByText('暂无对话')).toBeInTheDocument();
   });
 
   it('应该渲染 sidebarFooter', () => {
@@ -82,69 +82,61 @@ describe('MainLayout', () => {
     expect(screen.getByTestId('main-content')).toBeInTheDocument();
   });
 
-  it('titleLoading 时显示标题骨架屏而不是标题', () => {
-    render(
-      <MainLayout titleLoading conversationTitle="我的会话">
+  it('桌面端 header 启用 margin-left 过渡', () => {
+    const { container } = render(
+      <MainLayout>
         <div>内容</div>
       </MainLayout>,
     );
 
-    expect(
-      screen.getByTestId('conversation-title-skeleton'),
-    ).toBeInTheDocument();
-    expect(screen.queryByText('我的会话')).not.toBeInTheDocument();
+    expect(container.querySelector('header')).toHaveClass(
+      'transition-[margin-left]',
+    );
   });
 
-  it('titleLoading 但没有会话标题时保持标题区域空白', () => {
-    const { rerender } = render(
-      <MainLayout titleLoading>
-        <div>内容</div>
-      </MainLayout>,
-    );
+  it('isMobile 翻转落定后，桌面端恢复 margin-left 过渡', () => {
+    let mobile = false;
+    const mocked = vi.mocked(window.matchMedia);
+    const original = mocked.getMockImplementation();
+    mocked.mockImplementation((query: string) => ({
+      matches: mobile,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
 
-    expect(
-      screen.queryByTestId('conversation-title-skeleton'),
-    ).not.toBeInTheDocument();
+    try {
+      const { container, rerender } = render(
+        <MainLayout>
+          <div>内容</div>
+        </MainLayout>,
+      );
 
-    rerender(
-      <MainLayout titleLoading={false}>
-        <div>内容</div>
-      </MainLayout>,
-    );
+      mobile = true;
+      rerender(
+        <MainLayout>
+          <div>内容</div>
+        </MainLayout>,
+      );
+      expect(container.querySelector('header')).not.toHaveClass(
+        'transition-[margin-left]',
+      );
 
-    expect(
-      screen.queryByTestId('conversation-title-skeleton'),
-    ).not.toBeInTheDocument();
-  });
-
-  it('titleLoading 快速结束时骨架屏至少展示 200ms 再显示标题', () => {
-    vi.useFakeTimers();
-    const { rerender } = render(
-      <MainLayout titleLoading conversationTitle="我的会话">
-        <div>内容</div>
-      </MainLayout>,
-    );
-
-    // 30ms 后加载完成
-    act(() => {
-      vi.advanceTimersByTime(30);
-    });
-    rerender(
-      <MainLayout titleLoading={false} conversationTitle="我的会话">
-        <div>内容</div>
-      </MainLayout>,
-    );
-    // 不足最短展示时长，仍显示骨架屏
-    expect(
-      screen.getByTestId('conversation-title-skeleton'),
-    ).toBeInTheDocument();
-    expect(screen.queryByText('我的会话')).not.toBeInTheDocument();
-
-    // 到达最短展示时长后显示标题
-    act(() => {
-      vi.advanceTimersByTime(170);
-    });
-    expect(screen.getByText('我的会话')).toBeInTheDocument();
-    vi.useRealTimers();
+      mobile = false;
+      rerender(
+        <MainLayout>
+          <div>内容</div>
+        </MainLayout>,
+      );
+      expect(container.querySelector('header')).toHaveClass(
+        'transition-[margin-left]',
+      );
+    } finally {
+      if (original) mocked.mockImplementation(original);
+    }
   });
 });

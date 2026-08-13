@@ -5,6 +5,7 @@ import {
   useIsMobile,
   useIsTablet,
   useIsBelowDesktop,
+  useIsDesktop,
   useCanHover,
 } from './use-media-query';
 
@@ -138,6 +139,32 @@ describe('useIsBelowDesktop', () => {
     setupMatchMediaForWidth(375);
     const result = renderHook(() => useIsBelowDesktop());
     expect(result.current).toBe(true);
+  });
+});
+
+describe('useIsDesktop', () => {
+  it('宽度 >= 1024 返回 true', () => {
+    setupMatchMediaForWidth(1024);
+    const result = renderHook(() => useIsDesktop());
+    expect(result.current).toBe(true);
+  });
+
+  it('宽度 < 1024 返回 false', () => {
+    setupMatchMediaForWidth(1023);
+    const result = renderHook(() => useIsDesktop());
+    expect(result.current).toBe(false);
+  });
+
+  it('宽度 = 1023 返回 false', () => {
+    setupMatchMediaForWidth(1023);
+    const result = renderHook(() => useIsDesktop());
+    expect(result.current).toBe(false);
+  });
+
+  it('移动端宽度也返回 false', () => {
+    setupMatchMediaForWidth(375);
+    const result = renderHook(() => useIsDesktop());
+    expect(result.current).toBe(false);
   });
 });
 

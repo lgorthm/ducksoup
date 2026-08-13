@@ -74,7 +74,7 @@ src/
   stores/                        # Zustand: createAppStore + slices / actions / selectors / models
   features/
     chat/                        # Main feature: components/ (message/ + conversation/ 子目录按领域归类), hooks/, layouts/, types/, utils/ (chat-stream.ts, db.ts = IndexedDB)
-    settings/                    # settings-dialog.tsx
+    settings/                    # settings-dialog.tsx + settings-entry.tsx（侧边栏设置入口，自持弹窗开关）
   shared/
     components/ui/               # shadcn components — install target is here, NOT src/components/
     providers/theme-provider.tsx # custom ThemeProvider + useTheme

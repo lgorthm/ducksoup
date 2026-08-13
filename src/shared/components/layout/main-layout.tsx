@@ -1,23 +1,6 @@
-import {
-  lazy,
-  memo,
-  Suspense,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
-import { useTranslation } from 'react-i18next';
-import { Settings } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/shared/lib/utils';
-import { Skeleton } from '@/shared/components/ui/skeleton';
-import { useMinLoadingDisplay } from '@/shared/hooks/use-min-loading-display';
 import { FixedToolbar } from './fixed-toolbar';
-
-// logo 放在 public/ 下，由 index.html 中的 <link rel="preload"> 提前加载，
-// 避免移动端首次打开 sidebar 时才发请求导致短暂空白。
-const LOGO_IMG = <img src="/logo.svg" alt="Logo" className="h-7 w-auto" />;
-
 import {
   Sidebar,
   SidebarContent,
@@ -29,49 +12,43 @@ import {
   SidebarTrigger,
   useSidebar,
 } from '@/shared/components/ui/sidebar';
+import {
+  useIsBelowDesktop,
+  useIsDesktop,
+  useIsTablet,
+} from '@/shared/hooks/use-media-query';
 
-const SettingsDialog = lazy(() =>
-  import('@/features/settings/settings-dialog').then((m) => ({
-    default: m.SettingsDialog,
-  })),
-);
+// logo 放在 public/ 下，由 index.html 中的 <link rel="preload"> 提前加载，
+// 避免移动端首次打开 sidebar 时才发请求导致短暂空白。
+const LOGO_IMG = <img src="/logo.svg" alt="Logo" className="h-7 w-auto" />;
 
 const HEADER_STYLE_FIXED = { marginLeft: '140px' } as const;
 const HEADER_STYLE_DEFAULT = { marginLeft: 0 } as const;
 
 interface MainLayoutProps {
+  defaultOpen?: boolean;
+  header?: React.ReactNode;
   sidebarContent?: React.ReactNode;
   sidebarFooter?: React.ReactNode;
-  defaultOpen?: boolean;
-  buttonGroup?: React.ReactNode;
-  onSettingsClick?: () => void;
-  conversationTitle?: string;
-  titleLoading?: boolean;
-  modelName?: string;
+  toolbarActions?: React.ReactNode;
   children: React.ReactNode;
 }
 
 export function MainLayout({
+  defaultOpen = true,
+  header,
   sidebarContent,
   sidebarFooter,
-  defaultOpen = true,
-  buttonGroup,
-  onSettingsClick,
-  conversationTitle,
-  titleLoading,
-  modelName,
+  toolbarActions,
   children,
 }: MainLayoutProps) {
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
       <MainLayoutInner
+        header={header}
         sidebarContent={sidebarContent}
         sidebarFooter={sidebarFooter}
-        buttonGroup={buttonGroup}
-        onSettingsClick={onSettingsClick}
-        conversationTitle={conversationTitle}
-        titleLoading={titleLoading}
-        modelName={modelName}
+        toolbarActions={toolbarActions}
       >
         {children}
       </MainLayoutInner>
@@ -79,45 +56,32 @@ export function MainLayout({
   );
 }
 
-const MainLayoutInner = memo(function MainLayoutInner({
+function MainLayoutInner({
+  header,
   sidebarContent,
   sidebarFooter,
-  buttonGroup,
-  onSettingsClick,
-  conversationTitle,
-  titleLoading,
-  modelName,
+  toolbarActions,
   children,
 }: Omit<MainLayoutProps, 'defaultOpen'>) {
-  const { t } = useTranslation();
   const { isMobile, open } = useSidebar();
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const prevIsMobileRef = useRef(isMobile);
-  const [isMobileChanged, setIsMobileChanged] = useState(false);
-
+  const [prevIsMobile, setPrevIsMobile] = useState(isMobile);
+  const [prevIsOpen, setPrevIsOpen] = useState(open);
   useEffect(() => {
-    if (prevIsMobileRef.current !== isMobile) {
-      prevIsMobileRef.current = isMobile;
-      setIsMobileChanged(true);
-    } else {
-      setIsMobileChanged(false);
-    }
+    setPrevIsOpen(open);
+  }, [open]);
+  useEffect(() => {
+    setPrevIsMobile(isMobile);
   }, [isMobile]);
 
-  const enableTransition = !isMobile && !isMobileChanged;
+  const isTablet = useIsTablet();
+  const isDesktop = useIsDesktop();
+
   const showFixed = !isMobile && !open;
-
-  // 标题加载期间保留最短展示时长；标题未知（欢迎页路径）时保持空白，不闪骨架屏
-  const { revealed: titleRevealed, wasLoading: titleWasLoading } =
-    useMinLoadingDisplay(!titleLoading);
-
-  const handleSettingsClick = useCallback(() => {
-    if (onSettingsClick) {
-      onSettingsClick();
-    } else {
-      setSettingsOpen(true);
-    }
-  }, [onSettingsClick]);
+  const enableTransition =
+    (isDesktop && open) ||
+    (isTablet && !prevIsMobile && !open) ||
+    (!isMobile && prevIsOpen && !open) ||
+    (isTablet && !prevIsOpen && open);
 
   return (
     <>
@@ -127,33 +91,17 @@ const MainLayoutInner = memo(function MainLayoutInner({
           <SidebarTrigger data-testid="sidebar-trigger" />
         </SidebarHeader>
         <SidebarContent>
-          <SidebarMenu>
-            {sidebarContent ?? (
-              <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
-                {t('conversation.empty')}
-              </div>
-            )}
-          </SidebarMenu>
-          <SidebarMenu className="mt-auto border-t p-2">
-            <div
-              data-testid="settings-button"
-              className="group flex cursor-pointer items-center rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-sidebar-accent/50"
-              onClick={handleSettingsClick}
-            >
-              <Settings className="mr-2 size-4" />
-              <span>{t('settings.title')}</span>
-            </div>
-          </SidebarMenu>
+          <SidebarMenu>{sidebarContent}</SidebarMenu>
         </SidebarContent>
         {sidebarFooter != null ? (
-          <SidebarFooter>{sidebarFooter}</SidebarFooter>
+          <SidebarFooter className="border-t">{sidebarFooter}</SidebarFooter>
         ) : null}
       </Sidebar>
       <SidebarInset className="max-h-svh">
         <FixedToolbar
           open={open}
           isMobile={isMobile}
-          buttonGroup={buttonGroup}
+          buttonGroup={toolbarActions}
         />
         <header
           className={cn(
@@ -164,43 +112,12 @@ const MainLayoutInner = memo(function MainLayoutInner({
           style={showFixed ? HEADER_STYLE_FIXED : HEADER_STYLE_DEFAULT}
         >
           {isMobile ? <SidebarTrigger isMobile /> : null}
-          {!titleRevealed && conversationTitle != null ? (
-            <div
-              data-testid="conversation-title-skeleton"
-              className="flex min-w-0 flex-col gap-1"
-            >
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-3 w-20" />
-            </div>
-          ) : conversationTitle != null ? (
-            <div
-              className={cn(
-                'flex min-w-0 flex-col',
-                titleWasLoading && 'animate-in fade-in-0 duration-300',
-              )}
-            >
-              <span className="truncate text-sm font-medium">
-                {conversationTitle}
-              </span>
-              {modelName != null ? (
-                <span className="truncate text-xs text-muted-foreground">
-                  {modelName}
-                </span>
-              ) : null}
-            </div>
-          ) : null}
+          {header}
         </header>
         <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {children}
         </main>
       </SidebarInset>
-      <Suspense fallback={null}>
-        <SettingsDialog
-          open={settingsOpen}
-          onOpenChange={setSettingsOpen}
-          isMobile={isMobile}
-        />
-      </Suspense>
     </>
   );
-});
+}
