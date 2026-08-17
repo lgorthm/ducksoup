@@ -43,6 +43,10 @@
       "loading": "Loading..."
     }
   },
+  "sidebar": {
+    "label": "Sidebar",
+    "toggle": "Toggle Sidebar"
+  },
   "conversation": {
     "title": "Conversations",
     "new": "New Chat",

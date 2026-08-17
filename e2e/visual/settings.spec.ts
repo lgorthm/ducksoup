@@ -3,10 +3,10 @@ import { setupApp } from '../helpers/setup';
 
 test.describe('设置弹窗视觉回归', () => {
   test.beforeEach(async ({ page }) => {
-    // 桌面端专用测试，移动端侧边栏为 Sheet 抽屉
+    // 桌面端专用测试，移动端侧边栏为覆盖式抽屉
     test.skip(
       (page.viewportSize()?.width ?? 1440) < 768,
-      '移动端侧边栏为 Sheet 抽屉，跳过桌面端设置视觉测试',
+      '移动端侧边栏为覆盖式抽屉，跳过桌面端设置视觉测试',
     );
     await page.addInitScript(() => {
       localStorage.setItem('theme', 'light');
@@ -79,7 +79,7 @@ test.describe('设置弹窗视觉回归 - 移动端', () => {
 
   test('移动端 - 通用设置', async ({ page }) => {
     await setupApp(page);
-    // 移动端 header 内有 isMobile 版 SidebarTrigger
+    // 移动端 header 内有 SidebarTrigger（移动端样式由 context 派生）
     await page
       .locator('header [data-slot="sidebar-trigger"]')
       .click({ force: true });

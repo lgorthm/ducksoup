@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { cn } from '@/shared/lib/utils';
 import { FixedToolbar } from './fixed-toolbar';
 import {
@@ -12,11 +12,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from '@/shared/components/ui/sidebar';
-import {
-  useIsBelowDesktop,
-  useIsDesktop,
-  useIsTablet,
-} from '@/shared/hooks/use-media-query';
+import { useIsDesktop, useIsTablet } from '@/shared/hooks/use-media-query';
 
 // logo 放在 public/ 下，由 index.html 中的 <link rel="preload"> 提前加载，
 // 避免移动端首次打开 sidebar 时才发请求导致短暂空白。
@@ -64,14 +60,10 @@ function MainLayoutInner({
   children,
 }: Omit<MainLayoutProps, 'defaultOpen'>) {
   const { isMobile, open } = useSidebar();
-  const [prevIsMobile, setPrevIsMobile] = useState(isMobile);
   const [prevIsOpen, setPrevIsOpen] = useState(open);
   useEffect(() => {
     setPrevIsOpen(open);
   }, [open]);
-  useEffect(() => {
-    setPrevIsMobile(isMobile);
-  }, [isMobile]);
 
   const isTablet = useIsTablet();
   const isDesktop = useIsDesktop();
@@ -79,7 +71,6 @@ function MainLayoutInner({
   const showFixed = !isMobile && !open;
   const enableTransition =
     (isDesktop && open) ||
-    (isTablet && !prevIsMobile && !open) ||
     (!isMobile && prevIsOpen && !open) ||
     (isTablet && !prevIsOpen && open);
 
@@ -107,16 +98,17 @@ function MainLayoutInner({
           className={cn(
             'flex h-12 shrink-0 items-center gap-2 px-2',
             enableTransition &&
-              'transition-[margin-left] duration-300 ease-in-out',
+              'transition-[margin-left] duration-200 ease-linear',
           )}
           style={showFixed ? HEADER_STYLE_FIXED : HEADER_STYLE_DEFAULT}
         >
-          {isMobile ? <SidebarTrigger isMobile /> : null}
+          {isMobile ? <SidebarTrigger /> : null}
           {header}
         </header>
-        <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {/* 页面主内容地标由 SidebarInset 的 <main> 承担，这里用 div 避免嵌套 main */}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {children}
-        </main>
+        </div>
       </SidebarInset>
     </>
   );

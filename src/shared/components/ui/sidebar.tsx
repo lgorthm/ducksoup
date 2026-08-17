@@ -1,23 +1,12 @@
-'use client';
-
 import * as React from 'react';
 import { mergeProps } from '@base-ui/react/merge-props';
 import { useRender } from '@base-ui/react/use-render';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { useTranslation } from 'react-i18next';
 
 import { useIsMobile, useIsBelowDesktop } from '@/shared/hooks/use-media-query';
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/components/ui/button';
-import { Input } from '@/shared/components/ui/input';
-import { Separator } from '@/shared/components/ui/separator';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/shared/components/ui/sheet';
-import { Skeleton } from '@/shared/components/ui/skeleton';
 import {
   Tooltip,
   TooltipContent,
@@ -26,9 +15,35 @@ import {
 import { MenuIcon, PanelLeftIcon } from 'lucide-react';
 
 const SIDEBAR_WIDTH = '16rem';
-const SIDEBAR_WIDTH_MOBILE = '16rem';
 const SIDEBAR_WIDTH_ICON = '3rem';
-const SIDEBAR_KEYBOARD_SHORTCUT = 'b';
+
+// 移动端抽屉打开时，参与 Tab 焦点循环的元素
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+// 元素自身或祖先不可见（hidden / display:none / visibility:hidden）时不参与焦点循环。
+// 沿祖先链查计算样式而非 offsetParent，以兼容无布局的测试环境（jsdom）。
+function isVisible(element: HTMLElement): boolean {
+  for (
+    let node: HTMLElement | null = element;
+    node;
+    node = node.parentElement
+  ) {
+    if (node.hidden) return false;
+    const { display, visibility } = window.getComputedStyle(node);
+    if (display === 'none' || visibility === 'hidden') return false;
+  }
+  return true;
+}
+
+// 真实 Tab 顺序：正 tabindex 的元素优先（按数值升序），其余保持 DOM 顺序
+function getFocusableInTabOrder(container: HTMLElement): HTMLElement[] {
+  const tabOrder = (element: HTMLElement) =>
+    element.tabIndex > 0 ? element.tabIndex : Number.MAX_SAFE_INTEGER;
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
+    .filter(isVisible)
+    .sort((a, b) => tabOrder(a) - tabOrder(b));
+}
 
 type SidebarContextProps = {
   state: 'expanded' | 'collapsed';
@@ -38,6 +53,8 @@ type SidebarContextProps = {
   setOpenMobile: (open: boolean) => void;
   isMobile: boolean;
   toggleSidebar: () => void;
+  /** sidebar 容器 id，供 trigger 的 aria-controls 引用 */
+  sidebarId: string;
 };
 
 const SidebarContext = React.createContext<SidebarContextProps | null>(null);
@@ -68,8 +85,12 @@ function SidebarProvider({
   const isBelowDesktop = useIsBelowDesktop();
   const [openMobile, setOpenMobile] = React.useState(false);
 
-  // 记录用户是否在 >= 768px 时手动折叠了 sidebar
-  const [manualCollapseLock, setManualCollapseLock] = React.useState(false);
+  // 手动关闭标记：非移动端用户手动关闭 sidebar 时置为 true；
+  // 为 true 时，跨越 1024px 断点回到桌面端保持折叠、不自动展开；
+  // 用户再次手动打开时清除，恢复断点自动行为。
+  const [manualClosed, setManualClosed] = React.useState(false);
+
+  const sidebarId = React.useId();
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
@@ -77,16 +98,26 @@ function SidebarProvider({
     () => defaultOpen && !isBelowDesktop,
   );
   const open = openProp ?? _open;
+
+  // open 的最新值镜像：setOpen 用它解析函数式更新，从而无需把 open 写进
+  // useCallback 依赖（否则每次开合都会重建 setOpen/toggleSidebar/contextValue）。
+  // 声明在其余 layout effect 之前，保证它们调用 setOpen 时读到的必是最新值。
+  const openRef = React.useRef(open);
+  React.useLayoutEffect(() => {
+    openRef.current = open;
+  });
+
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
-      const openState = typeof value === 'function' ? value(open) : value;
+      const openState =
+        typeof value === 'function' ? value(openRef.current) : value;
       if (setOpenProp) {
         setOpenProp(openState);
       } else {
         _setOpen(openState);
       }
     },
-    [setOpenProp, open],
+    [setOpenProp],
   );
 
   // Helper to toggle the sidebar.
@@ -95,59 +126,51 @@ function SidebarProvider({
       setOpenMobile((prev) => !prev);
       return;
     }
-    // 非移动端：记录手动折叠/展开状态
-    setManualCollapseLock((prev) => !prev);
-    setOpen((prev) => !prev);
+    // 非移动端：记录用户意图——手动关闭置为 sticky，手动打开恢复自动
+    const next = !openRef.current;
+    setManualClosed(!next);
+    setOpen(next);
   }, [isMobile, setOpen]);
 
-  // 从桌面端切换回移动端时，关闭移动端侧边栏抽屉
-  const [prevIsMobile, setPrevIsMobile] = React.useState(isMobile);
-  if (prevIsMobile !== isMobile) {
-    setPrevIsMobile(isMobile);
-    if (isMobile) {
+  // 切换到移动端时，关闭移动端抽屉，桌面 open 一并记为关闭：
+  // 回到 768–1023px 时 sidebar 保持关闭；回到 >=1024px 时是否自动展开，
+  // 由下方的断点 effect 按 manualClosed 决定。
+  // 断点变化属于外部副作用，在 layout effect 中响应（绘制前完成修正，不闪烁），
+  // 而非渲染期间 setState（受控时会触发父组件渲染期 setState 警告）。
+  // 故意省略依赖数组：每次 commit 都运行，用 ref 自行比对上一个值。
+  const prevIsMobileRef = React.useRef(isMobile);
+  React.useLayoutEffect(() => {
+    const prev = prevIsMobileRef.current;
+    prevIsMobileRef.current = isMobile;
+    if (prev !== isMobile && isMobile) {
+      if (open) setOpen(false);
       setOpenMobile(false);
     }
-  }
+  });
 
   // 根据屏幕宽度自动展开/折叠 sidebar
-  // 仅在屏幕宽度跨越 1024px 断点时响应
-  const [prevBelowDesktop, setPrevBelowDesktop] =
-    React.useState(isBelowDesktop);
-  if (prevBelowDesktop !== isBelowDesktop) {
-    setPrevBelowDesktop(isBelowDesktop);
-    if (!isMobile) {
-      if (manualCollapseLock) {
-        // 用户手动折叠过，保持折叠
+  // 仅在屏幕宽度跨越 1024px 断点时响应（同样故意省略依赖数组）
+  const prevBelowDesktopRef = React.useRef(isBelowDesktop);
+  React.useLayoutEffect(() => {
+    const prev = prevBelowDesktopRef.current;
+    prevBelowDesktopRef.current = isBelowDesktop;
+    if (prev !== isBelowDesktop && !isMobile) {
+      if (isBelowDesktop) {
+        // 进入 < 1024px：自动折叠
         if (open) setOpen(false);
-      } else if (isBelowDesktop) {
-        // < 1024px：自动折叠
+      } else if (manualClosed) {
+        // 用户手动关闭过：回到 >= 1024px 保持折叠
         if (open) setOpen(false);
       } else {
-        // >= 1024px：自动展开
+        // 回到 >= 1024px：自动展开
         if (!open) setOpen(true);
       }
     }
-  }
+  });
 
-  // Adds a keyboard shortcut to toggle the sidebar.
-  React.useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
-        (event.metaKey || event.ctrlKey)
-      ) {
-        event.preventDefault();
-        toggleSidebar();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggleSidebar]);
-
-  // We add a state so that we can do data-state="expanded" or "collapsed".
-  // This makes it easier to style the sidebar with Tailwind classes.
-  const state = open ? 'expanded' : 'collapsed';
+  // state 供 data-state 与 context 消费者使用，反映当前实际可见状态：
+  // 移动端由抽屉 openMobile 驱动，桌面端由 open 驱动。
+  const state = (isMobile ? openMobile : open) ? 'expanded' : 'collapsed';
 
   const contextValue = React.useMemo<SidebarContextProps>(
     () => ({
@@ -158,8 +181,9 @@ function SidebarProvider({
       openMobile,
       setOpenMobile,
       toggleSidebar,
+      sidebarId,
     }),
-    [state, open, setOpen, isMobile, openMobile, toggleSidebar],
+    [state, open, setOpen, isMobile, openMobile, toggleSidebar, sidebarId],
   );
 
   return (
@@ -191,14 +215,68 @@ function Sidebar({
   collapsible = 'offcanvas',
   className,
   children,
-  dir,
   ...props
 }: React.ComponentProps<'div'> & {
   side?: 'left' | 'right';
   variant?: 'sidebar' | 'floating' | 'inset';
   collapsible?: 'offcanvas' | 'icon' | 'none';
 }) {
-  const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
+  const { isMobile, state, openMobile, setOpenMobile, sidebarId } =
+    useSidebar();
+  const { t } = useTranslation();
+  const rootRef = React.useRef<HTMLDivElement>(null);
+
+  // 移动端抽屉打开期间：焦点移入抽屉、Esc 关闭、Tab 在抽屉内循环；
+  // 抽屉关闭（或跨断点、卸载）后，焦点归还给打开前的元素。
+  React.useEffect(() => {
+    if (!isMobile || !openMobile) return;
+    const container = rootRef.current?.querySelector<HTMLElement>(
+      '[data-slot="sidebar-container"]',
+    );
+    if (!container) return;
+
+    const previousFocus =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    container.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      // 焦点在抽屉之外的浮层（如设置对话框）时，不与浮层争抢按键
+      const active = document.activeElement;
+      const focusOutside =
+        active instanceof HTMLElement &&
+        active !== document.body &&
+        !container.contains(active);
+      if (focusOutside) return;
+
+      if (event.key === 'Escape') {
+        setOpenMobile(false);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+
+      const focusable = getFocusableInTabOrder(container);
+      if (focusable.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      previousFocus?.focus();
+    };
+  }, [isMobile, openMobile, setOpenMobile]);
 
   if (collapsible === 'none') {
     return (
@@ -215,50 +293,40 @@ function Sidebar({
     );
   }
 
-  if (isMobile) {
-    return (
-      <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
-        <SheetContent
-          dir={dir}
-          data-sidebar="sidebar"
-          data-slot="sidebar"
-          data-mobile="true"
-          className="w-(--sidebar-width)! bg-sidebar p-0 text-sidebar-foreground sm:max-w-(--sidebar-width)! [&>button]:hidden"
-          style={
-            {
-              '--sidebar-width': SIDEBAR_WIDTH_MOBILE,
-            } as React.CSSProperties
-          }
-          side={side}
-        >
-          <SheetHeader className="sr-only">
-            <SheetTitle>Sidebar</SheetTitle>
-            <SheetDescription>Displays the mobile sidebar.</SheetDescription>
-          </SheetHeader>
-          <div className="flex h-full w-full flex-col px-3 pt-1.5 pb-2.5">
-            {children}
-          </div>
-        </SheetContent>
-      </Sheet>
-    );
-  }
-
+  // mobile 与 >=768px 共用同一棵 DOM 树：跨 768px 断点时元素不卸载，
+  // 收放过渡得以保留。mobile 下为覆盖式抽屉，gap 恒为 0（抽屉不推挤内容）。
+  // context 的 state 已按 isMobile 切换数据源（移动端为 openMobile），直接使用。
   return (
     <div
-      className="group peer hidden text-sidebar-foreground md:block"
+      ref={rootRef}
+      className="group peer text-sidebar-foreground"
       data-state={state}
       data-collapsible={state === 'collapsed' ? collapsible : ''}
       data-variant={variant}
       data-side={side}
+      data-mobile={isMobile ? 'true' : undefined}
       data-slot="sidebar"
     >
+      {/* mobile 遮罩：常驻 DOM，仅 mobile 且抽屉打开时可见，opacity 双向过渡。
+          backdrop-blur 只在可见时挂载——全屏 backdrop-filter 即使透明也有合成开销 */}
+      <div
+        data-slot="sidebar-backdrop"
+        aria-hidden
+        onClick={() => setOpenMobile(false)}
+        className={cn(
+          'fixed inset-0 z-40 bg-black/10 transition-opacity duration-200',
+          isMobile && openMobile
+            ? 'opacity-100 supports-backdrop-filter:backdrop-blur-xs'
+            : 'pointer-events-none opacity-0',
+        )}
+      />
       {/* This is what handles the sidebar gap on desktop */}
       <div
         data-slot="sidebar-gap"
         className={cn(
           'relative w-(--sidebar-width) bg-transparent transition-[width] duration-200 ease-linear',
           'group-data-[collapsible=offcanvas]:w-0',
-          'group-data-[side=right]:rotate-180',
+          'group-data-[mobile=true]:w-0',
           variant === 'floating' || variant === 'inset'
             ? 'group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]'
             : 'group-data-[collapsible=icon]:w-(--sidebar-width-icon)',
@@ -267,8 +335,26 @@ function Sidebar({
       <div
         data-slot="sidebar-container"
         data-side={side}
+        id={sidebarId}
+        // 移动端抽屉打开期间即对话框语义（role/aria 仅此时挂载，避免与
+        // 页面上其他 dialog 冲突）；桌面端与抽屉关闭时均为常规布局面板。
+        // 用展开写法是因为 biome 静态分析无法识别"role 与 aria-modal 同生共死"
+        {...(isMobile && openMobile
+          ? ({
+              role: 'dialog',
+              'aria-modal': true,
+              'aria-label': t('sidebar.label'),
+            } as const)
+          : {})}
+        // 抽屉打开时焦点落在此容器上（-1 不进入 Tab 序列）
+        tabIndex={-1}
         className={cn(
-          'fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] md:flex',
+          // visibility 参与过渡：关闭动画播完才真正隐藏（且屏外抽屉不可聚焦），
+          // 打开时立即可见
+          'fixed inset-y-0 z-10 flex h-svh w-(--sidebar-width) transition-[left,right,width,opacity,visibility] duration-200 ease-linear data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]',
+          // mobile：覆盖式抽屉浮于内容之上；收起 = 向侧滑出并淡出
+          'group-data-[mobile=true]:z-50 group-data-[mobile=true]:shadow-lg',
+          'group-data-[mobile=true]:group-data-[collapsible=offcanvas]:opacity-0 group-data-[mobile=true]:group-data-[collapsible=offcanvas]:invisible',
           // Adjust the padding for floating and inset variants.
           variant === 'floating' || variant === 'inset'
             ? 'p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]'
@@ -292,10 +378,11 @@ function Sidebar({
 function SidebarTrigger({
   className,
   onClick,
-  isMobile = false,
   ...props
-}: React.ComponentProps<typeof Button> & { isMobile?: boolean }) {
-  const { toggleSidebar } = useSidebar();
+}: React.ComponentProps<typeof Button>) {
+  // 图标与尺寸由 context 的真实视口状态派生，无需调用方传参
+  const { isMobile, open, openMobile, toggleSidebar, sidebarId } = useSidebar();
+  const { t } = useTranslation();
 
   return (
     <Button
@@ -303,9 +390,14 @@ function SidebarTrigger({
       data-slot="sidebar-trigger"
       variant="ghost"
       size={isMobile ? undefined : 'icon-sm'}
+      aria-expanded={isMobile ? openMobile : open}
+      aria-controls={sidebarId}
       className={cn(
         isMobile && 'size-11',
-        'rounded-full hover:bg-foreground/15 dark:hover:bg-foreground/15',
+        // ghost variant 的 aria-expanded:bg-muted 在 CSS 中排在 hover 规则之后，
+        // 同特异度下会覆盖 hover 背景；这里先将其压成透明，再用特异度更高的
+        // aria-expanded:hover 堆叠 variant 让展开态下的 hover 生效。
+        'rounded-full hover:bg-foreground/15 dark:hover:bg-foreground/15 aria-expanded:bg-transparent aria-expanded:hover:bg-foreground/15 dark:aria-expanded:hover:bg-foreground/15',
         className,
       )}
       onClick={(event) => {
@@ -315,33 +407,8 @@ function SidebarTrigger({
       {...props}
     >
       {isMobile ? <MenuIcon /> : <PanelLeftIcon />}
-      <span className="sr-only">Toggle Sidebar</span>
+      <span className="sr-only">{t('sidebar.toggle')}</span>
     </Button>
-  );
-}
-
-function SidebarRail({ className, ...props }: React.ComponentProps<'button'>) {
-  const { toggleSidebar } = useSidebar();
-
-  return (
-    <button
-      data-sidebar="rail"
-      data-slot="sidebar-rail"
-      aria-label="Toggle Sidebar"
-      tabIndex={-1}
-      onClick={toggleSidebar}
-      title="Toggle Sidebar"
-      className={cn(
-        'absolute inset-y-0 z-20 hidden w-4 transition-all ease-linear group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:start-1/2 after:w-[2px] hover:after:bg-sidebar-border sm:flex ltr:-translate-x-1/2 rtl:-translate-x-1/2',
-        'in-data-[side=left]:cursor-w-resize in-data-[side=right]:cursor-e-resize',
-        '[[data-side=left][data-state=collapsed]_&]:cursor-e-resize [[data-side=right][data-state=collapsed]_&]:cursor-w-resize',
-        'group-data-[collapsible=offcanvas]:translate-x-0 group-data-[collapsible=offcanvas]:after:left-full hover:group-data-[collapsible=offcanvas]:bg-sidebar',
-        '[[data-side=left][data-collapsible=offcanvas]_&]:-right-2',
-        '[[data-side=right][data-collapsible=offcanvas]_&]:-left-2',
-        className,
-      )}
-      {...props}
-    />
   );
 }
 
@@ -353,20 +420,6 @@ function SidebarInset({ className, ...props }: React.ComponentProps<'main'>) {
         'relative flex w-full flex-1 flex-col bg-background md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2',
         className,
       )}
-      {...props}
-    />
-  );
-}
-
-function SidebarInput({
-  className,
-  ...props
-}: React.ComponentProps<typeof Input>) {
-  return (
-    <Input
-      data-slot="sidebar-input"
-      data-sidebar="input"
-      className={cn('h-8 w-full bg-background shadow-none', className)}
       {...props}
     />
   );
@@ -394,20 +447,6 @@ function SidebarFooter({ className, ...props }: React.ComponentProps<'div'>) {
   );
 }
 
-function SidebarSeparator({
-  className,
-  ...props
-}: React.ComponentProps<typeof Separator>) {
-  return (
-    <Separator
-      data-slot="sidebar-separator"
-      data-sidebar="separator"
-      className={cn('mx-2 w-auto bg-sidebar-border', className)}
-      {...props}
-    />
-  );
-}
-
 function SidebarContent({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
@@ -417,79 +456,6 @@ function SidebarContent({ className, ...props }: React.ComponentProps<'div'>) {
         'no-scrollbar flex min-h-0 flex-1 flex-col gap-0 overflow-auto group-data-[collapsible=icon]:overflow-hidden',
         className,
       )}
-      {...props}
-    />
-  );
-}
-
-function SidebarGroup({ className, ...props }: React.ComponentProps<'div'>) {
-  return (
-    <div
-      data-slot="sidebar-group"
-      data-sidebar="group"
-      className={cn('relative flex w-full min-w-0 flex-col p-2', className)}
-      {...props}
-    />
-  );
-}
-
-function SidebarGroupLabel({
-  className,
-  render,
-  ...props
-}: useRender.ComponentProps<'div'> & React.ComponentProps<'div'>) {
-  return useRender({
-    defaultTagName: 'div',
-    props: mergeProps<'div'>(
-      {
-        className: cn(
-          'flex h-8 shrink-0 items-center rounded-md px-2 text-xs text-sidebar-foreground/70 ring-sidebar-ring outline-hidden transition-[margin,opacity] duration-200 ease-linear group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0 focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0',
-          className,
-        ),
-      },
-      props,
-    ),
-    render,
-    state: {
-      slot: 'sidebar-group-label',
-      sidebar: 'group-label',
-    },
-  });
-}
-
-function SidebarGroupAction({
-  className,
-  render,
-  ...props
-}: useRender.ComponentProps<'button'> & React.ComponentProps<'button'>) {
-  return useRender({
-    defaultTagName: 'button',
-    props: mergeProps<'button'>(
-      {
-        className: cn(
-          'absolute top-3.5 right-3 flex aspect-square w-5 items-center justify-center rounded-md p-0 text-sidebar-foreground ring-sidebar-ring outline-hidden transition-transform group-data-[collapsible=icon]:hidden after:absolute after:-inset-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 md:after:hidden [&>svg]:size-4 [&>svg]:shrink-0',
-          className,
-        ),
-      },
-      props,
-    ),
-    render,
-    state: {
-      slot: 'sidebar-group-action',
-      sidebar: 'group-action',
-    },
-  });
-}
-
-function SidebarGroupContent({
-  className,
-  ...props
-}: React.ComponentProps<'div'>) {
-  return (
-    <div
-      data-slot="sidebar-group-content"
-      data-sidebar="group-content"
-      className={cn('w-full text-xs', className)}
       {...props}
     />
   );
@@ -574,11 +540,8 @@ function SidebarMenuButton({
     return comp;
   }
 
-  if (typeof tooltip === 'string') {
-    tooltip = {
-      children: tooltip,
-    };
-  }
+  const tooltipProps =
+    typeof tooltip === 'string' ? { children: tooltip } : tooltip;
 
   return (
     <Tooltip>
@@ -587,180 +550,22 @@ function SidebarMenuButton({
         side="right"
         align="center"
         hidden={state !== 'collapsed' || isMobile}
-        {...tooltip}
+        {...tooltipProps}
       />
     </Tooltip>
   );
-}
-
-function SidebarMenuAction({
-  className,
-  render,
-  showOnHover = false,
-  ...props
-}: useRender.ComponentProps<'button'> &
-  React.ComponentProps<'button'> & {
-    showOnHover?: boolean;
-  }) {
-  return useRender({
-    defaultTagName: 'button',
-    props: mergeProps<'button'>(
-      {
-        className: cn(
-          'absolute top-1.5 right-1 flex aspect-square w-5 items-center justify-center rounded-md p-0 text-sidebar-foreground ring-sidebar-ring outline-hidden transition-transform group-data-[collapsible=icon]:hidden peer-hover/menu-button:text-sidebar-accent-foreground peer-data-[size=default]/menu-button:top-1.5 peer-data-[size=lg]/menu-button:top-2.5 peer-data-[size=sm]/menu-button:top-1 after:absolute after:-inset-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 md:after:hidden [&>svg]:size-4 [&>svg]:shrink-0',
-          showOnHover &&
-            'group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 peer-data-active/menu-button:text-sidebar-accent-foreground aria-expanded:opacity-100 md:opacity-0',
-          className,
-        ),
-      },
-      props,
-    ),
-    render,
-    state: {
-      slot: 'sidebar-menu-action',
-      sidebar: 'menu-action',
-    },
-  });
-}
-
-function SidebarMenuBadge({
-  className,
-  ...props
-}: React.ComponentProps<'div'>) {
-  return (
-    <div
-      data-slot="sidebar-menu-badge"
-      data-sidebar="menu-badge"
-      className={cn(
-        'pointer-events-none absolute right-1 flex h-5 min-w-5 items-center justify-center rounded-md px-1 text-xs font-medium text-sidebar-foreground tabular-nums select-none group-data-[collapsible=icon]:hidden peer-hover/menu-button:text-sidebar-accent-foreground peer-data-[size=default]/menu-button:top-1.5 peer-data-[size=lg]/menu-button:top-2.5 peer-data-[size=sm]/menu-button:top-1 peer-data-active/menu-button:text-sidebar-accent-foreground',
-        className,
-      )}
-      {...props}
-    />
-  );
-}
-
-function SidebarMenuSkeleton({
-  className,
-  showIcon = false,
-  ...props
-}: React.ComponentProps<'div'> & {
-  showIcon?: boolean;
-}) {
-  // Random width between 50 to 90%.
-  const [width] = React.useState(() => {
-    return `${Math.floor(Math.random() * 40) + 50}%`;
-  });
-
-  return (
-    <div
-      data-slot="sidebar-menu-skeleton"
-      data-sidebar="menu-skeleton"
-      className={cn('flex h-8 items-center gap-2 rounded-md px-2', className)}
-      {...props}
-    >
-      {showIcon && (
-        <Skeleton
-          className="size-4 rounded-md"
-          data-sidebar="menu-skeleton-icon"
-        />
-      )}
-      <Skeleton
-        className="h-4 max-w-(--skeleton-width) flex-1"
-        data-sidebar="menu-skeleton-text"
-        style={
-          {
-            '--skeleton-width': width,
-          } as React.CSSProperties
-        }
-      />
-    </div>
-  );
-}
-
-function SidebarMenuSub({ className, ...props }: React.ComponentProps<'ul'>) {
-  return (
-    <ul
-      data-slot="sidebar-menu-sub"
-      data-sidebar="menu-sub"
-      className={cn(
-        'mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l border-sidebar-border px-2.5 py-0.5 group-data-[collapsible=icon]:hidden',
-        className,
-      )}
-      {...props}
-    />
-  );
-}
-
-function SidebarMenuSubItem({
-  className,
-  ...props
-}: React.ComponentProps<'li'>) {
-  return (
-    <li
-      data-slot="sidebar-menu-sub-item"
-      data-sidebar="menu-sub-item"
-      className={cn('group/menu-sub-item relative', className)}
-      {...props}
-    />
-  );
-}
-
-function SidebarMenuSubButton({
-  render,
-  size = 'md',
-  isActive = false,
-  className,
-  ...props
-}: useRender.ComponentProps<'a'> &
-  React.ComponentProps<'a'> & {
-    size?: 'sm' | 'md';
-    isActive?: boolean;
-  }) {
-  return useRender({
-    defaultTagName: 'a',
-    props: mergeProps<'a'>(
-      {
-        className: cn(
-          'flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 text-sidebar-foreground ring-sidebar-ring outline-hidden group-data-[collapsible=icon]:hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[size=md]:text-xs data-[size=sm]:text-xs data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-accent-foreground',
-          className,
-        ),
-      },
-      props,
-    ),
-    render,
-    state: {
-      slot: 'sidebar-menu-sub-button',
-      sidebar: 'menu-sub-button',
-      size,
-      active: isActive,
-    },
-  });
 }
 
 export {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarGroup,
-  SidebarGroupAction,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
-  SidebarInput,
   SidebarInset,
   SidebarMenu,
-  SidebarMenuAction,
-  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSkeleton,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarProvider,
-  SidebarRail,
-  SidebarSeparator,
   SidebarTrigger,
   // biome-ignore lint/style/useComponentExportOnlyModules: shadcn 约定：hook 与组件同文件导出
   useSidebar,

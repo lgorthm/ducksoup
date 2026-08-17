@@ -43,6 +43,10 @@
       "loading": "加载中..."
     }
   },
+  "sidebar": {
+    "label": "侧边栏",
+    "toggle": "切换侧边栏"
+  },
   "conversation": {
     "title": "对话列表",
     "new": "新建对话",

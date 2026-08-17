@@ -22,12 +22,11 @@ export async function setupApp(
   await page.evaluate(() => localStorage.setItem('i18nLang', 'zh-CN'));
   await page.reload();
   // 等待应用初始化完成（init() 中的 DB 操作已结束）
-  // 移动端侧边栏隐藏时 settings-button 不可见，改用 chat-welcome 或 sidebar-trigger
+  // 移动端侧边栏为覆盖式抽屉（收起时屏外隐藏），改用 header 里的 sidebar-trigger 等待
   const width = page.viewportSize()?.width ?? 1440;
   if (width < 768) {
     await page
-      .locator('[data-slot="sidebar-trigger"]')
-      .first()
+      .locator('header [data-slot="sidebar-trigger"]')
       .waitFor({ state: 'visible', timeout: 10000 });
   } else {
     await page
@@ -47,11 +46,10 @@ export async function setupApp(
 
   // 第三阶段：重新加载以读取种子数据
   await page.reload();
-  // 同上：移动端用 sidebar-trigger 等待
+  // 同上：移动端用 header 里的 sidebar-trigger 等待
   if (width < 768) {
     await page
-      .locator('[data-slot="sidebar-trigger"]')
-      .first()
+      .locator('header [data-slot="sidebar-trigger"]')
       .waitFor({ state: 'visible', timeout: 10000 });
   } else {
     await page
@@ -72,8 +70,7 @@ export async function openSidebarIfNeeded(page: Page): Promise<void> {
   if (width < 768) {
     // WebKit 移动端 force: true 也报 viewport 错误，用 dispatchEvent 绕过
     await page
-      .locator('[data-slot="sidebar-trigger"]')
-      .first()
+      .locator('header [data-slot="sidebar-trigger"]')
       .dispatchEvent('click');
     await page.waitForTimeout(500);
   }

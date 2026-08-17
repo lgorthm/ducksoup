@@ -41,7 +41,7 @@ test.describe('可访问性审计', () => {
   test('设置弹窗无严重违规', async ({ page }) => {
     test.skip(
       (page.viewportSize()?.width ?? 1440) < 768,
-      '移动端侧边栏为 Sheet 抽屉，跳过桌面端设置弹窗测试',
+      '移动端侧边栏为覆盖式抽屉，跳过桌面端设置弹窗测试',
     );
     await setupApp(page);
     await page.getByTestId('settings-button').click();
@@ -61,7 +61,7 @@ test.describe('可访问性审计', () => {
   test('侧边栏无严重违规', async ({ page }) => {
     test.skip(
       (page.viewportSize()?.width ?? 1440) < 768,
-      '移动端侧边栏为 Sheet 抽屉，跳过桌面端侧边栏测试',
+      '移动端侧边栏为覆盖式抽屉，跳过桌面端侧边栏测试',
     );
     await setupApp(page);
 
@@ -85,10 +85,10 @@ test.describe('可访问性审计', () => {
   test('侧边栏 trigger 有 sr-only 文本', async ({ page }) => {
     test.skip(
       (page.viewportSize()?.width ?? 1440) < 768,
-      '移动端侧边栏为 Sheet 抽屉，跳过桌面端 trigger 测试',
+      '移动端侧边栏为覆盖式抽屉，跳过桌面端 trigger 测试',
     );
     await setupApp(page);
     const trigger = page.getByTestId('sidebar-trigger');
-    await expect(trigger.locator('.sr-only')).toHaveText('Toggle Sidebar');
+    await expect(trigger.locator('.sr-only')).toHaveText('切换侧边栏');
   });
 });

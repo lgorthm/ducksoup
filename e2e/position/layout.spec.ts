@@ -89,11 +89,10 @@ test.describe('移动端布局', () => {
     await setupApp(page);
   });
 
-  test('移动端侧边栏为 Sheet 抽屉', async ({ page }) => {
-    // 侧边栏默认隐藏，点击 trigger 打开
+  test('移动端侧边栏为覆盖式抽屉', async ({ page }) => {
+    // 侧边栏默认隐藏，点击 header 里的 trigger 打开
     await page
-      .locator('[data-slot="sidebar-trigger"]')
-      .first()
+      .locator('header [data-slot="sidebar-trigger"]')
       .dispatchEvent('click');
     await page.waitForTimeout(500);
 
