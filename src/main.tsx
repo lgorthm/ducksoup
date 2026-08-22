@@ -9,7 +9,6 @@ import './index.css';
 import '@/shared/i18n';
 import { router } from '@/routes';
 import { AppErrorBoundary } from '@/shared/components/app-error-boundary';
-import { PwaReloadPrompt } from '@/shared/components/pwa-reload-prompt';
 import { ThemeProvider } from '@/shared/providers/theme-provider';
 import { Toaster } from '@/shared/components/ui/sonner';
 
@@ -27,7 +26,6 @@ createRoot(document.getElementById('root')!, {
       <ThemeProvider>
         <RouterProvider router={router} />
         <Toaster />
-        <PwaReloadPrompt />
       </ThemeProvider>
     </AppErrorBoundary>
   </StrictMode>,

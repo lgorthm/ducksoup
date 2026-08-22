@@ -7,15 +7,6 @@ import i18n from '@/shared/i18n';
 // 测试默认使用中文（与项目默认语言一致）
 void i18n.changeLanguage('zh-CN');
 
-// --- virtual:pwa-register/react mock（Vite 构建期虚拟模块，测试中无 SW）---
-vi.mock('virtual:pwa-register/react', () => ({
-  useRegisterSW: () => ({
-    needRefresh: [false, vi.fn()],
-    offlineReady: [false, vi.fn()],
-    updateServiceWorker: vi.fn(),
-  }),
-}));
-
 // --- matchMedia 全局 mock（shadcn sidebar 等组件依赖）---
 window.matchMedia = vi.fn().mockImplementation((query: string) => ({
   matches: false,

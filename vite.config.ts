@@ -4,8 +4,6 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { defineConfig, type PluginOption } from 'vite';
-import { VitePWA } from 'vite-plugin-pwa';
-import { pwaManifest, pwaPrecacheAssets } from './src/shared/constants/pwa';
 
 const enablePerf = process.env.PERF === '1';
 // Only upload source maps when a Sentry auth token is present (CI).
@@ -17,26 +15,6 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    VitePWA({
-      // 'prompt' pairs with PwaReloadPrompt: the new SW waits until the
-      // user clicks "reload" in the toast.
-      registerType: 'prompt',
-      includeAssets: pwaPrecacheAssets,
-      manifest: pwaManifest,
-      workbox: {
-        // Single-route SPA: any navigation falls back to the cached shell.
-        navigateFallback: 'index.html',
-        runtimeCaching: [
-          {
-            // Chat needs live API responses; never cache them.
-            urlPattern: /^https:\/\/api\.deepseek\.com\/.*/i,
-            handler: 'NetworkOnly',
-          },
-        ],
-      },
-      // No SW in dev: keeps `pnpm dev` (and Playwright E2E) cache-free.
-      devOptions: { enabled: false },
-    }),
     ...(enablePerf
       ? [
           visualizer({

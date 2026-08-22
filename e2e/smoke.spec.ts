@@ -55,33 +55,4 @@ test.describe('冒烟测试', () => {
     await expect(editor).toBeVisible();
     await expect(editor).toBeEditable();
   });
-
-  test('PWA 头部声明完整（manifest、iOS meta、图标与启动画面）', async ({
-    page,
-  }) => {
-    // manifest 链接由 vite-plugin-pwa 注入
-    await expect(page.locator('link[rel="manifest"]')).toHaveAttribute(
-      'href',
-      /manifest\.webmanifest/,
-    );
-    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute(
-      'content',
-      '#FFCA3A',
-    );
-    await expect(
-      page.locator('meta[name="apple-mobile-web-app-capable"]'),
-    ).toHaveAttribute('content', 'yes');
-    await expect(
-      page.locator('meta[name="apple-mobile-web-app-title"]'),
-    ).toHaveAttribute('content', 'ducksoup');
-    await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute(
-      'href',
-      '/apple-touch-icon-180x180.png',
-    );
-    // iOS 启动画面：各设备尺寸 ≥1 条（含 dark 变体）
-    const splashCount = await page
-      .locator('link[rel="apple-touch-startup-image"]')
-      .count();
-    expect(splashCount).toBeGreaterThan(10);
-  });
 });
