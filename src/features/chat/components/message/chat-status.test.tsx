@@ -4,7 +4,11 @@ import { ChatStatus } from './chat-status';
 import { useStore } from '@/stores';
 
 beforeEach(() => {
-  useStore.setState({ isLoading: false, streamingMessage: null, error: null });
+  useStore.setState({
+    isLoading: false,
+    streamingMessageId: null,
+    error: null,
+  });
 });
 
 describe('ChatStatus', () => {
@@ -18,14 +22,7 @@ describe('ChatStatus', () => {
   it('流式时不显示加载指示器', () => {
     useStore.setState({
       isLoading: true,
-      streamingMessage: {
-        id: 's1',
-        conversationId: 'c1',
-        role: 'assistant',
-        content: '流式中',
-        reasoningContent: '',
-        createdAt: Date.now(),
-      },
+      streamingMessageId: 's1',
     });
     render(<ChatStatus />);
     expect(screen.queryByTestId('loading-indicator')).not.toBeInTheDocument();

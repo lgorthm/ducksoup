@@ -2,10 +2,10 @@ import { memo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
-import type { StoredMessage } from '@/features/chat/types/deepseek';
+import type { MessageNode } from '@/stores/models';
 
 interface ThinkingSectionProps {
-  message: StoredMessage;
+  message: MessageNode;
   isStreaming: boolean;
 }
 

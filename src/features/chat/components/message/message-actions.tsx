@@ -1,7 +1,7 @@
 import { memo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/utils';
-import type { BranchInfo, StoredMessage } from '@/features/chat/types/deepseek';
+import type { BranchInfo, MessageNode } from '@/stores/models';
 import {
   Check,
   ChevronLeft,
@@ -26,7 +26,7 @@ import { useStore } from '@/stores';
 import { useMessageActionsState } from '@/stores/selectors';
 
 interface MessageActionsProps {
-  message: StoredMessage;
+  message: MessageNode;
   branchInfo?: BranchInfo;
   isLast?: boolean;
 }

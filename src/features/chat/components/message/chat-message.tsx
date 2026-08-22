@@ -1,6 +1,6 @@
 import { memo, useLayoutEffect, useRef, useState } from 'react';
 import { cn } from '@/shared/lib/utils';
-import type { BranchInfo, StoredMessage } from '@/features/chat/types/deepseek';
+import type { BranchInfo, MessageNode } from '@/stores/models';
 import { useCanHover } from '@/shared/hooks/use-media-query';
 import { toggleActiveMessage } from '@/stores/actions';
 import { LazyMarkdownRenderer } from '@/shared/components/lazy-markdown-renderer';
@@ -9,7 +9,7 @@ import { EditForm } from './message-edit-form';
 import { MessageActions } from './message-actions';
 
 interface ChatMessageProps {
-  message: StoredMessage;
+  message: MessageNode;
   /** 是否为流式传输中（内容还未完成） */
   isStreaming?: boolean;
   /** 当前是否处于编辑态（仅 user 消息） */

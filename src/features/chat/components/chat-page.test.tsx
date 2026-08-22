@@ -4,7 +4,7 @@ import { ChatPage } from './chat-page';
 import { init } from '@/stores/actions';
 import { useStore } from '@/stores';
 import { useHasContent, useInitialized } from '@/stores/selectors';
-import type { StoredMessage } from '@/features/chat/types/deepseek';
+import type { MessageNode } from '@/stores/models';
 
 vi.mock('@/stores', () => ({
   useStore: vi.fn(),
@@ -50,19 +50,24 @@ vi.mock('@/shared/components/ui/radio-group-button', () => ({
 interface MockChatState {
   initialized: boolean;
   hasApiKey: boolean;
-  messages: StoredMessage[];
-  streamingMessage: null;
+  messages: MessageNode[];
+  streamingMessageId: string | null;
   selectedModel: 'deepseek-v4-flash';
 }
 
 let state: MockChatState;
 
-function makeMessage(overrides: Partial<StoredMessage> = {}): StoredMessage {
+function makeMessage(overrides: Partial<MessageNode> = {}): MessageNode {
   return {
     id: 'm1',
     conversationId: 'c1',
     role: 'user',
+    parentId: null,
+    childrenIds: [],
+    siblingIndex: 0,
+    activeChildId: null,
     content: '历史消息',
+    status: 'done',
     createdAt: Date.now(),
     ...overrides,
   };
@@ -73,7 +78,7 @@ function setMockState(overrides: Partial<MockChatState> = {}) {
     initialized: false,
     hasApiKey: true,
     messages: [],
-    streamingMessage: null,
+    streamingMessageId: null,
     selectedModel: 'deepseek-v4-flash',
     ...overrides,
   };
@@ -88,7 +93,7 @@ function updateMockState(overrides: Partial<MockChatState>) {
 function applyMocks() {
   vi.mocked(useInitialized).mockReturnValue(state.initialized);
   vi.mocked(useHasContent).mockReturnValue(
-    state.messages.length > 0 || state.streamingMessage !== null,
+    state.messages.length > 0 || state.streamingMessageId !== null,
   );
   vi.mocked(useStore).mockImplementation((selector?: unknown) => {
     const storeState = {

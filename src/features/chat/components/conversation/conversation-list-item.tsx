@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '@/shared/components/ui/dropdown-menu';
 import { switchConversation } from '@/stores/actions';
-import type { Conversation } from '@/features/chat/types/deepseek';
+import type { Conversation } from '@/stores/models';
 
 interface ConversationListItemProps {
   conversation: Conversation;

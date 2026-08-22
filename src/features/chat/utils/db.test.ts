@@ -1,9 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { openDB } from 'idb';
-import type {
-  Conversation,
-  StoredMessage,
-} from '@/features/chat/types/deepseek';
+import type { Conversation, MessageNode } from '@/stores/models';
 import {
   addConversation,
   getAllConversations,
@@ -15,37 +12,44 @@ import {
   clearConversationMessages,
   updateMessage,
   chainFlatMessagesIntoTree,
+  migrateV2MessagesToV3,
+  type LegacyStoredMessage,
+  type LegacyConversation,
 } from './db';
-
-// ========== 辅助工厂 ==========
 
 function makeConversation(overrides: Partial<Conversation> = {}): Conversation {
   const now = Date.now();
+  const id = overrides.id ?? `conv-${Math.random().toString(36).slice(2, 9)}`;
   return {
-    id: `conv-${Math.random().toString(36).slice(2, 9)}`,
     title: '测试会话',
     createdAt: now,
     updatedAt: now,
     messageCount: 0,
+    activeLeafId: null,
     ...overrides,
+    id,
+    rootId: overrides.rootId ?? `root-${id}`,
   };
 }
 
-function makeMessage(overrides: Partial<StoredMessage> = {}): StoredMessage {
+function makeMessage(overrides: Partial<MessageNode> = {}): MessageNode {
   return {
     id: `msg-${Math.random().toString(36).slice(2, 9)}`,
     conversationId: 'conv-test',
     role: 'user',
+    parentId: null,
+    childrenIds: [],
+    siblingIndex: 0,
+    activeChildId: null,
     content: '测试消息',
+    status: 'done',
     createdAt: Date.now(),
     ...overrides,
   };
 }
 
-// ========== 测试前清空数据库 ==========
-
 beforeEach(async () => {
-  const db = await openDB('ducksoup-chat', 2, {
+  const db = await openDB('ducksoup-chat', 3, {
     upgrade(db) {
       if (!db.objectStoreNames.contains('conversations')) {
         const convStore = db.createObjectStore('conversations', {
@@ -57,6 +61,10 @@ beforeEach(async () => {
         const msgStore = db.createObjectStore('messages', { keyPath: 'id' });
         msgStore.createIndex('by-conversationId', 'conversationId');
         msgStore.createIndex('by-createdAt', 'createdAt');
+        msgStore.createIndex('by-conversation-parent', [
+          'conversationId',
+          'parentId',
+        ]);
       }
     },
   });
@@ -64,8 +72,6 @@ beforeEach(async () => {
   await db.clear('messages');
   db.close();
 });
-
-// ========== 会话 CRUD ==========
 
 describe('addConversation', () => {
   it('写入会话后可被查询到', async () => {
@@ -161,8 +167,6 @@ describe('deleteConversation', () => {
   });
 });
 
-// ========== 消息 CRUD ==========
-
 describe('addMessage', () => {
   it('写入消息后可被查询到', async () => {
     await addConversation(makeConversation({ id: 'c1' }));
@@ -184,37 +188,28 @@ describe('addMessage', () => {
 });
 
 describe('getMessagesByConversation', () => {
-  it('无消息时返回空数组', async () => {
-    await addConversation(makeConversation({ id: 'c1' }));
-    const msgs = await getMessagesByConversation('c1');
-    expect(msgs).toEqual([]);
-  });
-
-  it('按 createdAt 升序排列', async () => {
+  it('按 createdAt 升序', async () => {
     await addConversation(makeConversation({ id: 'c1' }));
     await addMessage(
-      makeMessage({ id: 'm3', conversationId: 'c1', createdAt: 300 }),
+      makeMessage({ id: 'm2', conversationId: 'c1', createdAt: 200 }),
     );
     await addMessage(
       makeMessage({ id: 'm1', conversationId: 'c1', createdAt: 100 }),
     );
-    await addMessage(
-      makeMessage({ id: 'm2', conversationId: 'c1', createdAt: 200 }),
-    );
-
     const msgs = await getMessagesByConversation('c1');
-    expect(msgs.map((m) => m.id)).toEqual(['m1', 'm2', 'm3']);
+    expect(msgs.map((m) => m.id)).toEqual(['m1', 'm2']);
   });
 
-  it('相同时间戳时 user 消息排在 assistant 前', async () => {
+  it('相同时间戳时按 siblingIndex', async () => {
+    const ts = Date.now();
     await addConversation(makeConversation({ id: 'c1' }));
-    const ts = 1000;
     await addMessage(
       makeMessage({
         id: 'a1',
         conversationId: 'c1',
         role: 'assistant',
         createdAt: ts,
+        siblingIndex: 1,
       }),
     );
     await addMessage(
@@ -223,6 +218,7 @@ describe('getMessagesByConversation', () => {
         conversationId: 'c1',
         role: 'user',
         createdAt: ts,
+        siblingIndex: 0,
       }),
     );
 
@@ -261,14 +257,25 @@ describe('deleteMessage', () => {
 });
 
 describe('clearConversationMessages', () => {
-  it('清空指定会话的所有消息', async () => {
-    await addConversation(makeConversation({ id: 'c1' }));
+  it('清空指定会话的非根消息，保留虚拟根', async () => {
+    const conv = makeConversation({ id: 'c1', rootId: 'root-c1' });
+    await addConversation(conv);
+    await addMessage(
+      makeMessage({
+        id: 'root-c1',
+        conversationId: 'c1',
+        role: 'system',
+        content: '',
+      }),
+    );
     await addMessage(makeMessage({ id: 'm1', conversationId: 'c1' }));
     await addMessage(makeMessage({ id: 'm2', conversationId: 'c1' }));
-    await addMessage(makeMessage({ id: 'm3', conversationId: 'c1' }));
 
     await clearConversationMessages('c1');
-    expect(await getMessagesByConversation('c1')).toHaveLength(0);
+    const left = await getMessagesByConversation('c1');
+    expect(left).toHaveLength(1);
+    expect(left[0].id).toBe('root-c1');
+    expect(left[0].activeChildId).toBeNull();
   });
 
   it('不影响其他会话', async () => {
@@ -288,8 +295,6 @@ describe('clearConversationMessages', () => {
   });
 });
 
-// ========== updateMessage ==========
-
 describe('updateMessage', () => {
   it('覆盖写入已存在的消息', async () => {
     await addConversation(makeConversation({ id: 'c1' }));
@@ -305,19 +310,17 @@ describe('updateMessage', () => {
   });
 });
 
-// ========== v1 → v2 迁移 ==========
-
 describe('v1 → v2 迁移', () => {
   it('chainFlatMessagesIntoTree 链式化扁平消息并设置 activeLeafId', () => {
     const now = Date.now();
-    const conv: Conversation = {
+    const conv: LegacyConversation = {
       id: 'c1',
       title: '迁移',
       createdAt: now,
       updatedAt: now,
       messageCount: 4,
     };
-    const messages: StoredMessage[] = [
+    const messages: LegacyStoredMessage[] = [
       {
         id: 'u1',
         conversationId: 'c1',
@@ -364,7 +367,7 @@ describe('v1 → v2 迁移', () => {
 
   it('chainFlatMessagesIntoTree 相同时间戳时 user 排在 assistant 前', () => {
     const ts = 1000;
-    const messages: StoredMessage[] = [
+    const messages: LegacyStoredMessage[] = [
       {
         id: 'a1',
         conversationId: 'c1',
@@ -380,7 +383,7 @@ describe('v1 → v2 迁移', () => {
         createdAt: ts,
       },
     ];
-    const conv: Conversation = {
+    const conv: LegacyConversation = {
       id: 'c1',
       title: 'x',
       createdAt: ts,
@@ -398,7 +401,7 @@ describe('v1 → v2 迁移', () => {
   });
 
   it('chainFlatMessagesIntoTree 无消息时 no-op', () => {
-    const conv: Conversation = {
+    const conv: LegacyConversation = {
       id: 'c1',
       title: 'x',
       createdAt: 1,
@@ -407,5 +410,70 @@ describe('v1 → v2 迁移', () => {
     };
     chainFlatMessagesIntoTree([], [conv]);
     expect(conv.activeLeafId).toBeNull();
+  });
+});
+
+describe('v2 → v3 迁移', () => {
+  it('插入虚拟根、reparent、赋 siblingIndex、rename selectedChildId', () => {
+    const now = 1000;
+    const conv: LegacyConversation = {
+      id: 'c1',
+      title: 'x',
+      createdAt: now,
+      updatedAt: now,
+      messageCount: 2,
+      activeLeafId: 'a1',
+    };
+    const messages: LegacyStoredMessage[] = [
+      {
+        id: 'u1',
+        conversationId: 'c1',
+        role: 'user',
+        content: '问',
+        createdAt: now,
+        parentId: null,
+        selectedChildId: 'a1',
+      },
+      {
+        id: 'a1',
+        conversationId: 'c1',
+        role: 'assistant',
+        content: '答',
+        createdAt: now + 1,
+        parentId: 'u1',
+        selectedChildId: null,
+      },
+    ];
+
+    const ids = ['root-fixed'];
+    const migrated = migrateV2MessagesToV3(messages, [conv], () => ids[0]);
+    const byId = new Map(migrated.map((m) => [m.id, m]));
+
+    expect(conv.rootId).toBe('root-fixed');
+    expect(byId.get('root-fixed')!.role).toBe('system');
+    expect(byId.get('root-fixed')!.activeChildId).toBe('u1');
+    expect(byId.get('u1')!.parentId).toBe('root-fixed');
+    expect(byId.get('u1')!.siblingIndex).toBe(0);
+    expect(byId.get('u1')!.activeChildId).toBe('a1');
+    expect(byId.get('a1')!.parentId).toBe('u1');
+    expect(byId.get('a1')!.siblingIndex).toBe(0);
+    expect(byId.get('a1')!.status).toBe('done');
+    expect(byId.get('a1')!.deleted).toBe(false);
+  });
+
+  it('空会话只插入虚拟根', () => {
+    const conv: LegacyConversation = {
+      id: 'c1',
+      title: 'x',
+      createdAt: 1,
+      updatedAt: 1,
+      messageCount: 0,
+      activeLeafId: null as string | null,
+    };
+    const migrated = migrateV2MessagesToV3([], [conv], () => 'root-empty');
+    expect(migrated).toHaveLength(1);
+    expect(migrated[0].id).toBe('root-empty');
+    expect(conv.rootId).toBe('root-empty');
+    expect(migrated[0].activeChildId).toBeNull();
   });
 });

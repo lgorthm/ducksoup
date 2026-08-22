@@ -1,30 +1,56 @@
 import i18n from '@/shared/i18n';
-import type { Conversation } from '@/features/chat/types/deepseek';
+import type { Conversation } from '@/stores/models';
 import * as db from '@/features/chat/utils/db';
 import { useStore } from '@/stores';
 import { createActionName } from '@/stores/utils/actionName';
 import { generateId } from '@/stores/utils/ids';
-import { deriveActivePath } from '@/stores/utils/tree';
+import { createRoot, hydrateConversation } from '@/stores/utils/tree';
+
+function emptyTree(state: {
+  messageNodes: Map<string, unknown>;
+  rootId: string | null;
+  activeLeafId: string | null;
+  activePath: string[];
+  streamingMessageId: string | null;
+  editingMessageId: string | null;
+  activeMessageId: string | null;
+  error: string | null;
+}) {
+  state.messageNodes = new Map();
+  state.rootId = null;
+  state.activeLeafId = null;
+  state.activePath = [];
+  state.streamingMessageId = null;
+  state.editingMessageId = null;
+  state.activeMessageId = null;
+  state.error = null;
+}
 
 export async function createConversation() {
   const name = createActionName('conversation', createConversation);
   const now = Date.now();
+  const id = generateId();
+  const root = createRoot(id, generateId(), now);
   const conv: Conversation = {
-    id: generateId(),
+    id,
     title: i18n.t('conversation.new'),
     createdAt: now,
     updatedAt: now,
     messageCount: 0,
+    rootId: root.id,
     activeLeafId: null,
   };
   await db.addConversation(conv);
+  await db.addMessage(root);
   useStore.setState(
     (state) => {
       state.conversations.push(conv);
       state.currentConversationId = conv.id;
-      state.allMessages = [];
-      state.messages = [];
-      state.streamingMessage = null;
+      state.messageNodes = new Map([[root.id, root]]);
+      state.rootId = root.id;
+      state.activeLeafId = null;
+      state.activePath = [];
+      state.streamingMessageId = null;
       state.editingMessageId = null;
       state.activeMessageId = null;
       state.error = null;
@@ -39,12 +65,7 @@ export function startNewConversation() {
   useStore.setState(
     (state) => {
       state.currentConversationId = null;
-      state.allMessages = [];
-      state.messages = [];
-      state.streamingMessage = null;
-      state.editingMessageId = null;
-      state.activeMessageId = null;
-      state.error = null;
+      emptyTree(state);
     },
     undefined,
     name(),
@@ -53,15 +74,21 @@ export function startNewConversation() {
 
 export async function switchConversation(id: string) {
   const name = createActionName('conversation', switchConversation);
-  const allMessages = await db.getMessagesByConversation(id);
+  const rows = await db.getMessagesByConversation(id);
   const conv = useStore.getState().conversations.find((c) => c.id === id);
-  const messages = deriveActivePath(allMessages, conv?.activeLeafId);
+  const rootId = conv?.rootId;
+  const hydrated = rootId
+    ? hydrateConversation(rows, rootId)
+    : { map: new Map(), activePath: [] as string[], activeLeafId: null };
+
   useStore.setState(
     (state) => {
       state.currentConversationId = id;
-      state.allMessages = allMessages;
-      state.messages = messages;
-      state.streamingMessage = null;
+      state.messageNodes = hydrated.map;
+      state.rootId = rootId ?? null;
+      state.activePath = hydrated.activePath;
+      state.activeLeafId = hydrated.activeLeafId;
+      state.streamingMessageId = null;
       state.editingMessageId = null;
       state.activeMessageId = null;
       state.error = null;

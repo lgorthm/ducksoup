@@ -1,16 +1,13 @@
 import type { Page } from '@playwright/test';
-import type {
-  Conversation,
-  StoredMessage,
-} from '@/features/chat/types/deepseek';
+import type { Conversation, MessageNode } from '@/stores/models';
 
 const DB_NAME = 'ducksoup-chat';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export async function seedIndexedDB(
   page: Page,
   conversations: Conversation[],
-  messages: StoredMessage[],
+  messages: MessageNode[],
 ): Promise<void> {
   await page.evaluate(
     async ({ conversations, messages, dbName, dbVersion }) => {
@@ -31,6 +28,10 @@ export async function seedIndexedDB(
             });
             msgStore.createIndex('by-conversationId', 'conversationId');
             msgStore.createIndex('by-createdAt', 'createdAt');
+            msgStore.createIndex('by-conversation-parent', [
+              'conversationId',
+              'parentId',
+            ]);
           }
         };
 
@@ -88,6 +89,10 @@ export async function clearIndexedDB(page: Page): Promise<void> {
             });
             msgStore.createIndex('by-conversationId', 'conversationId');
             msgStore.createIndex('by-createdAt', 'createdAt');
+            msgStore.createIndex('by-conversation-parent', [
+              'conversationId',
+              'parentId',
+            ]);
           }
         };
         request.onsuccess = () => {
@@ -118,48 +123,47 @@ export async function clearIndexedDB(page: Page): Promise<void> {
   );
 }
 
-export async function getIndexedDBData(
-  page: Page,
-): Promise<{ conversations: Conversation[]; messages: StoredMessage[] }> {
+export async function getIndexedDBData(page: Page): Promise<{
+  conversations: Conversation[];
+  messages: MessageNode[];
+}> {
   return page.evaluate(
     ({ dbName, dbVersion }) =>
-      new Promise<{ conversations: Conversation[]; messages: StoredMessage[] }>(
-        (resolve, reject) => {
-          const request = indexedDB.open(dbName, dbVersion);
-          request.onsuccess = () => {
-            const db = request.result;
-            const result = {
-              conversations: [] as Conversation[],
-              messages: [] as StoredMessage[],
-            };
-
-            if (!db.objectStoreNames.contains('conversations')) {
-              db.close();
-              resolve(result);
-              return;
-            }
-
-            const tx = db.transaction(
-              ['conversations', 'messages'],
-              'readonly',
-            );
-            const convReq = tx.objectStore('conversations').getAll();
-            const msgReq = tx.objectStore('messages').getAll();
-
-            tx.oncomplete = () => {
-              result.conversations = convReq.result as Conversation[];
-              result.messages = msgReq.result as StoredMessage[];
-              db.close();
-              resolve(result);
-            };
-            tx.onerror = () => {
-              db.close();
-              reject(tx.error);
-            };
+      new Promise<{
+        conversations: Conversation[];
+        messages: MessageNode[];
+      }>((resolve, reject) => {
+        const request = indexedDB.open(dbName, dbVersion);
+        request.onsuccess = () => {
+          const db = request.result;
+          const result = {
+            conversations: [] as Conversation[],
+            messages: [] as MessageNode[],
           };
-          request.onerror = () => reject(request.error);
-        },
-      ),
+
+          if (!db.objectStoreNames.contains('conversations')) {
+            db.close();
+            resolve(result);
+            return;
+          }
+
+          const tx = db.transaction(['conversations', 'messages'], 'readonly');
+          const convReq = tx.objectStore('conversations').getAll();
+          const msgReq = tx.objectStore('messages').getAll();
+
+          tx.oncomplete = () => {
+            result.conversations = convReq.result as Conversation[];
+            result.messages = msgReq.result as MessageNode[];
+            db.close();
+            resolve(result);
+          };
+          tx.onerror = () => {
+            db.close();
+            reject(tx.error);
+          };
+        };
+        request.onerror = () => reject(request.error);
+      }),
     { dbName: DB_NAME, dbVersion: DB_VERSION },
   );
 }

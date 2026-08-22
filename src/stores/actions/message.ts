@@ -1,15 +1,19 @@
-import type {
-  BranchInfo,
-  StoredMessage,
-  StreamingMessage,
-} from '@/features/chat/types/deepseek';
+import type { BranchInfo, Conversation, MessageNode } from '@/stores/models';
 import * as db from '@/features/chat/utils/db';
 import { useStore } from '@/stores';
 import { cancelStream, runStream } from '@/stores/actions/stream';
 import { createActionName } from '@/stores/utils/actionName';
 import { buildApiMessages } from '@/stores/utils/api-messages';
 import { generateId } from '@/stores/utils/ids';
-import { deriveActivePath, deriveBranchInfo } from '@/stores/utils/tree';
+import {
+  appendChild,
+  createRoot,
+  deriveBranchInfo,
+  liveSiblings,
+  rebuildActivePath,
+  resetRoot,
+  switchActiveChild,
+} from '@/stores/utils/tree';
 
 export function setEditingMessage(id: string | null) {
   const name = createActionName('message', setEditingMessage);
@@ -33,91 +37,101 @@ export function toggleActiveMessage(id: string) {
   );
 }
 
+function persistNode(node: MessageNode | undefined) {
+  if (!node) return;
+  db.updateMessage(node).catch(() => {});
+}
+
+function persistNewNode(node: MessageNode | undefined) {
+  if (!node) return;
+  db.addMessage(node).catch(() => {});
+}
+
 export async function sendMessage(content: string, _deepThink?: boolean) {
   const name = createActionName('chat', sendMessage);
-  const { apiKey, currentConversationId, allMessages, conversations } =
+  const { apiKey, currentConversationId, conversations, rootId, activeLeafId } =
     useStore.getState();
   if (!apiKey) return;
 
   cancelStream();
 
   let conv = conversations.find((c) => c.id === currentConversationId) ?? null;
-  const prevLeafId = conv?.activeLeafId ?? null;
+  let createdRoot: MessageNode | null = null;
   if (!conv) {
     const now = Date.now();
+    const convId = generateId();
+    createdRoot = createRoot(convId, generateId(), now);
     conv = {
-      id: generateId(),
+      id: convId,
       title: content.length > 20 ? `${content.slice(0, 20)}...` : content,
       createdAt: now,
       updatedAt: now,
       messageCount: 0,
+      rootId: createdRoot.id,
       activeLeafId: null,
     };
     await db.addConversation(conv);
+    await db.addMessage(createdRoot);
   }
+
   const conversationId = conv.id;
-
-  const userMsg: StoredMessage = {
-    id: generateId(),
-    conversationId,
-    role: 'user',
-    content,
-    createdAt: Date.now(),
-    parentId: prevLeafId,
-    selectedChildId: null,
-  };
+  const currentRootId = createdRoot?.id ?? rootId ?? conv.rootId;
+  const parentId = createdRoot
+    ? createdRoot.id
+    : (activeLeafId ?? currentRootId);
+  const userId = generateId();
   const assistantId = generateId();
-  userMsg.selectedChildId = assistantId;
-  const assistantPlaceholder: StoredMessage = {
-    id: assistantId,
-    conversationId,
-    role: 'assistant',
-    content: '',
-    createdAt: Date.now() + 1,
-    parentId: userMsg.id,
-    selectedChildId: null,
-  };
-  const streamingMsg: StreamingMessage = {
-    id: assistantId,
-    conversationId,
-    role: 'assistant',
-    content: '',
-    reasoningContent: '',
-    createdAt: assistantPlaceholder.createdAt,
-  };
-
-  const newAll = [...allMessages, userMsg, assistantPlaceholder];
-  const baseConversations =
-    conv.id === currentConversationId
-      ? conversations
-      : [...conversations, conv];
+  const now = Date.now();
 
   useStore.setState(
     (state) => {
+      if (createdRoot) {
+        state.messageNodes = new Map([[createdRoot.id, createdRoot]]);
+        state.rootId = createdRoot.id;
+        state.conversations =
+          conv.id === currentConversationId
+            ? state.conversations
+            : [...state.conversations, conv];
+        state.currentConversationId = conversationId;
+      }
+      const tree = state.messageNodes;
+      const userParent = parentId;
+      appendChild(tree, userParent, {
+        id: userId,
+        conversationId,
+        role: 'user',
+        content,
+        createdAt: now,
+        status: 'done',
+      });
+      appendChild(tree, userId, {
+        id: assistantId,
+        conversationId,
+        role: 'assistant',
+        content: '',
+        createdAt: now + 1,
+        status: 'pending',
+      });
+      state.activePath = rebuildActivePath(tree, currentRootId);
+      state.activeLeafId = assistantId;
+      state.streamingMessageId = assistantId;
       state.isLoading = true;
       state.error = null;
-      state.allMessages = newAll;
-      state.messages = deriveActivePath(newAll, userMsg.id);
-      state.streamingMessage = streamingMsg;
-      state.conversations = baseConversations;
-      state.currentConversationId = conversationId;
     },
     undefined,
     name('start'),
   );
 
-  const apiMessages = buildApiMessages(deriveActivePath(newAll, userMsg.id));
+  const state = useStore.getState();
+  persistNewNode(state.messageNodes.get(userId));
+  persistNewNode(state.messageNodes.get(assistantId));
+  persistNode(state.messageNodes.get(parentId));
 
   runStream({
     conversationId,
-    apiMessages,
+    apiMessages: buildApiMessages(state.messageNodes, state.activePath),
     streamingMsgId: assistantId,
-    streamingParentId: userMsg.id,
-    parentUpdate: prevLeafId
-      ? { parentId: prevLeafId, newChildId: userMsg.id }
-      : null,
-    userMsgToPersist: userMsg,
-    messageCountDelta: 2,
+    rootId: currentRootId,
   });
 }
 
@@ -127,7 +141,9 @@ export async function clearMessages() {
   if (!currentConversationId) return;
   await db.clearConversationMessages(currentConversationId);
   const updatedConversations = conversations.map((c) =>
-    c.id === currentConversationId ? { ...c, activeLeafId: null } : c,
+    c.id === currentConversationId
+      ? { ...c, activeLeafId: null, messageCount: 0 }
+      : c,
   );
   const updatedConv = updatedConversations.find(
     (c) => c.id === currentConversationId,
@@ -137,9 +153,14 @@ export async function clearMessages() {
   }
   useStore.setState(
     (state) => {
-      state.allMessages = [];
-      state.messages = [];
-      state.streamingMessage = null;
+      if (state.rootId) {
+        resetRoot(state.messageNodes, state.rootId);
+      } else {
+        state.messageNodes = new Map();
+      }
+      state.activePath = [];
+      state.activeLeafId = null;
+      state.streamingMessageId = null;
       state.editingMessageId = null;
       state.activeMessageId = null;
       state.conversations = updatedConversations;
@@ -152,201 +173,152 @@ export async function clearMessages() {
 export async function editMessage(messageId: string, newContent: string) {
   const name = createActionName('chat', editMessage);
   if (useStore.getState().isLoading) return;
-  const { allMessages } = useStore.getState();
-  const original = allMessages.find((m) => m.id === messageId);
+  const original = useStore.getState().messageNodes.get(messageId);
   if (original?.role !== 'user' || !useStore.getState().apiKey) return;
+  const parentId = original.parentId;
+  if (!parentId) return;
 
   cancelStream();
 
   const conversationId = original.conversationId;
-  const parentId = original.parentId ?? null;
-
-  const newUserMsg: StoredMessage = {
-    id: generateId(),
-    conversationId,
-    role: 'user',
-    content: newContent,
-    createdAt: Date.now(),
-    parentId,
-    selectedChildId: null,
-  };
+  const userId = generateId();
   const assistantId = generateId();
-  newUserMsg.selectedChildId = assistantId;
-  const assistantPlaceholder: StoredMessage = {
-    id: assistantId,
-    conversationId,
-    role: 'assistant',
-    content: '',
-    createdAt: Date.now() + 1,
-    parentId: newUserMsg.id,
-    selectedChildId: null,
-  };
-  const streamingMsg: StreamingMessage = {
-    id: assistantId,
-    conversationId,
-    role: 'assistant',
-    content: '',
-    reasoningContent: '',
-    createdAt: assistantPlaceholder.createdAt,
-  };
+  const now = Date.now();
+  const rootId = useStore.getState().rootId;
+  if (!rootId) return;
 
-  const newAll = [...allMessages, newUserMsg, assistantPlaceholder];
   useStore.setState(
     (state) => {
+      const tree = state.messageNodes;
+      appendChild(tree, parentId, {
+        id: userId,
+        conversationId,
+        role: 'user',
+        content: newContent,
+        createdAt: now,
+        status: 'done',
+      });
+      appendChild(tree, userId, {
+        id: assistantId,
+        conversationId,
+        role: 'assistant',
+        content: '',
+        createdAt: now + 1,
+        status: 'pending',
+      });
+      state.activePath = rebuildActivePath(tree, rootId);
+      state.activeLeafId = assistantId;
+      state.streamingMessageId = assistantId;
       state.isLoading = true;
       state.error = null;
       state.editingMessageId = null;
       state.activeMessageId = null;
-      state.allMessages = newAll;
-      state.messages = deriveActivePath(newAll, newUserMsg.id);
-      state.streamingMessage = streamingMsg;
     },
     undefined,
     name('start'),
   );
 
-  const apiMessages = buildApiMessages(deriveActivePath(newAll, newUserMsg.id));
+  const state = useStore.getState();
+  persistNewNode(state.messageNodes.get(userId));
+  persistNewNode(state.messageNodes.get(assistantId));
+  persistNode(state.messageNodes.get(parentId));
 
   runStream({
     conversationId,
-    apiMessages,
+    apiMessages: buildApiMessages(state.messageNodes, state.activePath),
     streamingMsgId: assistantId,
-    streamingParentId: newUserMsg.id,
-    parentUpdate: parentId ? { parentId, newChildId: newUserMsg.id } : null,
-    userMsgToPersist: newUserMsg,
-    messageCountDelta: 2,
+    rootId,
   });
 }
 
 export async function regenerateMessage(messageId: string) {
   const name = createActionName('chat', regenerateMessage);
   if (useStore.getState().isLoading) return;
-  const { allMessages } = useStore.getState();
-  const original = allMessages.find((m) => m.id === messageId);
+  const original = useStore.getState().messageNodes.get(messageId);
   if (original?.role !== 'assistant' || !useStore.getState().apiKey) return;
+  const parentId = original.parentId;
+  if (!parentId) return;
+  const rootId = useStore.getState().rootId;
+  if (!rootId) return;
 
   cancelStream();
 
   const conversationId = original.conversationId;
-  const parentId = original.parentId ?? null;
-  if (!parentId) return;
-
   const assistantId = generateId();
-  const assistantPlaceholder: StoredMessage = {
-    id: assistantId,
-    conversationId,
-    role: 'assistant',
-    content: '',
-    createdAt: Date.now(),
-    parentId,
-    selectedChildId: null,
-  };
-  const streamingMsg: StreamingMessage = {
-    id: assistantId,
-    conversationId,
-    role: 'assistant',
-    content: '',
-    reasoningContent: '',
-    createdAt: assistantPlaceholder.createdAt,
-  };
+  const now = Date.now();
 
-  const newAll = [...allMessages, assistantPlaceholder];
   useStore.setState(
     (state) => {
+      const tree = state.messageNodes;
+      appendChild(tree, parentId, {
+        id: assistantId,
+        conversationId,
+        role: 'assistant',
+        content: '',
+        createdAt: now,
+        status: 'pending',
+      });
+      state.activePath = rebuildActivePath(tree, rootId);
+      state.activeLeafId = assistantId;
+      state.streamingMessageId = assistantId;
       state.isLoading = true;
       state.error = null;
-      state.allMessages = newAll;
-      state.messages = deriveActivePath(newAll, parentId);
-      state.streamingMessage = streamingMsg;
     },
     undefined,
     name('start'),
   );
 
-  const apiMessages = buildApiMessages(deriveActivePath(newAll, parentId));
+  const state = useStore.getState();
+  persistNewNode(state.messageNodes.get(assistantId));
+  persistNode(state.messageNodes.get(parentId));
 
   runStream({
     conversationId,
-    apiMessages,
+    apiMessages: buildApiMessages(state.messageNodes, state.activePath),
     streamingMsgId: assistantId,
-    streamingParentId: parentId,
-    parentUpdate: { parentId, newChildId: assistantId },
-    userMsgToPersist: null,
-    messageCountDelta: 1,
+    rootId,
   });
 }
 
 export function switchSibling(messageId: string, direction: -1 | 1) {
   const name = createActionName('message', switchSibling);
   if (useStore.getState().isLoading) return;
-  const { allMessages, conversations } = useStore.getState();
-  const msg = allMessages.find((m) => m.id === messageId);
-  if (!msg) return;
+  const { messageNodes, rootId, conversations } = useStore.getState();
+  const msg = messageNodes.get(messageId);
+  if (!msg?.parentId || !rootId) return;
 
-  const info = deriveBranchInfo(allMessages, msg);
-  const targetSiblingId =
-    direction === -1 ? info.prevSiblingId : info.nextSiblingId;
-  if (!targetSiblingId) return;
+  const siblings = liveSiblings(messageNodes, msg.parentId);
+  const idx = siblings.findIndex((s) => s.id === messageId);
+  const target = siblings[idx + direction];
+  if (!target) return;
 
-  const byId = new Map(allMessages.map((m) => [m.id, m]));
-  const seen = new Set<string>();
-  let leaf = byId.get(targetSiblingId);
-  while (leaf?.selectedChildId && !seen.has(leaf.id)) {
-    seen.add(leaf.id);
-    const next = byId.get(leaf.selectedChildId);
-    if (!next) break;
-    leaf = next;
-  }
-  const newLeafId = leaf ? leaf.id : targetSiblingId;
-
-  let nextAll = allMessages;
-  if (msg.parentId) {
-    nextAll = allMessages.map((m) =>
-      m.id === msg.parentId ? { ...m, selectedChildId: targetSiblingId } : m,
-    );
-    const parent = byId.get(msg.parentId);
-    if (parent) {
-      db.updateMessage({
-        ...parent,
-        selectedChildId: targetSiblingId,
-      }).catch(() => {});
-    }
-  }
-
-  const updatedConversations = conversations.map((c) =>
-    c.id === msg.conversationId ? { ...c, activeLeafId: newLeafId } : c,
-  );
-  const updatedConv = updatedConversations.find(
-    (c) => c.id === msg.conversationId,
-  );
-  if (updatedConv) {
-    db.updateConversation(updatedConv).catch(() => {});
-  }
+  const parentId = msg.parentId;
 
   useStore.setState(
     (state) => {
-      state.allMessages = nextAll;
-      state.messages = deriveActivePath(nextAll, newLeafId);
-      state.streamingMessage = null;
+      const leaf = switchActiveChild(state.messageNodes, parentId, target.id);
+      state.activePath = rebuildActivePath(state.messageNodes, rootId);
+      state.activeLeafId = leaf;
+      state.streamingMessageId = null;
       state.editingMessageId = null;
       state.activeMessageId = null;
-      state.conversations = updatedConversations;
+      state.conversations = conversations.map((c) =>
+        c.id === msg.conversationId ? { ...c, activeLeafId: leaf } : c,
+      );
     },
     undefined,
     name(),
   );
+
+  persistNode(useStore.getState().messageNodes.get(parentId));
+  const updatedConv = useStore
+    .getState()
+    .conversations.find((c: Conversation) => c.id === msg.conversationId);
+  if (updatedConv) {
+    db.updateConversation(updatedConv).catch(() => {});
+  }
 }
 
 export function getBranchInfo(messageId: string): BranchInfo {
-  const { allMessages } = useStore.getState();
-  const msg = allMessages.find((m) => m.id === messageId);
-  if (!msg) {
-    return {
-      current: 1,
-      total: 1,
-      prevSiblingId: null,
-      nextSiblingId: null,
-    };
-  }
-  return deriveBranchInfo(allMessages, msg);
+  return deriveBranchInfo(useStore.getState().messageNodes, messageId);
 }

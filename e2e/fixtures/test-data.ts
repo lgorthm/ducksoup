@@ -1,7 +1,4 @@
-import type {
-  Conversation,
-  StoredMessage,
-} from '@/features/chat/types/deepseek';
+import type { Conversation, MessageNode } from '@/stores/models';
 
 let idCounter = 0;
 
@@ -18,6 +15,7 @@ export function generateConversations(count: number): Conversation[] {
     createdAt: now - (count - i) * 1000,
     updatedAt: now - (count - i) * 1000,
     messageCount: 0,
+    rootId: `root-conv-${i}`,
     activeLeafId: null,
   }));
 }
@@ -26,14 +24,16 @@ export function generateConversation(
   overrides: Partial<Conversation> = {},
 ): Conversation {
   const now = Date.now();
+  const id = overrides.id ?? generateId('conv');
   return {
-    id: generateId('conv'),
     title: '测试会话',
     createdAt: now,
     updatedAt: now,
     messageCount: 0,
     activeLeafId: null,
     ...overrides,
+    id,
+    rootId: overrides.rootId ?? `root-${id}`,
   };
 }
 
@@ -41,7 +41,7 @@ export function generateMessages(
   conversationId: string,
   count: number,
   options: { contentLength?: number; withThinking?: boolean } = {},
-): StoredMessage[] {
+): MessageNode[] {
   const { contentLength = 20, withThinking = false } = options;
   const now = Date.now();
   const contents = [
@@ -57,7 +57,21 @@ export function generateMessages(
     '总结一下，核心思路就是这些。',
   ];
 
-  const msgs: StoredMessage[] = [];
+  const rootId = `root-${conversationId}`;
+  const root: MessageNode = {
+    id: rootId,
+    conversationId,
+    role: 'system',
+    parentId: null,
+    childrenIds: [],
+    siblingIndex: 0,
+    activeChildId: null,
+    content: '',
+    status: 'done',
+    createdAt: now - count * 10 - 1,
+  };
+
+  const msgs: MessageNode[] = [];
   for (let i = 0; i < count; i++) {
     const isUser = i % 2 === 0;
     const baseContent = contents[i % contents.length];
@@ -68,14 +82,17 @@ export function generateMessages(
             .slice(0, contentLength)
         : baseContent;
 
-    const msg: StoredMessage = {
+    const msg: MessageNode = {
       id: generateId('msg'),
       conversationId,
       role: isUser ? 'user' : 'assistant',
-      content,
-      createdAt: now - (count - i) * 10,
       parentId: null,
-      selectedChildId: null,
+      childrenIds: [],
+      siblingIndex: 0,
+      activeChildId: null,
+      content,
+      status: 'done',
+      createdAt: now - (count - i) * 10,
     };
 
     if (!isUser && withThinking) {
@@ -85,26 +102,36 @@ export function generateMessages(
     msgs.push(msg);
   }
 
-  // 链式化树结构：parentId 指向前一条，selectedChildId 指向下一条
+  if (msgs.length > 0) {
+    msgs[0].parentId = rootId;
+    msgs[0].siblingIndex = 0;
+    root.activeChildId = msgs[0].id;
+  }
   for (let i = 0; i < msgs.length; i++) {
-    msgs[i].parentId = i > 0 ? msgs[i - 1].id : null;
-    msgs[i].selectedChildId = i < msgs.length - 1 ? msgs[i + 1].id : null;
+    if (i > 0) {
+      msgs[i].parentId = msgs[i - 1].id;
+      msgs[i].siblingIndex = 0;
+    }
+    msgs[i].activeChildId = i < msgs.length - 1 ? msgs[i + 1].id : null;
   }
 
-  return msgs;
+  return [root, ...msgs];
 }
 
 export function generateMessage(
-  overrides: Partial<StoredMessage> = {},
-): StoredMessage {
+  overrides: Partial<MessageNode> = {},
+): MessageNode {
   return {
     id: generateId('msg'),
     conversationId: 'conv-test',
     role: 'user',
-    content: '测试消息',
-    createdAt: Date.now(),
     parentId: null,
-    selectedChildId: null,
+    childrenIds: [],
+    siblingIndex: 0,
+    activeChildId: null,
+    content: '测试消息',
+    status: 'done',
+    createdAt: Date.now(),
     ...overrides,
   };
 }

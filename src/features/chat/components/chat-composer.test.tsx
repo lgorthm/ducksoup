@@ -64,7 +64,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   useStore.setState({
     isLoading: false,
-    streamingMessage: null,
+    streamingMessageId: null,
     deepThink: false,
   });
 });
@@ -109,14 +109,7 @@ describe('ChatComposer', () => {
   it('流式时透传 isStreaming，取消按钮调用 cancelStream', () => {
     useStore.setState({
       isLoading: true,
-      streamingMessage: {
-        id: 's1',
-        conversationId: 'c1',
-        role: 'assistant',
-        content: '流式中',
-        reasoningContent: '',
-        createdAt: Date.now(),
-      },
+      streamingMessageId: 's1',
     });
     render(<ChatComposer />);
     expect(screen.getByTestId('chat-input')).toHaveAttribute(

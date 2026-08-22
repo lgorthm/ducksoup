@@ -1,15 +1,12 @@
 import type { Page } from '@playwright/test';
 import { clearIndexedDB, seedIndexedDB } from '../fixtures/db-seed';
-import type {
-  Conversation,
-  StoredMessage,
-} from '@/features/chat/types/deepseek';
+import type { Conversation, MessageNode } from '@/stores/models';
 
 export async function setupApp(
   page: Page,
   options: {
     conversations?: Conversation[];
-    messages?: StoredMessage[];
+    messages?: MessageNode[];
   } = {},
 ): Promise<void> {
   // 第一阶段：加载应用并设置 localStorage

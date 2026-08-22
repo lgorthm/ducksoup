@@ -1,16 +1,19 @@
-import type {
-  StoredMessage,
-  StreamingMessage,
-} from '@/features/chat/types/deepseek';
-import { initialMessageState, type MessageState } from '@/stores/models';
+import {
+  createInitialMessageState,
+  type MessageId,
+  type MessageNode,
+  type MessageState,
+} from '@/stores/models';
 import type { SliceCreator } from '@/stores/slices/settings';
 
 export interface MessageSlice extends MessageState {
   setMessageTreeState: (
-    allMessages: StoredMessage[],
-    messages: StoredMessage[],
+    messageNodes: Map<MessageId, MessageNode>,
+    rootId: MessageId | null,
+    activePath: MessageId[],
+    activeLeafId: MessageId | null,
   ) => void;
-  setStreamingMessageState: (streamingMessage: StreamingMessage | null) => void;
+  setStreamingMessageIdState: (id: MessageId | null) => void;
   setEditingMessageIdState: (id: string | null) => void;
   setActiveMessageIdState: (id: string | null) => void;
   setLoadingState: (isLoading: boolean) => void;
@@ -18,25 +21,27 @@ export interface MessageSlice extends MessageState {
 }
 
 export const createMessageSlice: SliceCreator<MessageSlice> = (set) => ({
-  ...initialMessageState,
+  ...createInitialMessageState(),
 
-  setMessageTreeState: (allMessages, messages) =>
+  setMessageTreeState: (messageNodes, rootId, activePath, activeLeafId) =>
     set(
       (state) => {
-        state.allMessages = allMessages;
-        state.messages = messages;
+        state.messageNodes = messageNodes;
+        state.rootId = rootId;
+        state.activePath = activePath;
+        state.activeLeafId = activeLeafId;
       },
       undefined,
       'message/setMessageTreeState',
     ),
 
-  setStreamingMessageState: (streamingMessage) =>
+  setStreamingMessageIdState: (id) =>
     set(
       (state) => {
-        state.streamingMessage = streamingMessage;
+        state.streamingMessageId = id;
       },
       undefined,
-      'message/setStreamingMessageState',
+      'message/setStreamingMessageIdState',
     ),
 
   setEditingMessageIdState: (id) =>

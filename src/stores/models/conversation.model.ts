@@ -1,4 +1,14 @@
-import type { Conversation } from '@/features/chat/types/deepseek';
+import type { MessageId } from './message.model';
+
+export interface Conversation {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messageCount: number;
+  rootId: MessageId;
+  activeLeafId: MessageId | null;
+}
 
 export interface ConversationState {
   conversations: Conversation[];

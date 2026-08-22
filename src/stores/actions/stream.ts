@@ -1,8 +1,5 @@
-import type {
-  ChatMessage,
-  Conversation,
-  StoredMessage,
-} from '@/features/chat/types/deepseek';
+import type { ChatMessage } from '@/features/chat/types/deepseek';
+import type { Conversation } from '@/stores/models';
 import {
   createChatStream,
   type ChatStreamEvent,
@@ -14,7 +11,7 @@ import {
   getActiveController,
   setActiveController,
 } from '@/stores/utils/stream-controller';
-import { deriveActivePath } from '@/stores/utils/tree';
+import { countVisibleMessages } from '@/stores/utils/tree';
 
 export function cancelStream() {
   const controller = getActiveController();
@@ -28,25 +25,10 @@ export function runStream(opts: {
   conversationId: string;
   apiMessages: ChatMessage[];
   streamingMsgId: string;
-  streamingParentId: string | null;
-  parentUpdate: { parentId: string; newChildId: string } | null;
-  userMsgToPersist?: StoredMessage | null;
-  messageCountDelta: number;
+  rootId: string;
 }) {
   const name = createActionName('chat', runStream);
-  const {
-    conversationId,
-    apiMessages,
-    streamingParentId,
-    parentUpdate,
-    userMsgToPersist,
-    messageCountDelta,
-  } = opts;
-
-  if (userMsgToPersist) {
-    db.addMessage(userMsgToPersist).catch(() => {});
-  }
-
+  const { conversationId, apiMessages, streamingMsgId, rootId } = opts;
   const { apiKey, selectedModel, deepThink } = useStore.getState();
 
   const controller = createChatStream({
@@ -59,8 +41,12 @@ export function runStream(opts: {
         case 'thinking':
           useStore.setState(
             (state) => {
-              if (state.streamingMessage) {
-                state.streamingMessage.reasoningContent += event.text;
+              const node = state.streamingMessageId
+                ? state.messageNodes.get(state.streamingMessageId)
+                : undefined;
+              if (node) {
+                node.reasoningContent =
+                  (node.reasoningContent ?? '') + event.text;
               }
             },
             undefined,
@@ -71,8 +57,11 @@ export function runStream(opts: {
         case 'content':
           useStore.setState(
             (state) => {
-              if (state.streamingMessage) {
-                state.streamingMessage.content += event.text;
+              const node = state.streamingMessageId
+                ? state.messageNodes.get(state.streamingMessageId)
+                : undefined;
+              if (node) {
+                node.content += event.text;
               }
             },
             undefined,
@@ -81,74 +70,52 @@ export function runStream(opts: {
           break;
 
         case 'done': {
-          const finalStreaming = useStore.getState().streamingMessage;
-          if (!finalStreaming) break;
-
-          const entry = useStore
-            .getState()
-            .allMessages.find((m) => m.id === finalStreaming.id);
-          const assistantMsg: StoredMessage = {
-            id: finalStreaming.id,
-            conversationId,
-            role: 'assistant',
-            content: finalStreaming.content,
-            reasoningContent: finalStreaming.reasoningContent || undefined,
-            createdAt: finalStreaming.createdAt,
-            parentId: entry?.parentId ?? null,
-            selectedChildId: entry?.selectedChildId ?? null,
-          };
-          db.addMessage(assistantMsg).catch(() => {});
-
-          let nextAll = useStore
-            .getState()
-            .allMessages.map((m) =>
-              m.id === assistantMsg.id ? assistantMsg : m,
-            );
-          if (parentUpdate) {
-            nextAll = nextAll.map((m) =>
-              m.id === parentUpdate.parentId
-                ? { ...m, selectedChildId: parentUpdate.newChildId }
-                : m,
-            );
-            const parent = useStore
-              .getState()
-              .allMessages.find((m) => m.id === parentUpdate.parentId);
-            if (parent) {
-              db.updateMessage({
-                ...parent,
-                selectedChildId: parentUpdate.newChildId,
-              }).catch(() => {});
-            }
-          }
-
-          const conversations = useStore.getState().conversations.map((c) =>
-            c.id === conversationId
-              ? {
-                  ...c,
-                  activeLeafId: assistantMsg.id,
-                  updatedAt: Date.now(),
-                  messageCount: c.messageCount + messageCountDelta,
-                }
-              : c,
-          );
-          const updatedConv = conversations.find(
-            (c) => c.id === conversationId,
-          );
-          if (updatedConv) {
-            db.updateConversation(updatedConv).catch(() => {});
-          }
+          const node = useStore.getState().messageNodes.get(streamingMsgId);
+          if (!node) break;
 
           useStore.setState(
             (state) => {
-              state.allMessages = nextAll;
-              state.messages = deriveActivePath(nextAll, assistantMsg.id);
-              state.streamingMessage = null;
+              const current = state.messageNodes.get(streamingMsgId);
+              if (current) {
+                current.status = 'done';
+                if (!current.reasoningContent) {
+                  current.reasoningContent = undefined;
+                }
+              }
+              state.streamingMessageId = null;
               state.isLoading = false;
-              state.conversations = conversations;
+              const messageCount = countVisibleMessages(
+                state.messageNodes,
+                rootId,
+              );
+              state.conversations = state.conversations.map(
+                (c: Conversation) =>
+                  c.id === conversationId
+                    ? {
+                        ...c,
+                        activeLeafId: streamingMsgId,
+                        updatedAt: Date.now(),
+                        messageCount,
+                      }
+                    : c,
+              );
             },
             undefined,
             name('done'),
           );
+
+          const finalNode = useStore
+            .getState()
+            .messageNodes.get(streamingMsgId);
+          if (finalNode) {
+            db.updateMessage(finalNode).catch(() => {});
+          }
+          const updatedConv = useStore
+            .getState()
+            .conversations.find((c: Conversation) => c.id === conversationId);
+          if (updatedConv) {
+            db.updateConversation(updatedConv).catch(() => {});
+          }
           setActiveController(null);
           break;
         }
@@ -156,26 +123,30 @@ export function runStream(opts: {
         case 'error':
           useStore.setState(
             (state) => {
-              const conv = state.conversations.find(
-                (c: Conversation) => c.id === conversationId,
-              );
-              state.streamingMessage = null;
+              const current = state.messageNodes.get(streamingMsgId);
+              if (current) {
+                current.status = 'error';
+              }
+              state.streamingMessageId = null;
               state.isLoading = false;
               state.error = event.error.message;
-              state.messages = deriveActivePath(
-                state.allMessages,
-                conv?.activeLeafId,
-              );
             },
             undefined,
             name('error'),
           );
+          {
+            const errNode = useStore
+              .getState()
+              .messageNodes.get(streamingMsgId);
+            if (errNode) {
+              db.updateMessage(errNode).catch(() => {});
+            }
+          }
           setActiveController(null);
           break;
       }
     },
   });
 
-  void streamingParentId;
   setActiveController(controller);
 }

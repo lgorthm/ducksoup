@@ -1,9 +1,8 @@
-import type { StoredMessage } from '@/features/chat/types/deepseek';
 import * as db from '@/features/chat/utils/db';
 import { useStore } from '@/stores';
 import { createActionName } from '@/stores/utils/actionName';
 import { API_KEY_STORAGE_KEY } from '@/stores/utils/constants';
-import { deriveActivePath } from '@/stores/utils/tree';
+import { hydrateConversation } from '@/stores/utils/tree';
 
 export async function init() {
   const name = createActionName('chat', init);
@@ -17,12 +16,12 @@ export async function init() {
         ? conversations[conversations.length - 1].id
         : null;
 
-    let allMessages: StoredMessage[] = [];
-    if (currentId) {
-      allMessages = await db.getMessagesByConversation(currentId);
-    }
     const conv = conversations.find((c) => c.id === currentId);
-    const messages = deriveActivePath(allMessages, conv?.activeLeafId);
+    const rows = currentId ? await db.getMessagesByConversation(currentId) : [];
+    const rootId = conv?.rootId;
+    const hydrated = rootId
+      ? hydrateConversation(rows, rootId)
+      : { map: new Map(), activePath: [] as string[], activeLeafId: null };
 
     useStore.setState(
       (state) => {
@@ -30,10 +29,12 @@ export async function init() {
         state.hasApiKey = hasKey;
         state.conversations = conversations;
         state.currentConversationId = currentId;
-        state.allMessages = allMessages;
-        state.messages = messages;
+        state.messageNodes = hydrated.map;
+        state.rootId = rootId ?? null;
+        state.activePath = hydrated.activePath;
+        state.activeLeafId = hydrated.activeLeafId;
         state.initialized = true;
-        state.streamingMessage = null;
+        state.streamingMessageId = null;
         state.editingMessageId = null;
         state.activeMessageId = null;
         state.error = null;

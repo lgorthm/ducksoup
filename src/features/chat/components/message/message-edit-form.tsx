@@ -4,12 +4,12 @@ import { useTranslation } from 'react-i18next';
 import { ArrowUp, Loader2, X } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
-import type { StoredMessage } from '@/features/chat/types/deepseek';
+import type { MessageNode } from '@/stores/models';
 import { editMessage, setEditingMessage } from '@/stores/actions';
 import { useEditFormState } from '@/stores/selectors';
 
 interface EditFormProps {
-  message: StoredMessage;
+  message: MessageNode;
 }
 
 export const EditForm = memo(function EditForm({ message }: EditFormProps) {

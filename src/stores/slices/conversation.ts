@@ -1,4 +1,4 @@
-import type { Conversation } from '@/features/chat/types/deepseek';
+import type { Conversation } from '@/stores/models';
 import {
   initialConversationState,
   type ConversationState,

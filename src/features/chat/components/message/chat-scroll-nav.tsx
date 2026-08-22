@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useMediaQuery } from '@/shared/hooks/use-media-query';
 import { cn } from '@/shared/lib/utils';
 import { useStore } from '@/stores';
+import { pathNodes } from '@/stores/utils/tree';
 import type { ChatListController } from '@/features/chat/hooks/use-chat-list-controller';
 
 /** 导航栏中每条用户消息的元数据 */
@@ -57,7 +58,12 @@ interface PreviewState {
 export function ChatScrollNav({ controllerRef }: ChatScrollNavProps) {
   const { t } = useTranslation();
   const isWideScreen = useMediaQuery(`(min-width: ${MIN_VIEWPORT_WIDTH}px)`);
-  const messages = useStore((s) => s.messages);
+  const activePath = useStore((s) => s.activePath);
+  const messageNodes = useStore((s) => s.messageNodes);
+  const messages = useMemo(
+    () => pathNodes(messageNodes, activePath),
+    [messageNodes, activePath],
+  );
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [preview, setPreview] = useState<PreviewState | null>(null);
 

@@ -8,12 +8,13 @@ import {
 import type { ReactNode, RefObject } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChatMessage } from './chat-message';
-import type { BranchInfo, StoredMessage } from '@/features/chat/types/deepseek';
+import type { BranchInfo } from '@/stores/models';
 import {
   useChatListController,
   type ChatListController,
 } from '@/features/chat/hooks/use-chat-list-controller';
 import { useMessageListState } from '@/stores/selectors';
+import { deriveBranchInfo } from '@/stores/utils/tree';
 
 interface ChatMessageListProps {
   children?: ReactNode;
@@ -26,37 +27,18 @@ export function ChatMessageList({
   controllerRef,
 }: ChatMessageListProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const { messages, streamingMessage, allMessages, editingMessageId } =
+  const { messages, messageNodes, editingMessageId, streamingMessageId } =
     useMessageListState();
 
-  // 由全树派生每条消息的分支信息，避免每条 ChatMessage 各自订阅 store
   const branchInfoMap = useMemo(() => {
     const map: Record<string, BranchInfo> = {};
-    // 按 parentId 分组兄弟（root 消息 parentId 为 null/undefined）
-    const byParent = new Map<string | null, StoredMessage[]>();
-    for (const m of allMessages) {
-      const key = m.parentId ?? null;
-      const list = byParent.get(key) ?? [];
-      list.push(m);
-      byParent.set(key, list);
-    }
-    for (const siblings of byParent.values()) {
-      siblings.sort((a, b) => a.createdAt - b.createdAt);
-      for (let i = 0; i < siblings.length; i++) {
-        const m = siblings[i];
-        map[m.id] = {
-          current: i + 1,
-          total: siblings.length,
-          prevSiblingId: i > 0 ? siblings[i - 1].id : null,
-          nextSiblingId: i < siblings.length - 1 ? siblings[i + 1].id : null,
-        };
-      }
+    for (const m of messages) {
+      map[m.id] = deriveBranchInfo(messageNodes, m.id);
     }
     return map;
-  }, [allMessages]);
+  }, [messages, messageNodes]);
 
-  // 总条目数 = 历史消息 + 可能存在的流式消息
-  const totalCount = messages.length + (streamingMessage ? 1 : 0);
+  const totalCount = messages.length;
   // 当前激活路径上"最后一条用户消息"与"最后一条 AI 回复"的下标；
   // 这两条消息与有分支的消息操作栏常显；其余消息在 hover/focus 时显示，
   // 移动端（主输入不可 hover）通过点击消息气泡逐条激活显示。
@@ -155,34 +137,10 @@ export function ChatMessageList({
         className="relative mx-auto w-full max-w-[744px]"
       >
         {virtualItems.map((virtualItem) => {
-          const isStreaming =
-            streamingMessage != null && virtualItem.index === messages.length;
-
-          if (isStreaming) {
-            return (
-              <div
-                key={`streaming-${streamingMessage!.id}`}
-                data-testid="message-item"
-                data-index={virtualItem.index}
-                ref={virtualizer.measureElement}
-                className="group absolute top-0 left-0 w-full pr-4 pb-4 pl-4"
-              >
-                <ChatMessage
-                  message={{
-                    id: streamingMessage!.id,
-                    conversationId: streamingMessage!.conversationId,
-                    role: 'assistant',
-                    content: streamingMessage!.content,
-                    reasoningContent: streamingMessage!.reasoningContent,
-                    createdAt: streamingMessage!.createdAt,
-                  }}
-                  isStreaming
-                />
-              </div>
-            );
-          }
-
           const msg = messages[virtualItem.index];
+          const isStreaming =
+            msg.status === 'pending' || msg.id === streamingMessageId;
+
           return (
             <div
               key={msg.id}
@@ -193,6 +151,7 @@ export function ChatMessageList({
             >
               <ChatMessage
                 message={msg}
+                isStreaming={isStreaming}
                 branchInfo={branchInfoMap[msg.id]}
                 isEditing={editingMessageId === msg.id}
                 isLast={

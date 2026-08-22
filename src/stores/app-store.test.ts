@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type {
-  Conversation,
-  StoredMessage,
-} from '@/features/chat/types/deepseek';
+import type { Conversation, MessageNode } from '@/stores/models';
+import {
+  createInitialMessageState,
+  initialConversationState,
+  initialSettingsState,
+} from '@/stores/models';
 import { useStore } from '@/stores';
 import {
   init,
@@ -23,19 +25,18 @@ import {
   getBranchInfo,
   toggleActiveMessage,
 } from '@/stores/actions';
-import {
-  initialSettingsState,
-  initialConversationState,
-  initialMessageState,
-} from '@/stores/models';
 import * as db from '@/features/chat/utils/db';
 import { createChatStream } from '@/features/chat/utils/chat-stream';
 import type {
   ChatStreamEvent,
   ChatStreamController,
 } from '@/features/chat/utils/chat-stream';
-
-// ========== Mock 模块 ==========
+import {
+  appendChild,
+  createRoot,
+  pathNodes,
+  rebuildActivePath,
+} from '@/stores/utils/tree';
 
 vi.mock('@/features/chat/utils/chat-stream', () => ({
   createChatStream: vi.fn(),
@@ -53,8 +54,6 @@ vi.mock('@/features/chat/utils/db', () => ({
   updateMessage: vi.fn(),
 }));
 
-// ========== 辅助 ==========
-
 let capturedOnEvent: (event: ChatStreamEvent) => void;
 const mockAbort = vi.fn();
 const mockController: ChatStreamController = {
@@ -64,35 +63,79 @@ const mockController: ChatStreamController = {
 
 function makeConversation(overrides: Partial<Conversation> = {}): Conversation {
   const now = Date.now();
+  const id = overrides.id ?? `conv-${Math.random().toString(36).slice(2, 9)}`;
   return {
-    id: `conv-${Math.random().toString(36).slice(2, 9)}`,
     title: '测试会话',
     createdAt: now,
     updatedAt: now,
     messageCount: 0,
+    activeLeafId: null,
     ...overrides,
+    id,
+    rootId: overrides.rootId ?? `root-${id}`,
   };
 }
 
-function makeMessage(overrides: Partial<StoredMessage> = {}): StoredMessage {
-  return {
-    id: `msg-${Math.random().toString(36).slice(2, 9)}`,
+function visible(state = useStore.getState()) {
+  return pathNodes(state.messageNodes, state.activePath);
+}
+
+function seedEmptyConv(id = 'c1') {
+  const root = createRoot(id, `root-${id}`);
+  const conv = makeConversation({ id, rootId: root.id });
+  useStore.setState({
+    apiKey: 'test-key',
+    hasApiKey: true,
+    conversations: [conv],
+    currentConversationId: id,
+    messageNodes: new Map([[root.id, root]]),
+    rootId: root.id,
+    activeLeafId: null,
+    activePath: [],
+  });
+  return { root, conv };
+}
+
+function seedQa(opts?: { userContent?: string; assistantContent?: string }) {
+  const map = new Map<string, MessageNode>();
+  const root = createRoot('c1', 'root');
+  map.set(root.id, root);
+  appendChild(map, 'root', {
+    id: 'u1',
     conversationId: 'c1',
     role: 'user',
-    content: '测试',
-    createdAt: Date.now(),
-    ...overrides,
-  };
+    content: opts?.userContent ?? '问题1',
+    createdAt: 1,
+  });
+  appendChild(map, 'u1', {
+    id: 'a1',
+    conversationId: 'c1',
+    role: 'assistant',
+    content: opts?.assistantContent ?? '回答1',
+    createdAt: 2,
+  });
+  const path = rebuildActivePath(map, 'root');
+  useStore.setState({
+    apiKey: 'test-key',
+    hasApiKey: true,
+    currentConversationId: 'c1',
+    conversations: [
+      makeConversation({ id: 'c1', rootId: 'root', activeLeafId: 'a1' }),
+    ],
+    messageNodes: map,
+    rootId: 'root',
+    activePath: path,
+    activeLeafId: 'a1',
+  });
+  return map;
 }
 
-const initialState = {
-  ...initialSettingsState,
-  ...initialConversationState,
-  ...initialMessageState,
-};
-
 beforeEach(() => {
-  useStore.setState(initialState);
+  useStore.setState({
+    ...initialSettingsState,
+    ...initialConversationState,
+    ...createInitialMessageState(),
+  });
   vi.clearAllMocks();
 
   vi.mocked(createChatStream).mockImplementation((options) => {
@@ -100,8 +143,6 @@ beforeEach(() => {
     return mockController;
   });
 });
-
-// ========== init ==========
 
 describe('init', () => {
   it('有会话时选中最后一个作为当前会话', async () => {
@@ -121,7 +162,7 @@ describe('init', () => {
     expect(state.hasApiKey).toBe(true);
   });
 
-  it('无会话时不自动创建，保持 null + 空数组', async () => {
+  it('无会话时不自动创建，保持 null + 空树', async () => {
     vi.mocked(db.getAllConversations).mockResolvedValue([]);
 
     await init();
@@ -130,7 +171,7 @@ describe('init', () => {
     const state = useStore.getState();
     expect(state.currentConversationId).toBeNull();
     expect(state.conversations).toEqual([]);
-    expect(state.messages).toEqual([]);
+    expect(state.activePath).toEqual([]);
   });
 
   it('DB 失败时仍设置 apiKey', async () => {
@@ -145,8 +186,6 @@ describe('init', () => {
     expect(state.initialized).toBe(true);
   });
 });
-
-// ========== API Key ==========
 
 describe('setApiKey / clearApiKey', () => {
   it('setApiKey 持久化到 localStorage 并更新 state', () => {
@@ -167,16 +206,12 @@ describe('setApiKey / clearApiKey', () => {
   });
 });
 
-// ========== setModel ==========
-
 describe('setModel', () => {
   it('更新 selectedModel', () => {
     setModel('deepseek-v4-pro');
     expect(useStore.getState().selectedModel).toBe('deepseek-v4-pro');
   });
 });
-
-// ========== toggleDeepThink ==========
 
 describe('toggleDeepThink', () => {
   it('切换 deepThink 状态', () => {
@@ -188,59 +223,71 @@ describe('toggleDeepThink', () => {
   });
 });
 
-// ========== createConversation ==========
-
 describe('createConversation', () => {
   it('写入 DB 并设为当前会话', async () => {
     vi.mocked(db.addConversation).mockResolvedValue(undefined);
+    vi.mocked(db.addMessage).mockResolvedValue(undefined);
 
     await createConversation();
 
     expect(db.addConversation).toHaveBeenCalledOnce();
+    expect(db.addMessage).toHaveBeenCalledOnce();
     const state = useStore.getState();
     expect(state.currentConversationId).toBeTruthy();
     expect(state.conversations).toHaveLength(1);
-    expect(state.messages).toEqual([]);
-    expect(state.streamingMessage).toBeNull();
+    expect(state.rootId).toBeTruthy();
+    expect(state.activePath).toEqual([]);
+    expect(state.streamingMessageId).toBeNull();
   });
 });
 
-// ========== startNewConversation ==========
-
 describe('startNewConversation', () => {
   it('设 currentConversationId 为 null 且不写 DB', () => {
+    seedEmptyConv('c1');
     useStore.setState({
-      conversations: [makeConversation({ id: 'c1' })],
-      currentConversationId: 'c1',
-      messages: [makeMessage()],
+      activePath: ['u1'],
     });
 
     startNewConversation();
 
     const state = useStore.getState();
     expect(state.currentConversationId).toBeNull();
-    expect(state.messages).toEqual([]);
-    expect(state.streamingMessage).toBeNull();
+    expect(state.activePath).toEqual([]);
+    expect(state.streamingMessageId).toBeNull();
     expect(state.error).toBeNull();
     expect(db.addConversation).not.toHaveBeenCalled();
   });
 });
 
-// ========== switchConversation ==========
-
 describe('switchConversation', () => {
-  it('从 DB 加载消息并清空 streamingMessage', async () => {
-    const msgs = [makeMessage({ id: 'm1', content: '历史消息' })];
-    vi.mocked(db.getMessagesByConversation).mockResolvedValue(msgs);
+  it('从 DB 加载消息并清空 streamingMessageId', async () => {
+    const root = createRoot('c2', 'root-c2');
+    root.activeChildId = 'm1';
+    const m1: MessageNode = {
+      id: 'm1',
+      conversationId: 'c2',
+      role: 'user',
+      parentId: 'root-c2',
+      childrenIds: [],
+      siblingIndex: 0,
+      activeChildId: null,
+      content: '历史消息',
+      status: 'done',
+      createdAt: 1,
+    };
+    useStore.setState({
+      conversations: [makeConversation({ id: 'c2', rootId: 'root-c2' })],
+    });
+    vi.mocked(db.getMessagesByConversation).mockResolvedValue([root, m1]);
 
     await switchConversation('c2');
 
     expect(db.getMessagesByConversation).toHaveBeenCalledWith('c2');
     const state = useStore.getState();
     expect(state.currentConversationId).toBe('c2');
-    expect(state.allMessages).toBe(msgs);
-    expect(state.messages).toEqual(msgs);
-    expect(state.streamingMessage).toBeNull();
+    expect(state.activePath).toEqual(['m1']);
+    expect(state.messageNodes.get('m1')?.content).toBe('历史消息');
+    expect(state.streamingMessageId).toBeNull();
     expect(state.error).toBeNull();
   });
 
@@ -253,8 +300,6 @@ describe('switchConversation', () => {
     expect(useStore.getState().activeMessageId).toBeNull();
   });
 });
-
-// ========== toggleActiveMessage ==========
 
 describe('toggleActiveMessage', () => {
   it('激活指定消息，再次调用取消激活', () => {
@@ -272,8 +317,6 @@ describe('toggleActiveMessage', () => {
   });
 });
 
-// ========== deleteConversation ==========
-
 describe('deleteConversation', () => {
   it('删除当前会话时调用 startNewConversation（即使还有其他会话）', async () => {
     const c1 = makeConversation({ id: 'c1', updatedAt: 100 });
@@ -281,7 +324,7 @@ describe('deleteConversation', () => {
     useStore.setState({
       conversations: [c1, c2],
       currentConversationId: 'c2',
-      messages: [makeMessage({ id: 'm1' })],
+      activePath: ['m1'],
     });
     vi.mocked(db.deleteConversation).mockResolvedValue(undefined);
 
@@ -290,8 +333,8 @@ describe('deleteConversation', () => {
     const state = useStore.getState();
     expect(state.conversations).toHaveLength(1);
     expect(state.currentConversationId).toBeNull();
-    expect(state.messages).toEqual([]);
-    expect(state.streamingMessage).toBeNull();
+    expect(state.activePath).toEqual([]);
+    expect(state.streamingMessageId).toBeNull();
     expect(db.getMessagesByConversation).not.toHaveBeenCalled();
     expect(db.addConversation).not.toHaveBeenCalled();
   });
@@ -309,7 +352,7 @@ describe('deleteConversation', () => {
     const state = useStore.getState();
     expect(state.conversations).toHaveLength(0);
     expect(state.currentConversationId).toBeNull();
-    expect(state.messages).toEqual([]);
+    expect(state.activePath).toEqual([]);
     expect(db.addConversation).not.toHaveBeenCalled();
   });
 
@@ -319,7 +362,7 @@ describe('deleteConversation', () => {
     useStore.setState({
       conversations: [c1, c2],
       currentConversationId: 'c1',
-      messages: [makeMessage({ id: 'm1' })],
+      activePath: ['m1'],
     });
     vi.mocked(db.deleteConversation).mockResolvedValue(undefined);
 
@@ -328,22 +371,16 @@ describe('deleteConversation', () => {
     const state = useStore.getState();
     expect(state.conversations).toHaveLength(1);
     expect(state.currentConversationId).toBe('c1');
-    expect(state.messages).toHaveLength(1);
+    expect(state.activePath).toHaveLength(1);
     expect(db.getMessagesByConversation).not.toHaveBeenCalled();
   });
 });
 
-// ========== sendMessage ==========
-
 describe('sendMessage', () => {
   beforeEach(() => {
-    useStore.setState({
-      apiKey: 'test-key',
-      hasApiKey: true,
-      conversations: [makeConversation({ id: 'c1' })],
-      currentConversationId: 'c1',
-    });
+    seedEmptyConv('c1');
     vi.mocked(db.addMessage).mockResolvedValue(undefined);
+    vi.mocked(db.updateMessage).mockResolvedValue(undefined);
     vi.mocked(db.updateConversation).mockResolvedValue(undefined);
   });
 
@@ -354,7 +391,13 @@ describe('sendMessage', () => {
   });
 
   it('无当前会话时惰性创建', async () => {
-    useStore.setState({ currentConversationId: null });
+    useStore.setState({
+      ...createInitialMessageState(),
+      apiKey: 'test-key',
+      hasApiKey: true,
+      currentConversationId: null,
+      conversations: [],
+    });
     vi.mocked(db.addConversation).mockResolvedValue(undefined);
 
     await sendMessage('第一条消息');
@@ -366,7 +409,13 @@ describe('sendMessage', () => {
   });
 
   it('长标题截断为 20 字符', async () => {
-    useStore.setState({ currentConversationId: null });
+    useStore.setState({
+      ...createInitialMessageState(),
+      apiKey: 'test-key',
+      hasApiKey: true,
+      currentConversationId: null,
+      conversations: [],
+    });
     vi.mocked(db.addConversation).mockResolvedValue(undefined);
 
     const longContent = '这是一段非常非常长的消息内容超过二十个字符';
@@ -376,55 +425,55 @@ describe('sendMessage', () => {
     expect(conv.title).toBe(`${longContent.slice(0, 20)}...`);
   });
 
-  it('发送后设置 isLoading 和 streamingMessage', async () => {
+  it('发送后设置 isLoading 和 pending assistant', async () => {
     await sendMessage('hello');
 
     const state = useStore.getState();
     expect(state.isLoading).toBe(true);
-    expect(state.streamingMessage).not.toBeNull();
-    expect(state.streamingMessage!.content).toBe('');
-    expect(state.streamingMessage!.reasoningContent).toBe('');
-    expect(state.messages).toHaveLength(1);
-    expect(state.messages[0].role).toBe('user');
-    expect(state.messages[0].content).toBe('hello');
+    expect(state.streamingMessageId).not.toBeNull();
+    const msgs = visible(state);
+    expect(msgs).toHaveLength(2);
+    expect(msgs[0].role).toBe('user');
+    expect(msgs[0].content).toBe('hello');
+    expect(msgs[1].role).toBe('assistant');
+    expect(msgs[1].status).toBe('pending');
+    expect(msgs[1].content).toBe('');
   });
 
   it('thinking 事件累积到 reasoningContent', async () => {
     await sendMessage('hello');
+    capturedOnEvent({ type: 'thinking', text: '思考中' });
 
-    capturedOnEvent({
-      type: 'thinking',
-      text: '思考中',
-    });
-
-    expect(useStore.getState().streamingMessage!.reasoningContent).toBe(
+    const id = useStore.getState().streamingMessageId!;
+    expect(useStore.getState().messageNodes.get(id)!.reasoningContent).toBe(
       '思考中',
     );
   });
 
   it('content 事件追加到 content', async () => {
     await sendMessage('hello');
-
     capturedOnEvent({ type: 'content', text: '你好' });
     capturedOnEvent({ type: 'content', text: '世界' });
 
-    expect(useStore.getState().streamingMessage!.content).toBe('你好世界');
+    const id = useStore.getState().streamingMessageId!;
+    expect(useStore.getState().messageNodes.get(id)!.content).toBe('你好世界');
   });
 
   it('done 事件持久化消息并更新会话', async () => {
     await sendMessage('hello');
-
     capturedOnEvent({ type: 'content', text: '回复内容' });
     capturedOnEvent({ type: 'done' });
 
     const state = useStore.getState();
-    expect(state.streamingMessage).toBeNull();
+    expect(state.streamingMessageId).toBeNull();
     expect(state.isLoading).toBe(false);
-    expect(state.messages).toHaveLength(2);
-    expect(state.messages[1].role).toBe('assistant');
-    expect(state.messages[1].content).toBe('回复内容');
+    const msgs = visible(state);
+    expect(msgs).toHaveLength(2);
+    expect(msgs[1].role).toBe('assistant');
+    expect(msgs[1].content).toBe('回复内容');
+    expect(msgs[1].status).toBe('done');
 
-    expect(db.addMessage).toHaveBeenCalledTimes(2);
+    expect(db.addMessage).toHaveBeenCalled();
     expect(db.updateConversation).toHaveBeenCalledOnce();
     const updatedConv = vi.mocked(db.updateConversation).mock.calls[0][0];
     expect(updatedConv.messageCount).toBe(2);
@@ -432,43 +481,31 @@ describe('sendMessage', () => {
 
   it('done 事件拼接 reasoningContent', async () => {
     await sendMessage('hello', true);
-
-    capturedOnEvent({
-      type: 'thinking',
-      text: '第一步',
-    });
-    capturedOnEvent({
-      type: 'thinking',
-      text: '第二步',
-    });
+    capturedOnEvent({ type: 'thinking', text: '第一步' });
+    capturedOnEvent({ type: 'thinking', text: '第二步' });
     capturedOnEvent({ type: 'content', text: '结论' });
     capturedOnEvent({ type: 'done' });
 
-    const assistantMsg = useStore.getState().messages[1];
+    const assistantMsg = visible()[1];
     expect(assistantMsg.reasoningContent).toBe('第一步第二步');
   });
 
   it('error 事件设置 error 状态', async () => {
     await sendMessage('hello');
-
     capturedOnEvent({ type: 'error', error: new Error('API 错误') });
 
     const state = useStore.getState();
     expect(state.isLoading).toBe(false);
-    expect(state.streamingMessage).toBeNull();
+    expect(state.streamingMessageId).toBeNull();
     expect(state.error).toBe('API 错误');
   });
 });
 
-// ========== cancelStream ==========
-
 describe('cancelStream', () => {
   it('调用 controller.abort()', async () => {
-    useStore.setState({
-      apiKey: 'test-key',
-      hasApiKey: true,
-      currentConversationId: 'c1',
-    });
+    seedEmptyConv('c1');
+    vi.mocked(db.addMessage).mockResolvedValue(undefined);
+    vi.mocked(db.updateMessage).mockResolvedValue(undefined);
     await sendMessage('hello');
     mockAbort.mockClear();
 
@@ -482,179 +519,89 @@ describe('cancelStream', () => {
   });
 });
 
-// ========== regenerateMessage ==========
-
 describe('regenerateMessage', () => {
   beforeEach(() => {
     vi.mocked(db.updateMessage).mockResolvedValue(undefined);
     vi.mocked(db.updateConversation).mockResolvedValue(undefined);
     vi.mocked(db.addMessage).mockResolvedValue(undefined);
+    seedQa();
   });
 
   it('为 assistant 创建同父兄弟分支并切到新分支', async () => {
-    const u1 = makeMessage({
-      id: 'u1',
-      role: 'user',
-      content: '问题1',
-      parentId: null,
-      selectedChildId: 'a1',
-    });
-    const a1 = makeMessage({
-      id: 'a1',
-      role: 'assistant',
-      content: '回答1',
-      parentId: 'u1',
-      createdAt: 100,
-    });
-    useStore.setState({
-      apiKey: 'test-key',
-      hasApiKey: true,
-      currentConversationId: 'c1',
-      conversations: [makeConversation({ id: 'c1', activeLeafId: 'a1' })],
-      allMessages: [u1, a1],
-      messages: [u1, a1],
-    });
-
     await regenerateMessage('a1');
 
     const state = useStore.getState();
     expect(state.isLoading).toBe(true);
-    expect(state.streamingMessage).not.toBeNull();
-    // 全树新增一条 assistant 占位
-    expect(state.allMessages).toHaveLength(3);
-    const newAssistant = state.allMessages[2];
-    expect(newAssistant.role).toBe('assistant');
-    expect(newAssistant.parentId).toBe('u1');
-    // 流式期间 messages 截止到父 user（不含新 assistant）
-    expect(state.messages.map((m) => m.id)).toEqual(['u1']);
+    expect(state.streamingMessageId).not.toBeNull();
+    const pending = state.messageNodes.get(state.streamingMessageId!);
+    expect(pending?.role).toBe('assistant');
+    expect(pending?.parentId).toBe('u1');
+    expect(visible(state).map((m) => m.id)).toEqual(['u1', pending!.id]);
     expect(createChatStream).toHaveBeenCalledOnce();
-    // API payload = system + 父 user
     const payload = vi.mocked(createChatStream).mock.calls[0][0].messages;
     expect(payload).toHaveLength(2);
     expect(payload[1]).toMatchObject({ role: 'user', content: '问题1' });
   });
 
   it('流式 done 后持久化新 assistant 并更新父指针/会话', async () => {
-    const u1 = makeMessage({
-      id: 'u1',
-      role: 'user',
-      content: '问题1',
-      parentId: null,
-      selectedChildId: 'a1',
-    });
-    const a1 = makeMessage({
-      id: 'a1',
-      role: 'assistant',
-      content: '回答1',
-      parentId: 'u1',
-      createdAt: 100,
-    });
-    useStore.setState({
-      apiKey: 'test-key',
-      hasApiKey: true,
-      currentConversationId: 'c1',
-      conversations: [makeConversation({ id: 'c1', activeLeafId: 'a1' })],
-      allMessages: [u1, a1],
-      messages: [u1, a1],
-    });
-
     await regenerateMessage('a1');
     capturedOnEvent({ type: 'content', text: '新回答' });
     capturedOnEvent({ type: 'done' });
 
     const state = useStore.getState();
-    expect(state.streamingMessage).toBeNull();
+    expect(state.streamingMessageId).toBeNull();
     expect(state.isLoading).toBe(false);
-    expect(state.messages).toHaveLength(2);
-    expect(state.messages[1].content).toBe('新回答');
-    // 新 assistant 持久化
-    expect(db.addMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ role: 'assistant', content: '新回答' }),
-    );
-    // 父 user 的 selectedChildId 切到新 assistant
-    expect(db.updateMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'u1' }),
-    );
-    // 会话 activeLeafId 更新
+    expect(visible(state)).toHaveLength(2);
+    expect(visible(state)[1].content).toBe('新回答');
+    expect(db.updateMessage).toHaveBeenCalled();
     expect(db.updateConversation).toHaveBeenCalled();
-    expect(state.conversations[0].activeLeafId).toBe(state.messages[1].id);
+    expect(state.conversations[0].activeLeafId).toBe(visible(state)[1].id);
+    expect(state.messageNodes.get('u1')!.activeChildId).toBe(
+      visible(state)[1].id,
+    );
   });
 
   it('非 assistant 消息直接返回', async () => {
-    useStore.setState({
-      apiKey: 'test-key',
-      hasApiKey: true,
-      allMessages: [makeMessage({ id: 'u1', role: 'user' })],
-    });
     await regenerateMessage('u1');
     expect(createChatStream).not.toHaveBeenCalled();
   });
 
   it('流式中禁止重新生成', async () => {
-    useStore.setState({
-      apiKey: 'test-key',
-      hasApiKey: true,
-      isLoading: true,
-      allMessages: [makeMessage({ id: 'a1', role: 'assistant' })],
-    });
+    useStore.setState({ isLoading: true });
     await regenerateMessage('a1');
     expect(createChatStream).not.toHaveBeenCalled();
   });
 });
-
-// ========== editMessage ==========
 
 describe('editMessage', () => {
   beforeEach(() => {
     vi.mocked(db.updateMessage).mockResolvedValue(undefined);
     vi.mocked(db.updateConversation).mockResolvedValue(undefined);
     vi.mocked(db.addMessage).mockResolvedValue(undefined);
+    seedQa({ userContent: '原始问题', assistantContent: '回答' });
   });
 
   it('为 user 创建同父兄弟分支 + assistant 子节点', async () => {
-    const u1 = makeMessage({
-      id: 'u1',
-      role: 'user',
-      content: '原始问题',
-      parentId: null,
-      selectedChildId: 'a1',
-    });
-    const a1 = makeMessage({
-      id: 'a1',
-      role: 'assistant',
-      content: '回答',
-      parentId: 'u1',
-      createdAt: 100,
-    });
-    useStore.setState({
-      apiKey: 'test-key',
-      hasApiKey: true,
-      currentConversationId: 'c1',
-      conversations: [makeConversation({ id: 'c1', activeLeafId: 'a1' })],
-      allMessages: [u1, a1],
-      messages: [u1, a1],
-      editingMessageId: 'u1',
-    });
-
     await editMessage('u1', '修改后的问题');
 
     const state = useStore.getState();
     expect(state.editingMessageId).toBeNull();
     expect(state.isLoading).toBe(true);
-    expect(state.allMessages).toHaveLength(4);
-    const newUser = state.allMessages[2];
-    const newAssistant = state.allMessages[3];
-    expect(newUser.role).toBe('user');
-    expect(newUser.content).toBe('修改后的问题');
-    expect(newUser.parentId).toBeNull(); // 同父（root）
-    expect(newAssistant.parentId).toBe(newUser.id);
-    // 流式期间 messages = [新 user]
-    expect(state.messages.map((m) => m.id)).toEqual([newUser.id]);
-    // 新 user 立即持久化
+    const users = [...state.messageNodes.values()].filter(
+      (n) => n.role === 'user',
+    );
+    expect(users).toHaveLength(2);
+    const newUser = users.find((u) => u.content === '修改后的问题')!;
+    expect(newUser.parentId).toBe('root');
+    const newAssistant = state.messageNodes.get(newUser.activeChildId!);
+    expect(newAssistant?.parentId).toBe(newUser.id);
+    expect(visible(state).map((m) => m.id)).toEqual([
+      newUser.id,
+      newAssistant!.id,
+    ]);
     expect(db.addMessage).toHaveBeenCalledWith(
       expect.objectContaining({ content: '修改后的问题' }),
     );
-    // API payload = system + 新 user
     const payload = vi.mocked(createChatStream).mock.calls[0][0].messages;
     expect(payload).toHaveLength(2);
     expect(payload[1]).toMatchObject({
@@ -663,29 +610,26 @@ describe('editMessage', () => {
     });
   });
 
+  it('编辑第一条用户消息会更新 root.activeChildId', async () => {
+    await editMessage('u1', '改问');
+    const root = useStore.getState().messageNodes.get('root')!;
+    const newUser = [...useStore.getState().messageNodes.values()].find(
+      (n) => n.content === '改问',
+    );
+    expect(root.activeChildId).toBe(newUser!.id);
+  });
+
   it('非 user 消息直接返回', async () => {
-    useStore.setState({
-      apiKey: 'test-key',
-      hasApiKey: true,
-      allMessages: [makeMessage({ id: 'a1', role: 'assistant' })],
-    });
     await editMessage('a1', 'x');
     expect(createChatStream).not.toHaveBeenCalled();
   });
 
   it('流式中禁止编辑', async () => {
-    useStore.setState({
-      apiKey: 'test-key',
-      hasApiKey: true,
-      isLoading: true,
-      allMessages: [makeMessage({ id: 'u1', role: 'user' })],
-    });
+    useStore.setState({ isLoading: true });
     await editMessage('u1', 'x');
     expect(createChatStream).not.toHaveBeenCalled();
   });
 });
-
-// ========== switchSibling ==========
 
 describe('switchSibling', () => {
   beforeEach(() => {
@@ -693,145 +637,147 @@ describe('switchSibling', () => {
     vi.mocked(db.updateConversation).mockResolvedValue(undefined);
   });
 
-  it('切到上一版本：更新父 selectedChildId 与 activeLeafId', () => {
-    const u1 = makeMessage({
+  it('切到上一版本：更新父 activeChildId 与 activeLeafId', () => {
+    const map = new Map<string, MessageNode>();
+    const root = createRoot('c1', 'root');
+    map.set(root.id, root);
+    appendChild(map, 'root', {
       id: 'u1',
+      conversationId: 'c1',
       role: 'user',
       content: '问',
-      parentId: null,
-      selectedChildId: 'a2',
+      createdAt: 1,
     });
-    const a1 = makeMessage({
+    appendChild(map, 'u1', {
       id: 'a1',
+      conversationId: 'c1',
       role: 'assistant',
       content: '答1',
-      parentId: 'u1',
-      createdAt: 100,
+      createdAt: 2,
     });
-    const a2 = makeMessage({
+    appendChild(map, 'u1', {
       id: 'a2',
+      conversationId: 'c1',
       role: 'assistant',
       content: '答2',
-      parentId: 'u1',
-      createdAt: 200,
+      createdAt: 3,
     });
     useStore.setState({
       currentConversationId: 'c1',
-      conversations: [makeConversation({ id: 'c1', activeLeafId: 'a2' })],
-      allMessages: [u1, a1, a2],
-      messages: [u1, a2],
+      conversations: [
+        makeConversation({ id: 'c1', rootId: 'root', activeLeafId: 'a2' }),
+      ],
+      messageNodes: map,
+      rootId: 'root',
+      activePath: rebuildActivePath(map, 'root'),
+      activeLeafId: 'a2',
     });
 
     switchSibling('a2', -1);
 
     const state = useStore.getState();
-    expect(state.messages.map((m) => m.id)).toEqual(['u1', 'a1']);
+    expect(visible(state).map((m) => m.id)).toEqual(['u1', 'a1']);
     expect(state.conversations[0].activeLeafId).toBe('a1');
     expect(db.updateMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'u1', selectedChildId: 'a1' }),
+      expect.objectContaining({ id: 'u1', activeChildId: 'a1' }),
     );
     expect(db.updateConversation).toHaveBeenCalled();
   });
 
   it('切到下一版本', () => {
-    const u1 = makeMessage({
+    const map = new Map<string, MessageNode>();
+    const root = createRoot('c1', 'root');
+    map.set(root.id, root);
+    appendChild(map, 'root', {
       id: 'u1',
+      conversationId: 'c1',
       role: 'user',
       content: '问',
-      parentId: null,
-      selectedChildId: 'a1',
+      createdAt: 1,
     });
-    const a1 = makeMessage({
+    appendChild(map, 'u1', {
       id: 'a1',
+      conversationId: 'c1',
       role: 'assistant',
       content: '答1',
-      parentId: 'u1',
-      createdAt: 100,
+      createdAt: 2,
     });
-    const a2 = makeMessage({
+    appendChild(map, 'u1', {
       id: 'a2',
+      conversationId: 'c1',
       role: 'assistant',
       content: '答2',
-      parentId: 'u1',
-      createdAt: 200,
+      createdAt: 3,
     });
+    switchActiveOnA1(map);
     useStore.setState({
       currentConversationId: 'c1',
-      conversations: [makeConversation({ id: 'c1', activeLeafId: 'a1' })],
-      allMessages: [u1, a1, a2],
-      messages: [u1, a1],
+      conversations: [
+        makeConversation({ id: 'c1', rootId: 'root', activeLeafId: 'a1' }),
+      ],
+      messageNodes: map,
+      rootId: 'root',
+      activePath: rebuildActivePath(map, 'root'),
+      activeLeafId: 'a1',
     });
 
     switchSibling('a1', 1);
 
     const state = useStore.getState();
-    expect(state.messages.map((m) => m.id)).toEqual(['u1', 'a2']);
+    expect(visible(state).map((m) => m.id)).toEqual(['u1', 'a2']);
     expect(state.conversations[0].activeLeafId).toBe('a2');
   });
 
   it('到达边界时为 no-op', () => {
-    const u1 = makeMessage({
-      id: 'u1',
-      role: 'user',
-      content: '问',
-      parentId: null,
-      selectedChildId: 'a1',
-    });
-    const a1 = makeMessage({
-      id: 'a1',
-      role: 'assistant',
-      content: '答1',
-      parentId: 'u1',
-    });
-    useStore.setState({
-      currentConversationId: 'c1',
-      conversations: [makeConversation({ id: 'c1', activeLeafId: 'a1' })],
-      allMessages: [u1, a1],
-      messages: [u1, a1],
-    });
-
+    seedQa();
     switchSibling('a1', -1);
-
-    const state = useStore.getState();
-    expect(state.messages.map((m) => m.id)).toEqual(['u1', 'a1']);
     expect(db.updateMessage).not.toHaveBeenCalled();
+    expect(visible().map((m) => m.id)).toEqual(['u1', 'a1']);
   });
 
   it('流式中禁止切换', () => {
-    useStore.setState({
-      isLoading: true,
-      allMessages: [makeMessage({ id: 'u1' }), makeMessage({ id: 'a1' })],
-    });
+    seedQa();
+    useStore.setState({ isLoading: true });
     switchSibling('a1', -1);
     expect(db.updateMessage).not.toHaveBeenCalled();
   });
 });
 
-// ========== getBranchInfo ==========
+function switchActiveOnA1(map: Map<string, MessageNode>) {
+  const u1 = map.get('u1');
+  if (u1) u1.activeChildId = 'a1';
+}
 
 describe('getBranchInfo', () => {
   it('返回当前版本序号与总数', () => {
-    const u1 = makeMessage({
+    const map = new Map<string, MessageNode>();
+    const root = createRoot('c1', 'root');
+    map.set(root.id, root);
+    appendChild(map, 'root', {
       id: 'u1',
+      conversationId: 'c1',
       role: 'user',
-      parentId: null,
-      selectedChildId: 'a2',
+      content: '问',
+      createdAt: 1,
     });
-    const a1 = makeMessage({
+    appendChild(map, 'u1', {
       id: 'a1',
+      conversationId: 'c1',
       role: 'assistant',
-      parentId: 'u1',
-      createdAt: 100,
+      content: '1',
+      createdAt: 2,
     });
-    const a2 = makeMessage({
+    appendChild(map, 'u1', {
       id: 'a2',
+      conversationId: 'c1',
       role: 'assistant',
-      parentId: 'u1',
-      createdAt: 200,
+      content: '2',
+      createdAt: 3,
     });
     useStore.setState({
-      allMessages: [u1, a1, a2],
-      conversations: [makeConversation({ id: 'c1' })],
+      messageNodes: map,
+      rootId: 'root',
+      conversations: [makeConversation({ id: 'c1', rootId: 'root' })],
     });
 
     const info = getBranchInfo('a2');
@@ -842,46 +788,28 @@ describe('getBranchInfo', () => {
   });
 
   it('无兄弟时返回 1/1', () => {
-    const u1 = makeMessage({
-      id: 'u1',
-      role: 'user',
-      parentId: null,
-    });
-    useStore.setState({
-      allMessages: [u1],
-      conversations: [makeConversation({ id: 'c1' })],
-    });
-
+    seedQa();
     const info = getBranchInfo('u1');
     expect(info.total).toBe(1);
     expect(info.current).toBe(1);
   });
 });
 
-// ========== clearMessages ==========
-
 describe('clearMessages', () => {
-  it('清空 DB 和内存消息', async () => {
-    useStore.setState({
-      currentConversationId: 'c1',
-      messages: [makeMessage()],
-      streamingMessage: {
-        id: 's1',
-        conversationId: 'c1',
-        role: 'assistant',
-        content: '流式中',
-        reasoningContent: '',
-        createdAt: Date.now(),
-      },
-    });
+  it('清空 DB 和内存消息，保留虚拟根', async () => {
+    seedQa();
+    useStore.setState({ streamingMessageId: 'a1' });
     vi.mocked(db.clearConversationMessages).mockResolvedValue(undefined);
+    vi.mocked(db.updateConversation).mockResolvedValue(undefined);
 
     await clearMessages();
 
     expect(db.clearConversationMessages).toHaveBeenCalledWith('c1');
     const state = useStore.getState();
-    expect(state.messages).toEqual([]);
-    expect(state.streamingMessage).toBeNull();
+    expect(state.activePath).toEqual([]);
+    expect(state.streamingMessageId).toBeNull();
+    expect(state.messageNodes.get('root')).toBeTruthy();
+    expect(state.messageNodes.size).toBe(1);
   });
 
   it('无当前会话时不操作', async () => {

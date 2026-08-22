@@ -1,6 +1,6 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { act, render, screen, fireEvent } from '@testing-library/react';
-import type { StoredMessage } from '@/features/chat/types/deepseek';
+import type { MessageNode } from '@/stores/models';
 import { useStore } from '@/stores';
 import { ChatMessage } from './chat-message';
 
@@ -10,12 +10,17 @@ vi.mock('@/shared/components/markdown-renderer', () => ({
   ),
 }));
 
-function makeMessage(overrides: Partial<StoredMessage> = {}): StoredMessage {
+function makeMessage(overrides: Partial<MessageNode> = {}): MessageNode {
   return {
     id: `m-${Math.random().toString(36).slice(2, 7)}`,
     conversationId: 'c1',
     role: 'user',
+    parentId: null,
+    childrenIds: [],
+    siblingIndex: 0,
+    activeChildId: null,
     content: '测试内容',
+    status: 'done',
     createdAt: Date.now(),
     ...overrides,
   };

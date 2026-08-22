@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '@/stores';
+import { pathNodes } from '@/stores/utils/tree';
 
 export function useConversationListState() {
   return useStore(
@@ -22,26 +24,37 @@ export function useChatLayoutState() {
   );
 }
 
+/**
+ * 消息列表订阅。不要在 Zustand selector 内调用 `pathNodes`：
+ * 每次 getSnapshot 都会得到新数组，React 19 的 useSyncExternalStore
+ * 会判定 store 一直在变，触发 Maximum update depth exceeded。
+ * 线性路径在 hook 内用 useMemo 派生，依赖 Map / activePath 引用。
+ */
 export function useMessageListState() {
-  return useStore(
+  const snapshot = useStore(
     useShallow((s) => ({
-      messages: s.messages,
-      streamingMessage: s.streamingMessage,
-      allMessages: s.allMessages,
+      messageNodes: s.messageNodes,
+      activePath: s.activePath,
       editingMessageId: s.editingMessageId,
+      streamingMessageId: s.streamingMessageId,
     })),
   );
+  const messages = useMemo(
+    () => pathNodes(snapshot.messageNodes, snapshot.activePath),
+    [snapshot.messageNodes, snapshot.activePath],
+  );
+  return { ...snapshot, messages };
 }
 
 /**
- * 流式会话状态，供 ChatComposer / ChatStatus 等只关心"是否在加载/流式"的组件使用。
- * isStreaming 用布尔值而非 streamingMessage 对象：流式 token 累积不会触发重渲染。
+ * 流式会话状态。isStreaming 用布尔值而非节点对象：
+ * 流式 token 累积不会触发本 selector 的重渲染。
  */
 export function useStreamStatus() {
   return useStore(
     useShallow((s) => ({
       isLoading: s.isLoading,
-      isStreaming: s.streamingMessage !== null,
+      isStreaming: s.streamingMessageId !== null,
       error: s.error,
     })),
   );
@@ -64,7 +77,7 @@ export function useMessageActionsState() {
 }
 
 export function useHasContent() {
-  return useStore((s) => s.messages.length > 0 || s.streamingMessage !== null);
+  return useStore((s) => s.activePath.length > 0);
 }
 
 export function useInitialized() {

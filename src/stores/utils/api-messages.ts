@@ -1,18 +1,22 @@
-import type {
-  ChatMessage,
-  StoredMessage,
-} from '@/features/chat/types/deepseek';
+import type { ChatMessage } from '@/features/chat/types/deepseek';
+import type { MessageId, MessageNode } from '@/stores/models';
+import { pathNodes } from '@/stores/utils/tree';
 
 function buildSystemPrompt(): string {
   return 'You are a helpful assistant.';
 }
 
-export function buildApiMessages(path: StoredMessage[]): ChatMessage[] {
+export function buildApiMessages(
+  map: Map<MessageId, MessageNode>,
+  activePath: MessageId[],
+): ChatMessage[] {
   return [
     { role: 'system', content: buildSystemPrompt() },
-    ...path.map((m) => ({
-      role: m.role as 'user' | 'assistant',
-      content: m.content,
-    })),
+    ...pathNodes(map, activePath)
+      .filter((n) => n.role !== 'system' && n.status !== 'pending')
+      .map((m) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      })),
   ];
 }

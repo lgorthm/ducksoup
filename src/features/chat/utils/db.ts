@@ -1,12 +1,54 @@
-import { openDB } from 'idb';
-import type {
-  Conversation,
-  DuckSoupDBSchema,
-  StoredMessage,
-} from '@/features/chat/types/deepseek';
+import { openDB, type DBSchema } from 'idb';
+import type { Conversation, MessageNode } from '@/stores/models';
+import { generateId } from '@/stores/utils/ids';
+import { createRoot } from '@/stores/utils/tree';
 
-const DB_NAME = 'ducksoup-chat';
-const DB_VERSION = 2;
+export const DB_NAME = 'ducksoup-chat';
+export const DB_VERSION = 3;
+
+export interface DuckSoupDBSchema extends DBSchema {
+  conversations: {
+    key: string;
+    value: Conversation;
+    indexes: { 'by-updatedAt': number };
+  };
+  messages: {
+    key: string;
+    value: MessageNode;
+    indexes: {
+      'by-conversationId': string;
+      'by-createdAt': number;
+      'by-conversation-parent': [string, string];
+    };
+  };
+}
+
+/** v1/v2 扁平或半树消息，仅用于升级迁移 */
+export interface LegacyStoredMessage {
+  id: string;
+  conversationId: string;
+  role: MessageNode['role'];
+  content: string;
+  reasoningContent?: string;
+  createdAt: number;
+  parentId?: string | null;
+  selectedChildId?: string | null;
+  siblingIndex?: number;
+  activeChildId?: string | null;
+  status?: MessageNode['status'];
+  deleted?: boolean;
+  childrenIds?: string[];
+}
+
+export interface LegacyConversation {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messageCount: number;
+  activeLeafId?: string | null;
+  rootId?: string;
+}
 
 function getDB() {
   return openDB<DuckSoupDBSchema>(DB_NAME, DB_VERSION, {
@@ -22,31 +64,44 @@ function getDB() {
         msgStore.createIndex('by-conversationId', 'conversationId');
         msgStore.createIndex('by-createdAt', 'createdAt');
       }
-      // v1 → v2：把扁平消息链式化为树结构（parentId / selectedChildId / activeLeafId）
+      const msgStore = transaction.objectStore('messages');
+      if (!msgStore.indexNames.contains('by-conversation-parent')) {
+        msgStore.createIndex('by-conversation-parent', [
+          'conversationId',
+          'parentId',
+        ]);
+      }
+
       if (oldVersion < 2) {
-        const msgStore = transaction.objectStore('messages');
+        const allMsgs = (await msgStore.getAll()) as LegacyStoredMessage[];
         const convStore = transaction.objectStore('conversations');
-        const allMsgs = await msgStore.getAll();
-        const allConvs = await convStore.getAll();
+        const allConvs = (await convStore.getAll()) as LegacyConversation[];
         chainFlatMessagesIntoTree(allMsgs, allConvs);
-        for (const m of allMsgs) await msgStore.put(m);
-        for (const c of allConvs) await convStore.put(c);
+        for (const m of allMsgs) await msgStore.put(m as MessageNode);
+        for (const c of allConvs) await convStore.put(c as Conversation);
+      }
+
+      if (oldVersion < 3) {
+        const allMsgs = (await msgStore.getAll()) as LegacyStoredMessage[];
+        const convStore = transaction.objectStore('conversations');
+        const allConvs = (await convStore.getAll()) as LegacyConversation[];
+        const migrated = migrateV2MessagesToV3(allMsgs, allConvs);
+        for (const m of migrated) await msgStore.put(m);
+        for (const c of allConvs) await convStore.put(c as Conversation);
       }
     },
   });
 }
 
 /**
- * 把 v1 扁平消息链式化为树结构（原地变更）：
- * 按 conversationId 分组、沿 createdAt 排序（同时间戳 user 在前），
+ * v1 → v2：按 conversationId 分组、沿 createdAt 排序（同时间戳 user 在前），
  * 链式写入 parentId / selectedChildId，并把每个会话的 activeLeafId 指向末条消息。
- * 纯函数，便于单测；无数据时 no-op。
  */
 export function chainFlatMessagesIntoTree(
-  messages: StoredMessage[],
-  conversations: Conversation[],
+  messages: LegacyStoredMessage[],
+  conversations: LegacyConversation[],
 ): void {
-  const byConv = new Map<string, StoredMessage[]>();
+  const byConv = new Map<string, LegacyStoredMessage[]>();
   for (const m of messages) {
     const list = byConv.get(m.conversationId) ?? [];
     list.push(m);
@@ -56,7 +111,6 @@ export function chainFlatMessagesIntoTree(
     msgs.sort((a, b) => {
       const d = a.createdAt - b.createdAt;
       if (d !== 0) return d;
-      // 相同时间戳时 user 排在 assistant 前
       return a.role === 'user' ? -1 : b.role === 'user' ? 1 : 0;
     });
     for (let i = 0; i < msgs.length; i++) {
@@ -72,7 +126,102 @@ export function chainFlatMessagesIntoTree(
   }
 }
 
-// ========== 会话 CRUD ==========
+/**
+ * v2 → v3：插入虚拟根、reparent 首条消息、selectedChildId → activeChildId、
+ * 按父分组赋 siblingIndex，已有消息 status=done。
+ */
+export function migrateV2MessagesToV3(
+  messages: LegacyStoredMessage[],
+  conversations: LegacyConversation[],
+  nextId: () => string = generateId,
+): MessageNode[] {
+  const byConv = new Map<string, LegacyStoredMessage[]>();
+  for (const m of messages) {
+    const list = byConv.get(m.conversationId) ?? [];
+    list.push(m);
+    byConv.set(m.conversationId, list);
+  }
+
+  const result: MessageNode[] = [];
+
+  for (const conv of conversations) {
+    const rootId = conv.rootId || nextId();
+    conv.rootId = rootId;
+    const root = createRoot(conv.id, rootId, conv.createdAt);
+    const convMsgs = byConv.get(conv.id) ?? [];
+
+    const nodes: MessageNode[] = convMsgs.map((m) => ({
+      id: m.id,
+      conversationId: m.conversationId,
+      role: m.role,
+      parentId: m.parentId ?? null,
+      childrenIds: [],
+      siblingIndex: 0,
+      activeChildId: m.activeChildId ?? m.selectedChildId ?? null,
+      content: m.content,
+      reasoningContent: m.reasoningContent,
+      status: m.status ?? 'done',
+      createdAt: m.createdAt,
+      deleted: m.deleted ?? false,
+    }));
+
+    for (const n of nodes) {
+      if (n.parentId == null) n.parentId = rootId;
+    }
+
+    const byParent = new Map<string, MessageNode[]>();
+    for (const n of nodes) {
+      const pid = n.parentId ?? rootId;
+      const list = byParent.get(pid) ?? [];
+      list.push(n);
+      byParent.set(pid, list);
+    }
+    for (const siblings of byParent.values()) {
+      siblings.sort((a, b) => {
+        const d = a.createdAt - b.createdAt;
+        if (d !== 0) return d;
+        return a.role === 'user' ? -1 : b.role === 'user' ? 1 : 0;
+      });
+      for (let i = 0; i < siblings.length; i++) {
+        siblings[i].siblingIndex = i;
+      }
+    }
+
+    if (conv.activeLeafId) {
+      const byId = new Map(nodes.map((n) => [n.id, n]));
+      let cur = byId.get(conv.activeLeafId);
+      let first = cur;
+      while (cur?.parentId && cur.parentId !== rootId) {
+        const parent = byId.get(cur.parentId);
+        if (!parent) break;
+        cur = parent;
+        first = cur;
+      }
+      root.activeChildId = first?.id ?? null;
+    }
+
+    result.push(root, ...nodes);
+  }
+
+  return result;
+}
+
+export function toDbMessage(node: MessageNode): MessageNode {
+  return {
+    id: node.id,
+    conversationId: node.conversationId,
+    role: node.role,
+    parentId: node.parentId,
+    childrenIds: [],
+    siblingIndex: node.siblingIndex,
+    activeChildId: node.activeChildId,
+    content: node.content,
+    reasoningContent: node.reasoningContent,
+    status: node.status,
+    createdAt: node.createdAt,
+    deleted: node.deleted ?? false,
+  };
+}
 
 export async function addConversation(conv: Conversation): Promise<void> {
   const db = await getDB();
@@ -91,7 +240,6 @@ export async function updateConversation(conv: Conversation): Promise<void> {
 
 export async function deleteConversation(id: string): Promise<void> {
   const db = await getDB();
-  // 级联删除该会话下的所有消息
   const messages = await db.getAllFromIndex(
     'messages',
     'by-conversationId',
@@ -105,21 +253,19 @@ export async function deleteConversation(id: string): Promise<void> {
   await tx.done;
 }
 
-// ========== 消息 CRUD ==========
-
-export async function addMessage(msg: StoredMessage): Promise<void> {
+export async function addMessage(msg: MessageNode): Promise<void> {
   const db = await getDB();
-  await db.add('messages', msg);
+  await db.add('messages', toDbMessage(msg));
 }
 
-export async function updateMessage(msg: StoredMessage): Promise<void> {
+export async function updateMessage(msg: MessageNode): Promise<void> {
   const db = await getDB();
-  await db.put('messages', msg);
+  await db.put('messages', toDbMessage(msg));
 }
 
 export async function getMessagesByConversation(
   conversationId: string,
-): Promise<StoredMessage[]> {
+): Promise<MessageNode[]> {
   const db = await getDB();
   const messages = await db.getAllFromIndex(
     'messages',
@@ -129,8 +275,7 @@ export async function getMessagesByConversation(
   return messages.sort((a, b) => {
     const timeDiff = a.createdAt - b.createdAt;
     if (timeDiff !== 0) return timeDiff;
-    // 相同时间戳时，user 消息排在前面
-    return a.role === 'user' ? -1 : b.role === 'user' ? 1 : 0;
+    return (a.siblingIndex ?? 0) - (b.siblingIndex ?? 0);
   });
 }
 
@@ -143,13 +288,25 @@ export async function clearConversationMessages(
   conversationId: string,
 ): Promise<void> {
   const db = await getDB();
+  const conv = await db.get('conversations', conversationId);
   const messages = await db.getAllFromIndex(
     'messages',
     'by-conversationId',
     conversationId,
   );
+  const rootId = conv?.rootId;
   const tx = db.transaction('messages', 'readwrite');
   for (const msg of messages) {
+    if (rootId && msg.id === rootId) {
+      await tx.store.put(
+        toDbMessage({
+          ...msg,
+          childrenIds: [],
+          activeChildId: null,
+        }),
+      );
+      continue;
+    }
     await tx.store.delete(msg.id);
   }
   await tx.done;

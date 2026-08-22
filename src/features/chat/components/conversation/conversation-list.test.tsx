@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { act, render, screen, fireEvent } from '@testing-library/react';
-import type { Conversation } from '@/features/chat/types/deepseek';
+import type { Conversation } from '@/stores/models';
 import { ConversationList } from './conversation-list';
 import {
   deleteConversation,
@@ -75,6 +75,8 @@ function makeConv(overrides: Partial<Conversation> = {}): Conversation {
     createdAt: now,
     updatedAt: now,
     messageCount: 0,
+    rootId: `root-${overrides.id ?? 'x'}`,
+    activeLeafId: null,
     ...overrides,
   };
 }
