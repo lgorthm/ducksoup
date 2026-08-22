@@ -1,5 +1,6 @@
 import type {
   BranchInfo,
+  ImageAttachment,
   MessageId,
   MessageNode,
   MessageRole,
@@ -12,6 +13,7 @@ export interface AppendChildInput {
   conversationId: string;
   role: MessageRole;
   content: string;
+  attachments?: ImageAttachment[];
   reasoningContent?: string;
   status?: MessageNode['status'];
   createdAt: number;
@@ -80,6 +82,7 @@ export function appendChild(
     siblingIndex,
     activeChildId: null,
     content: input.content,
+    attachments: input.attachments,
     reasoningContent: input.reasoningContent,
     status: input.status ?? 'done',
     createdAt: input.createdAt,
@@ -199,6 +202,33 @@ export function deriveBranchInfo(
     prevSiblingId: idx > 0 ? siblings[idx - 1].id : null,
     nextSiblingId: idx < siblings.length - 1 ? siblings[idx + 1].id : null,
   };
+}
+
+export function branchInfoEqual(a: BranchInfo, b: BranchInfo): boolean {
+  return (
+    a.current === b.current &&
+    a.total === b.total &&
+    a.prevSiblingId === b.prevSiblingId &&
+    a.nextSiblingId === b.nextSiblingId
+  );
+}
+
+/**
+ * 按路径生成 branchInfo。流式 token 会换掉 messageNodes Map，
+ * 但兄弟拓扑不变：复用上一轮对象，避免打穿 ChatMessage memo。
+ */
+export function buildBranchInfoMap(
+  messages: { id: MessageId }[],
+  messageNodes: Map<MessageId, MessageNode>,
+  prev?: Record<string, BranchInfo>,
+): Record<string, BranchInfo> {
+  const next: Record<string, BranchInfo> = {};
+  for (const m of messages) {
+    const info = deriveBranchInfo(messageNodes, m.id);
+    const old = prev?.[m.id];
+    next[m.id] = old && branchInfoEqual(old, info) ? old : info;
+  }
+  return next;
 }
 
 export function pathNodes(

@@ -10,7 +10,6 @@ import {
   init,
   setApiKey,
   clearApiKey,
-  setModel,
   toggleDeepThink,
   createConversation,
   startNewConversation,
@@ -42,6 +41,33 @@ vi.mock('@/features/chat/utils/chat-stream', () => ({
   createChatStream: vi.fn(),
 }));
 
+vi.mock('@/features/chat/utils/files-api', () => ({
+  uploadImageFile: vi.fn().mockResolvedValue('file-api-test'),
+  deleteImageFile: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('@/features/chat/utils/resolve-attachments', async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import('@/features/chat/utils/resolve-attachments')
+    >();
+  return {
+    ...actual,
+    resolveAttachments: vi.fn(async (nodes: MessageNode[]) => {
+      const resolved = new Map<string, { kind: 'file'; fileId: string }>();
+      for (const node of nodes) {
+        for (const a of node.attachments ?? []) {
+          resolved.set(a.id, {
+            kind: 'file',
+            fileId: a.fileId ?? 'file-api-test',
+          });
+        }
+      }
+      return resolved;
+    }),
+  };
+});
+
 vi.mock('@/features/chat/utils/db', () => ({
   addConversation: vi.fn(),
   getAllConversations: vi.fn(),
@@ -52,13 +78,18 @@ vi.mock('@/features/chat/utils/db', () => ({
   deleteMessage: vi.fn(),
   clearConversationMessages: vi.fn(),
   updateMessage: vi.fn(),
+  putBlob: vi.fn(),
+  getBlob: vi.fn(),
+  deleteBlobs: vi.fn(),
+  blobKeysOf: vi.fn(() => []),
+  fileIdsOf: vi.fn(() => []),
+  stripAllAttachmentFileIds: vi.fn(),
 }));
 
 let capturedOnEvent: (event: ChatStreamEvent) => void;
 const mockAbort = vi.fn();
 const mockController: ChatStreamController = {
   abort: mockAbort,
-  connection: { close: vi.fn(), readyState: 'open' as const },
 };
 
 function makeConversation(overrides: Partial<Conversation> = {}): Conversation {
@@ -70,6 +101,7 @@ function makeConversation(overrides: Partial<Conversation> = {}): Conversation {
     updatedAt: now,
     messageCount: 0,
     activeLeafId: null,
+    model: 'deepseek-v4-flash-vision-exp',
     ...overrides,
     id,
     rootId: overrides.rootId ?? `root-${id}`,
@@ -250,13 +282,6 @@ describe('setApiKey / clearApiKey', () => {
   });
 });
 
-describe('setModel', () => {
-  it('更新 selectedModel', () => {
-    setModel('deepseek-v4-pro');
-    expect(useStore.getState().selectedModel).toBe('deepseek-v4-pro');
-  });
-});
-
 describe('toggleDeepThink', () => {
   it('切换 deepThink 状态', () => {
     expect(useStore.getState().deepThink).toBe(false);
@@ -371,6 +396,7 @@ describe('deleteConversation', () => {
       activePath: ['m1'],
     });
     vi.mocked(db.deleteConversation).mockResolvedValue(undefined);
+    vi.mocked(db.getMessagesByConversation).mockResolvedValue([]);
 
     await deleteConversation('c2');
 
@@ -379,7 +405,7 @@ describe('deleteConversation', () => {
     expect(state.currentConversationId).toBeNull();
     expect(state.activePath).toEqual([]);
     expect(state.streamingMessageId).toBeNull();
-    expect(db.getMessagesByConversation).not.toHaveBeenCalled();
+    expect(db.getMessagesByConversation).toHaveBeenCalledWith('c2');
     expect(db.addConversation).not.toHaveBeenCalled();
   });
 
@@ -409,6 +435,7 @@ describe('deleteConversation', () => {
       activePath: ['m1'],
     });
     vi.mocked(db.deleteConversation).mockResolvedValue(undefined);
+    vi.mocked(db.getMessagesByConversation).mockResolvedValue([]);
 
     await deleteConversation('c2');
 
@@ -416,7 +443,7 @@ describe('deleteConversation', () => {
     expect(state.conversations).toHaveLength(1);
     expect(state.currentConversationId).toBe('c1');
     expect(state.activePath).toHaveLength(1);
-    expect(db.getMessagesByConversation).not.toHaveBeenCalled();
+    expect(db.getMessagesByConversation).toHaveBeenCalledWith('c2');
   });
 });
 
@@ -450,6 +477,63 @@ describe('sendMessage', () => {
     const conv = vi.mocked(db.addConversation).mock.calls[0][0];
     expect(conv.title).toBe('第一条消息');
     expect(useStore.getState().currentConversationId).toBe(conv.id);
+  });
+
+  it('新会话持久化所选模型并传给流式请求', async () => {
+    useStore.setState({
+      ...createInitialMessageState(),
+      apiKey: 'test-key',
+      hasApiKey: true,
+      currentConversationId: null,
+      conversations: [],
+    });
+    vi.mocked(db.addConversation).mockResolvedValue(undefined);
+
+    await sendMessage('第一条消息', 'deepseek-v4-pro');
+
+    const conv = vi.mocked(db.addConversation).mock.calls[0][0];
+    expect(conv.model).toBe('deepseek-v4-pro');
+    expect(createChatStream).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'deepseek-v4-pro' }),
+    );
+  });
+
+  it('未传模型时新会话使用默认模型', async () => {
+    useStore.setState({
+      ...createInitialMessageState(),
+      apiKey: 'test-key',
+      hasApiKey: true,
+      currentConversationId: null,
+      conversations: [],
+    });
+    vi.mocked(db.addConversation).mockResolvedValue(undefined);
+
+    await sendMessage('第一条消息');
+
+    const conv = vi.mocked(db.addConversation).mock.calls[0][0];
+    expect(conv.model).toBe('deepseek-v4-flash-vision-exp');
+    expect(createChatStream).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'deepseek-v4-flash-vision-exp' }),
+    );
+  });
+
+  it('已有会话忽略传入模型，沿用会话自身的模型', async () => {
+    const { root } = seedEmptyConv('c1');
+    useStore.setState({
+      conversations: [
+        makeConversation({
+          id: 'c1',
+          rootId: root.id,
+          model: 'deepseek-v4-pro',
+        }),
+      ],
+    });
+
+    await sendMessage('hello', 'deepseek-v4-flash-vision-exp');
+
+    expect(createChatStream).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'deepseek-v4-pro' }),
+    );
   });
 
   it('长标题截断为 20 字符', async () => {
@@ -524,7 +608,7 @@ describe('sendMessage', () => {
   });
 
   it('done 事件拼接 reasoningContent', async () => {
-    await sendMessage('hello', true);
+    await sendMessage('hello');
     capturedOnEvent({ type: 'thinking', text: '第一步' });
     capturedOnEvent({ type: 'thinking', text: '第二步' });
     capturedOnEvent({ type: 'content', text: '结论' });
@@ -560,6 +644,64 @@ describe('sendMessage', () => {
     expect(
       payload.filter((m) => m.role === 'user').map((m) => m.content),
     ).toEqual(['hello', '再试一次']);
+  });
+
+  it('纯图消息写入 attachments 并启动流', async () => {
+    const blob = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' });
+    vi.mocked(db.putBlob).mockResolvedValue(undefined);
+    vi.mocked(db.getBlob).mockResolvedValue(blob);
+
+    await sendMessage('', undefined, [
+      {
+        id: 'p1',
+        blob,
+        mime: 'image/png',
+        width: 1,
+        height: 1,
+        filename: 'a.png',
+        previewUrl: 'blob:x',
+      },
+    ]);
+
+    expect(db.putBlob).toHaveBeenCalled();
+    const user = visible()[0];
+    expect(user.role).toBe('user');
+    expect(user.attachments).toHaveLength(1);
+    expect(createChatStream).toHaveBeenCalledOnce();
+    const payload = vi.mocked(createChatStream).mock.calls[0][0].messages;
+    const userMsg = payload.find((m) => m.role === 'user');
+    expect(userMsg?.content).toEqual([
+      { type: 'input_image', file_id: 'file-api-test' },
+    ]);
+  });
+
+  it('Pro 会话拒绝带图发送', async () => {
+    const { root } = seedEmptyConv('c1');
+    useStore.setState({
+      conversations: [
+        makeConversation({
+          id: 'c1',
+          rootId: root.id,
+          model: 'deepseek-v4-pro',
+        }),
+      ],
+    });
+    const blob = new Blob([new Uint8Array([1])], { type: 'image/png' });
+
+    await sendMessage('hello', undefined, [
+      {
+        id: 'p1',
+        blob,
+        mime: 'image/png',
+        width: 1,
+        height: 1,
+        filename: 'a.png',
+        previewUrl: 'blob:x',
+      },
+    ]);
+
+    expect(createChatStream).not.toHaveBeenCalled();
+    expect(visible()).toHaveLength(0);
   });
 });
 

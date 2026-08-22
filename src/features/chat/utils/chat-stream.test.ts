@@ -1,55 +1,51 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createChatStream } from './chat-stream';
-import { createSSEConnection } from './sse-client';
-import type { SSEConnectionOptions, SSEConnection } from './sse-client';
 
-vi.mock('@/features/chat/utils/sse-client');
+const mockCreate = vi.fn();
+const OpenAI = vi.fn(function MockOpenAI() {
+  return { responses: { create: mockCreate } };
+});
 
-// ========== 辅助 ==========
+vi.mock('openai', () => ({
+  default: OpenAI,
+}));
 
-let capturedOptions: SSEConnectionOptions;
-const mockConnection: SSEConnection = {
-  close: vi.fn(),
-  readyState: 'open' as const,
-};
-
-function emitSSEData(data: unknown): void {
-  capturedOptions.onEvent?.({
-    event: 'message',
-    data,
-    id: null,
-    retry: null,
-  });
+async function flushAsync() {
+  await vi.advanceTimersByTimeAsync(0);
+  for (let i = 0; i < 12; i++) {
+    await Promise.resolve();
+  }
 }
 
-function makeChunk(
-  delta: Record<string, string>,
-  usage?: Record<string, number>,
-) {
-  return {
-    id: 'chatcmpl-mock',
-    object: 'chat.completion.chunk',
-    created: 0,
-    model: 'test-model',
-    choices: usage ? [] : [{ index: 0, delta, finish_reason: null }],
-    ...(usage ? { usage } : {}),
-  };
+async function* fromEvents(
+  events: Array<Record<string, unknown>>,
+): AsyncGenerator<Record<string, unknown>> {
+  for (const event of events) {
+    yield event;
+  }
+}
+
+/** 产出事件后挂起，避免流结束时立即 flush 缓冲区 */
+async function* fromEventsOpen(
+  events: Array<Record<string, unknown>>,
+): AsyncGenerator<Record<string, unknown>> {
+  for (const event of events) {
+    yield event;
+  }
+  await new Promise(() => {});
 }
 
 beforeEach(() => {
   vi.useFakeTimers();
-  vi.mocked(createSSEConnection).mockImplementation((_url, options) => {
-    capturedOptions = options ?? {};
-    return mockConnection;
-  });
+  OpenAI.mockClear();
+  mockCreate.mockReset();
+  mockCreate.mockResolvedValue(fromEvents([]));
 });
 
 afterEach(() => {
   vi.useRealTimers();
   vi.clearAllMocks();
 });
-
-// ========== 基础功能 ==========
 
 describe('createChatStream', () => {
   it('返回带 abort 方法的 controller', () => {
@@ -60,42 +56,78 @@ describe('createChatStream', () => {
       onEvent: vi.fn(),
     });
     expect(controller.abort).toBeTypeOf('function');
-    expect(controller.connection).toBe(mockConnection);
+    expect(controller).not.toHaveProperty('connection');
   });
 
-  it('传递正确的 URL 和 headers 给 SSE client', () => {
+  it('用 dangerouslyAllowBrowser 和 DeepSeek baseURL 创建客户端', async () => {
     createChatStream({
       apiKey: 'my-key',
       model: 'my-model',
       messages: [],
       onEvent: vi.fn(),
     });
-    expect(createSSEConnection).toHaveBeenCalledWith(
-      'https://api.deepseek.com/chat/completions',
-      expect.objectContaining({
-        method: 'POST',
-        headers: expect.objectContaining({
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer my-key',
-        }),
-      }),
-    );
+    await flushAsync();
+
+    expect(OpenAI).toHaveBeenCalledWith({
+      apiKey: 'my-key',
+      baseURL: 'https://api.deepseek.com',
+      dangerouslyAllowBrowser: true,
+      maxRetries: 0,
+    });
   });
 
-  it('请求体包含 model、messages、stream 参数', () => {
+  it('请求体包含 model、instructions、input、stream', async () => {
     createChatStream({
       apiKey: 'key',
       model: 'my-model',
-      messages: [{ role: 'user', content: 'hi' }],
+      messages: [
+        { role: 'system', content: 'You are a helpful assistant.' },
+        { role: 'user', content: 'hi' },
+      ],
       onEvent: vi.fn(),
     });
-    const body = JSON.parse(capturedOptions.body!);
-    expect(body.model).toBe('my-model');
-    expect(body.stream).toBe(true);
-    expect(body.messages).toEqual([{ role: 'user', content: 'hi' }]);
+    await flushAsync();
+
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: 'my-model',
+        stream: true,
+        instructions: 'You are a helpful assistant.',
+        input: [{ role: 'user', content: 'hi' }],
+      }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
   });
 
-  it('deepThink 时请求体包含 thinking 配置', () => {
+  it('多模态 user content 原样传入 input', async () => {
+    createChatStream({
+      apiKey: 'key',
+      model: 'deepseek-v4-flash-vision-exp',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'input_text', text: '看图' },
+            { type: 'input_image', file_id: 'file-api-1' },
+          ],
+        },
+      ],
+      onEvent: vi.fn(),
+    });
+    await flushAsync();
+
+    expect(mockCreate.mock.calls[0][0].input).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'input_text', text: '看图' },
+          { type: 'input_image', file_id: 'file-api-1' },
+        ],
+      },
+    ]);
+  });
+
+  it('deepThink 时 reasoning.effort 为 max', async () => {
     createChatStream({
       apiKey: 'key',
       model: 'model',
@@ -103,14 +135,14 @@ describe('createChatStream', () => {
       deepThink: true,
       onEvent: vi.fn(),
     });
-    const body = JSON.parse(capturedOptions.body!);
-    expect(body.thinking).toEqual({
-      type: 'enabled',
-      reasoning_effort: 'max',
+    await flushAsync();
+
+    expect(mockCreate.mock.calls[0][0].reasoning).toEqual({
+      effort: 'max',
     });
   });
 
-  it('deepThink 为 false 时请求体不含 thinking', () => {
+  it('deepThink 为 false 时 reasoning.effort 为 none', async () => {
     createChatStream({
       apiKey: 'key',
       model: 'model',
@@ -118,16 +150,42 @@ describe('createChatStream', () => {
       deepThink: false,
       onEvent: vi.fn(),
     });
-    const body = JSON.parse(capturedOptions.body!);
-    expect(body.thinking).toBeUndefined();
+    await flushAsync();
+
+    expect(mockCreate.mock.calls[0][0].reasoning).toEqual({
+      effort: 'none',
+    });
+  });
+
+  it('传入 maxTokens 和 temperature', async () => {
+    createChatStream({
+      apiKey: 'key',
+      model: 'model',
+      messages: [],
+      maxTokens: 128,
+      temperature: 0.7,
+      onEvent: vi.fn(),
+    });
+    await flushAsync();
+
+    expect(mockCreate.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        max_output_tokens: 128,
+        temperature: 0.7,
+      }),
+    );
   });
 });
 
-// ========== 事件路由 ==========
-
 describe('事件路由', () => {
-  it('reasoning_content 路由到 thinking 事件（需 deepThink）', () => {
+  it('reasoning_text.delta 路由到 thinking 事件', async () => {
     const onEvent = vi.fn();
+    mockCreate.mockResolvedValue(
+      fromEventsOpen([
+        { type: 'response.reasoning_text.delta', delta: '思考中' },
+      ]),
+    );
+
     createChatStream({
       apiKey: 'key',
       model: 'model',
@@ -135,8 +193,7 @@ describe('事件路由', () => {
       deepThink: true,
       onEvent,
     });
-
-    emitSSEData(makeChunk({ reasoning_content: '思考中' }));
+    await flushAsync();
 
     expect(onEvent).not.toHaveBeenCalled();
     vi.advanceTimersByTime(16);
@@ -146,162 +203,152 @@ describe('事件路由', () => {
     });
   });
 
-  it('content 路由到 content 事件', () => {
+  it('output_text.delta 路由到 content 事件', async () => {
     const onEvent = vi.fn();
+    mockCreate.mockResolvedValue(
+      fromEventsOpen([{ type: 'response.output_text.delta', delta: '你好' }]),
+    );
+
     createChatStream({
       apiKey: 'key',
       model: 'model',
       messages: [],
       onEvent,
     });
-
-    emitSSEData(makeChunk({ content: '你好' }));
+    await flushAsync();
 
     expect(onEvent).not.toHaveBeenCalled();
     vi.advanceTimersByTime(32);
     expect(onEvent).toHaveBeenCalledWith({ type: 'content', text: '你好' });
   });
 
-  it('[DONE] 触发 done 事件并先 flush', () => {
+  it('response.completed 先 flush 再发出带 usage 的 done', async () => {
     const onEvent = vi.fn();
+    const usage = { input_tokens: 10, output_tokens: 5 };
+    mockCreate.mockResolvedValue(
+      fromEvents([
+        { type: 'response.output_text.delta', delta: '待刷新' },
+        { type: 'response.completed', response: { usage } },
+      ]),
+    );
+
     createChatStream({
       apiKey: 'key',
       model: 'model',
       messages: [],
       onEvent,
     });
+    await flushAsync();
 
-    emitSSEData(makeChunk({ content: '待刷新' }));
-    emitSSEData('[DONE]');
-
-    // flushContent 在 [DONE] 时同步执行
     expect(onEvent).toHaveBeenCalledWith({ type: 'content', text: '待刷新' });
-    expect(onEvent).toHaveBeenCalledWith({ type: 'done' });
+    expect(onEvent).toHaveBeenCalledWith({ type: 'done', usage });
   });
 
-  it('usage chunk 触发 done 事件（带 usage）', () => {
+  it('response.incomplete 视为 done', async () => {
     const onEvent = vi.fn();
+    mockCreate.mockResolvedValue(
+      fromEvents([{ type: 'response.incomplete', response: {} }]),
+    );
+
     createChatStream({
       apiKey: 'key',
       model: 'model',
       messages: [],
       onEvent,
     });
-
-    emitSSEData(makeChunk({}, { prompt_tokens: 10, completion_tokens: 5 }));
-
-    expect(onEvent).toHaveBeenCalledWith({
-      type: 'done',
-      usage: { prompt_tokens: 10, completion_tokens: 5 },
-    });
-  });
-
-  it('onError 触发 error 事件', () => {
-    const onEvent = vi.fn();
-    createChatStream({
-      apiKey: 'key',
-      model: 'model',
-      messages: [],
-      onEvent,
-    });
-
-    const error = new Error('连接断开');
-    capturedOptions.onError?.(error);
-
-    expect(onEvent).toHaveBeenCalledWith({ type: 'error', error });
-  });
-
-  it('onClose 时 flush 缓冲区', () => {
-    const onEvent = vi.fn();
-    createChatStream({
-      apiKey: 'key',
-      model: 'model',
-      messages: [],
-      onEvent,
-    });
-
-    emitSSEData(makeChunk({ content: '未刷新内容' }));
-    // 不推进定时器，直接关闭连接
-    capturedOptions.onClose?.();
-
-    expect(onEvent).toHaveBeenCalledWith({
-      type: 'content',
-      text: '未刷新内容',
-    });
-  });
-
-  it('连接关闭且尚未 done/error 时发出 done', () => {
-    const onEvent = vi.fn();
-    createChatStream({
-      apiKey: 'key',
-      model: 'model',
-      messages: [],
-      onEvent,
-    });
-
-    capturedOptions.onClose?.();
+    await flushAsync();
 
     expect(onEvent).toHaveBeenCalledWith({ type: 'done' });
   });
 
-  it('[DONE] 之后 onClose 不再重复发出 done', () => {
+  it('response.failed 发出 error', async () => {
     const onEvent = vi.fn();
+    mockCreate.mockResolvedValue(
+      fromEvents([
+        {
+          type: 'response.failed',
+          response: { error: { message: '模型失败' } },
+        },
+      ]),
+    );
+
     createChatStream({
       apiKey: 'key',
       model: 'model',
       messages: [],
       onEvent,
     });
+    await flushAsync();
 
-    emitSSEData('[DONE]');
-    onEvent.mockClear();
-    capturedOptions.onClose?.();
-
-    expect(onEvent).not.toHaveBeenCalled();
+    expect(onEvent).toHaveBeenCalledWith({
+      type: 'error',
+      error: expect.objectContaining({ message: '模型失败' }),
+    });
   });
 
-  it('无 delta 的 chunk 被忽略', () => {
+  it('SDK 抛出带 status 的错误时写入 HTTP 状态码', async () => {
     const onEvent = vi.fn();
+    const err = Object.assign(new Error('Invalid API key'), { status: 401 });
+    mockCreate.mockRejectedValue(err);
+
     createChatStream({
       apiKey: 'key',
       model: 'model',
       messages: [],
       onEvent,
     });
+    await flushAsync();
 
-    emitSSEData({
-      id: 'x',
-      object: 'chat.completion.chunk',
-      created: 0,
-      model: 'm',
-      choices: [{ index: 0, delta: {}, finish_reason: null }],
+    expect(onEvent).toHaveBeenCalledWith({
+      type: 'error',
+      error: expect.objectContaining({ message: 'HTTP 401 Invalid API key' }),
     });
-    vi.advanceTimersByTime(32);
-
-    expect(onEvent).not.toHaveBeenCalled();
   });
 
-  it('非对象 data 被忽略', () => {
+  it('流结束后尚未 completed 时发出 done', async () => {
     const onEvent = vi.fn();
+    mockCreate.mockResolvedValue(fromEvents([]));
+
     createChatStream({
       apiKey: 'key',
       model: 'model',
       messages: [],
       onEvent,
     });
+    await flushAsync();
 
-    emitSSEData('just a string');
-    vi.advanceTimersByTime(32);
+    expect(onEvent).toHaveBeenCalledWith({ type: 'done' });
+  });
 
-    expect(onEvent).not.toHaveBeenCalled();
+  it('completed 之后不再因流结束重复发出 done', async () => {
+    const onEvent = vi.fn();
+    mockCreate.mockResolvedValue(
+      fromEvents([{ type: 'response.completed', response: {} }]),
+    );
+
+    createChatStream({
+      apiKey: 'key',
+      model: 'model',
+      messages: [],
+      onEvent,
+    });
+    await flushAsync();
+
+    expect(onEvent).toHaveBeenCalledTimes(1);
+    expect(onEvent).toHaveBeenCalledWith({ type: 'done' });
   });
 });
 
-// ========== 缓冲合并 ==========
-
 describe('缓冲合并', () => {
-  it('thinking 多个 chunk 在 16ms 窗口内合并', () => {
+  it('thinking 多个 delta 在 16ms 窗口内合并', async () => {
     const onEvent = vi.fn();
+    mockCreate.mockResolvedValue(
+      fromEventsOpen([
+        { type: 'response.reasoning_text.delta', delta: '第一' },
+        { type: 'response.reasoning_text.delta', delta: '第二' },
+      ]),
+    );
+
     createChatStream({
       apiKey: 'key',
       model: 'model',
@@ -309,9 +356,7 @@ describe('缓冲合并', () => {
       deepThink: true,
       onEvent,
     });
-
-    emitSSEData(makeChunk({ reasoning_content: '第一' }));
-    emitSSEData(makeChunk({ reasoning_content: '第二' }));
+    await flushAsync();
     vi.advanceTimersByTime(16);
 
     expect(onEvent).toHaveBeenCalledOnce();
@@ -321,26 +366,40 @@ describe('缓冲合并', () => {
     });
   });
 
-  it('content 多个 chunk 在 32ms 窗口内合并', () => {
+  it('content 多个 delta 在 32ms 窗口内合并', async () => {
     const onEvent = vi.fn();
+    mockCreate.mockResolvedValue(
+      fromEventsOpen([
+        { type: 'response.output_text.delta', delta: 'A' },
+        { type: 'response.output_text.delta', delta: 'B' },
+        { type: 'response.output_text.delta', delta: 'C' },
+      ]),
+    );
+
     createChatStream({
       apiKey: 'key',
       model: 'model',
       messages: [],
       onEvent,
     });
-
-    emitSSEData(makeChunk({ content: 'A' }));
-    emitSSEData(makeChunk({ content: 'B' }));
-    emitSSEData(makeChunk({ content: 'C' }));
+    await flushAsync();
     vi.advanceTimersByTime(32);
 
     expect(onEvent).toHaveBeenCalledOnce();
     expect(onEvent).toHaveBeenCalledWith({ type: 'content', text: 'ABC' });
   });
 
-  it('thinking 跨窗口多次 flush 分别输出文本', () => {
+  it('thinking 跨窗口多次 flush 分别输出文本', async () => {
     const onEvent = vi.fn();
+    async function* staggered() {
+      yield { type: 'response.reasoning_text.delta', delta: 'a' };
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 20);
+      });
+      yield { type: 'response.reasoning_text.delta', delta: 'b' };
+    }
+    mockCreate.mockResolvedValue(staggered());
+
     createChatStream({
       apiKey: 'key',
       model: 'model',
@@ -348,17 +407,16 @@ describe('缓冲合并', () => {
       deepThink: true,
       onEvent,
     });
-
-    emitSSEData(makeChunk({ reasoning_content: 'a' }));
-    vi.advanceTimersByTime(16);
-    emitSSEData(makeChunk({ reasoning_content: 'b' }));
-    vi.advanceTimersByTime(16);
-
-    expect(onEvent).toHaveBeenCalledTimes(2);
+    await flushAsync();
+    await vi.advanceTimersByTimeAsync(16);
     expect(onEvent).toHaveBeenNthCalledWith(1, {
       type: 'thinking',
       text: 'a',
     });
+
+    await vi.advanceTimersByTimeAsync(20);
+    await flushAsync();
+    await vi.advanceTimersByTimeAsync(16);
     expect(onEvent).toHaveBeenNthCalledWith(2, {
       type: 'thinking',
       text: 'b',
@@ -366,29 +424,32 @@ describe('缓冲合并', () => {
   });
 });
 
-// ========== 中止 ==========
-
 describe('abort', () => {
-  it('flush 缓冲区并 abort 内部 controller', () => {
+  it('flush 缓冲区并 abort 传给 SDK 的 signal', async () => {
     const onEvent = vi.fn();
+    mockCreate.mockResolvedValue(
+      fromEventsOpen([
+        { type: 'response.output_text.delta', delta: '待flush' },
+      ]),
+    );
+
     const controller = createChatStream({
       apiKey: 'key',
       model: 'model',
       messages: [],
       onEvent,
     });
-
-    emitSSEData(makeChunk({ content: '待flush' }));
+    await flushAsync();
     controller.abort();
 
     expect(onEvent).toHaveBeenCalledWith({
       type: 'content',
       text: '待flush',
     });
-    expect(capturedOptions.signal?.aborted).toBe(true);
+    expect(mockCreate.mock.calls[0][1].signal.aborted).toBe(true);
   });
 
-  it('外部 signal abort 时 combined signal 也 abort', () => {
+  it('外部 signal abort 时 combined signal 也 abort', async () => {
     const externalAbort = new AbortController();
     createChatStream({
       apiKey: 'key',
@@ -397,25 +458,37 @@ describe('abort', () => {
       onEvent: vi.fn(),
       signal: externalAbort.signal,
     });
+    await flushAsync();
 
     externalAbort.abort();
-    expect(capturedOptions.signal?.aborted).toBe(true);
+    expect(mockCreate.mock.calls[0][1].signal.aborted).toBe(true);
   });
 
-  it('flush 后缓冲区清空，不再重复 flush', () => {
+  it('abort 后 SDK 抛错不再发出 error', async () => {
     const onEvent = vi.fn();
+    let rejectStream: (err: Error) => void = () => {};
+    mockCreate.mockImplementation(
+      () =>
+        new Promise((_, reject) => {
+          rejectStream = reject;
+        }),
+    );
+
     const controller = createChatStream({
       apiKey: 'key',
       model: 'model',
       messages: [],
       onEvent,
     });
-
-    emitSSEData(makeChunk({ content: 'x' }));
+    await flushAsync();
     controller.abort();
-
     onEvent.mockClear();
-    capturedOptions.onClose?.();
+
+    const err = new Error('Request was aborted.');
+    err.name = 'APIUserAbortError';
+    rejectStream(err);
+    await flushAsync();
+
     expect(onEvent).not.toHaveBeenCalled();
   });
 });

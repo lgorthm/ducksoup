@@ -9,7 +9,7 @@ import { MODEL_LABELS } from '@/stores/models';
 import { useChatLayoutState } from '@/stores/selectors';
 
 export function ChatLayout() {
-  const { conversations, currentConversationId, selectedModel, initialized } =
+  const { conversations, currentConversationId, initialized } =
     useChatLayoutState();
 
   const currentConversation = conversations.find(
@@ -22,7 +22,11 @@ export function ChatLayout() {
         <ConversationHeader
           title={currentConversation?.title}
           loading={!initialized}
-          modelName={MODEL_LABELS[selectedModel]}
+          modelName={
+            currentConversation
+              ? MODEL_LABELS[currentConversation.model]
+              : undefined
+          }
         />
       }
       sidebarContent={<ConversationList />}

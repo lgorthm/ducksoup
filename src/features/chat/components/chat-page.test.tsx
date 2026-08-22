@@ -17,7 +17,6 @@ vi.mock('@/stores/selectors', () => ({
 
 vi.mock('@/stores/actions', () => ({
   init: vi.fn().mockResolvedValue(undefined),
-  setModel: vi.fn(),
 }));
 
 vi.mock('@/features/chat/components/api-key-dialog', () => ({
@@ -52,7 +51,6 @@ interface MockChatState {
   hasApiKey: boolean;
   messages: MessageNode[];
   streamingMessageId: string | null;
-  selectedModel: 'deepseek-v4-flash';
 }
 
 let state: MockChatState;
@@ -79,7 +77,6 @@ function setMockState(overrides: Partial<MockChatState> = {}) {
     hasApiKey: true,
     messages: [],
     streamingMessageId: null,
-    selectedModel: 'deepseek-v4-flash',
     ...overrides,
   };
   applyMocks();
@@ -98,7 +95,6 @@ function applyMocks() {
   vi.mocked(useStore).mockImplementation((selector?: unknown) => {
     const storeState = {
       hasApiKey: state.hasApiKey,
-      selectedModel: state.selectedModel,
     };
     return typeof selector === 'function'
       ? (selector as (s: typeof storeState) => unknown)(storeState)

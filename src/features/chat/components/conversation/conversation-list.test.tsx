@@ -77,6 +77,7 @@ function makeConv(overrides: Partial<Conversation> = {}): Conversation {
     messageCount: 0,
     rootId: `root-${overrides.id ?? 'x'}`,
     activeLeafId: null,
+    model: 'deepseek-v4-flash-vision-exp',
     ...overrides,
   };
 }

@@ -46,7 +46,7 @@ describe('ChatInput', () => {
     const { onSend } = setupInput();
     setEditorText('你好世界');
     fireEvent.click(screen.getByText('发送'));
-    expect(onSend).toHaveBeenCalledWith('你好世界', false);
+    expect(onSend).toHaveBeenCalledWith('你好世界', false, []);
   });
 
   it('发送后清空输入', () => {
@@ -62,7 +62,7 @@ describe('ChatInput', () => {
     setEditorText('测试');
     const editor = screen.getByRole('textbox');
     fireEvent.keyDown(editor, { key: 'Enter' });
-    expect(onSend).toHaveBeenCalledWith('测试', false);
+    expect(onSend).toHaveBeenCalledWith('测试', false, []);
   });
 
   it('Shift+Enter 不发送', () => {
@@ -94,7 +94,7 @@ describe('ChatInput', () => {
     const { onSend } = setupInput({ deepThink: true });
     setEditorText('你好');
     fireEvent.click(screen.getByText('发送'));
-    expect(onSend).toHaveBeenCalledWith('你好', true);
+    expect(onSend).toHaveBeenCalledWith('你好', true, []);
   });
 
   it('流式时显示停止按钮', () => {
@@ -117,5 +117,15 @@ describe('ChatInput', () => {
   it('流式时输入框不可编辑', () => {
     setupInput({ isStreaming: true });
     expect(screen.getByRole('textbox')).toBeDisabled();
+  });
+
+  it('canAttachImages 为 false 时附件按钮禁用', () => {
+    setupInput({ canAttachImages: false });
+    expect(screen.getByTestId('attach-button')).toBeDisabled();
+  });
+
+  it('canAttachImages 为 true 时附件按钮启用', () => {
+    setupInput({ canAttachImages: true });
+    expect(screen.getByTestId('attach-button')).toBeEnabled();
   });
 });

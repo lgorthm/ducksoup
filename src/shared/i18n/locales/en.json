@@ -14,7 +14,16 @@
     "input": {
       "placeholder": "Type a message... (Enter to send, Shift+Enter for new line)",
       "deepThink": "Deep Think",
-      "send": "Send"
+      "send": "Send",
+      "attach": "Add image",
+      "attachDisabled": "Only Flash supports image understanding",
+      "imageTitle": "Image",
+      "imageFormatError": "Only JPEG, PNG, GIF, and WebP images are supported",
+      "imageTooLarge": "Image is too large to send",
+      "imageTooBig": "Image dimensions exceed the limit",
+      "imageTooMany": "You can add at most {{count}} images",
+      "imageEncodeFailed": "Failed to process image",
+      "removeImage": "Remove image"
     },
     "area": {
       "thinking": "Thinking...",

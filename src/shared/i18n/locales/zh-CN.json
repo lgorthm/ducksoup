@@ -14,7 +14,16 @@
     "input": {
       "placeholder": "输入消息... (Enter 发送, Shift+Enter 换行)",
       "deepThink": "深度思考",
-      "send": "发送"
+      "send": "发送",
+      "attach": "添加图片",
+      "attachDisabled": "仅 Flash 支持图像理解",
+      "imageTitle": "图片",
+      "imageFormatError": "仅支持 JPEG、PNG、GIF、WebP 图片",
+      "imageTooLarge": "图片过大，无法发送",
+      "imageTooBig": "图片尺寸超出限制",
+      "imageTooMany": "一次最多添加 {{count}} 张图片",
+      "imageEncodeFailed": "图片处理失败",
+      "removeImage": "移除图片"
     },
     "area": {
       "thinking": "思考中...",

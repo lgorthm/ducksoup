@@ -86,6 +86,10 @@ export default defineConfig({
               name: 'base-ui',
               test: /node_modules[\\/](?:@base-ui|@floating-ui)[\\/]/,
             },
+            {
+              name: 'openai',
+              test: /node_modules[\\/]openai[\\/]/,
+            },
           ],
         },
       },

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { MessageNode } from '@/stores/models';
 import {
   appendChild,
+  buildBranchInfoMap,
   countVisibleMessages,
   createRoot,
   deriveBranchInfo,
@@ -329,6 +330,79 @@ describe('liveSiblings / deriveBranchInfo', () => {
       prevSiblingId: 'a1',
       nextSiblingId: null,
     });
+  });
+});
+
+describe('buildBranchInfoMap', () => {
+  function linearTree() {
+    const map = new Map<string, MessageNode>();
+    map.set('root', createRoot('c1', 'root'));
+    appendChild(map, 'root', {
+      id: 'u1',
+      conversationId: 'c1',
+      role: 'user',
+      content: '问',
+      createdAt: 1,
+    });
+    appendChild(map, 'u1', {
+      id: 'a1',
+      conversationId: 'c1',
+      role: 'assistant',
+      content: '答',
+      createdAt: 2,
+    });
+    appendChild(map, 'a1', {
+      id: 'u2',
+      conversationId: 'c1',
+      role: 'user',
+      content: '再问',
+      createdAt: 3,
+    });
+    appendChild(map, 'u2', {
+      id: 'a2',
+      conversationId: 'c1',
+      role: 'assistant',
+      content: '流式中',
+      status: 'pending',
+      createdAt: 4,
+    });
+    const messages = pathNodes(map, rebuildActivePath(map, 'root'));
+    return { map, messages };
+  }
+
+  it('仅内容变化时复用上一轮 BranchInfo 对象', () => {
+    const { map, messages } = linearTree();
+    const first = buildBranchInfoMap(messages, map);
+
+    const nextMap = new Map(map);
+    nextMap.set('a2', { ...map.get('a2')!, content: '流式中x' });
+    const nextMessages = pathNodes(nextMap, rebuildActivePath(nextMap, 'root'));
+    const second = buildBranchInfoMap(nextMessages, nextMap, first);
+
+    expect(second.u1).toBe(first.u1);
+    expect(second.a1).toBe(first.a1);
+    expect(second.u2).toBe(first.u2);
+    expect(second.a2).toBe(first.a2);
+  });
+
+  it('兄弟拓扑变化时产出新的 BranchInfo', () => {
+    const { map, messages } = linearTree();
+    const first = buildBranchInfoMap(messages, map);
+
+    appendChild(map, 'u2', {
+      id: 'a3',
+      conversationId: 'c1',
+      role: 'assistant',
+      content: '另一支',
+      createdAt: 5,
+    });
+    const nextMessages = pathNodes(map, rebuildActivePath(map, 'root'));
+    const second = buildBranchInfoMap(nextMessages, map, first);
+
+    expect(second.a3.total).toBe(2);
+    expect(second.a3).not.toBe(first.a2);
+    expect(second.a3.current).toBe(2);
+    expect(second.u1).toBe(first.u1);
   });
 });
 

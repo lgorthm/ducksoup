@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test';
 import type { Conversation, MessageNode } from '@/stores/models';
 
 const DB_NAME = 'ducksoup-chat';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 export async function seedIndexedDB(
   page: Page,
@@ -32,6 +32,9 @@ export async function seedIndexedDB(
               'conversationId',
               'parentId',
             ]);
+          }
+          if (!db.objectStoreNames.contains('blobs')) {
+            db.createObjectStore('blobs');
           }
         };
 
@@ -94,6 +97,9 @@ export async function clearIndexedDB(page: Page): Promise<void> {
               'parentId',
             ]);
           }
+          if (!db.objectStoreNames.contains('blobs')) {
+            db.createObjectStore('blobs');
+          }
         };
         request.onsuccess = () => {
           const db = request.result;
@@ -105,9 +111,16 @@ export async function clearIndexedDB(page: Page): Promise<void> {
             resolve();
             return;
           }
-          const tx = db.transaction(['conversations', 'messages'], 'readwrite');
+          const storeNames = ['conversations', 'messages'];
+          if (db.objectStoreNames.contains('blobs')) {
+            storeNames.push('blobs');
+          }
+          const tx = db.transaction(storeNames, 'readwrite');
           tx.objectStore('conversations').clear();
           tx.objectStore('messages').clear();
+          if (db.objectStoreNames.contains('blobs')) {
+            tx.objectStore('blobs').clear();
+          }
           tx.oncomplete = () => {
             db.close();
             resolve();

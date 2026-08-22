@@ -1,9 +1,8 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import duckSvg from '@/assets/duck.svg';
 import { ChatComposer } from '@/features/chat/components/chat-composer';
-import { setModel } from '@/stores/actions';
-import { MODEL_LABELS, type ModelName } from '@/stores/models';
-import { useStore } from '@/stores';
+import { DEFAULT_MODEL, MODEL_LABELS, type ModelName } from '@/stores/models';
 import { RadioGroupButton } from '@/shared/components/ui/radio-group-button';
 
 const MODEL_OPTIONS = (
@@ -13,11 +12,18 @@ const MODEL_OPTIONS = (
   value: id,
 }));
 
+/**
+ * 新会话欢迎页。草稿模型仅存于本地 state：
+ * 首条消息发出后随会话持久化并固定，切换模型需新建会话。
+ * 有待发图片时隐藏模型切换，避免切到不支持图像的 Pro。
+ */
 export function ChatWelcome() {
   const { t } = useTranslation();
-  const selectedModel = useStore((s) => s.selectedModel);
+  const [selectedModel, setSelectedModel] = useState<ModelName>(DEFAULT_MODEL);
+  const [pendingCount, setPendingCount] = useState(0);
 
   const currentLabel = MODEL_LABELS[selectedModel];
+  const showModelPicker = pendingCount === 0;
 
   return (
     <div
@@ -32,16 +38,19 @@ export function ChatWelcome() {
           </span>
         </div>
 
-        {/* 模型选择按钮 */}
-        <RadioGroupButton
-          options={MODEL_OPTIONS}
-          value={selectedModel}
-          onValueChange={setModel}
-        />
+        {showModelPicker ? (
+          <RadioGroupButton
+            options={MODEL_OPTIONS}
+            value={selectedModel}
+            onValueChange={setSelectedModel}
+          />
+        ) : null}
 
-        {/* 第三行：输入组件 */}
         <div className="w-full">
-          <ChatComposer />
+          <ChatComposer
+            draftModel={selectedModel}
+            onPendingImagesChange={setPendingCount}
+          />
         </div>
       </div>
     </div>

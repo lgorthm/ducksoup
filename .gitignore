@@ -18,6 +18,7 @@ dist-ssr
 .superpowers/
 
 # Editor directories and files
+.zcode
 .vscode/*
 !.vscode/extensions.json
 .idea

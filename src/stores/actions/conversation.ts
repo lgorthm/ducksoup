@@ -1,10 +1,12 @@
 import i18n from '@/shared/i18n';
 import type { Conversation } from '@/stores/models';
+import { DEFAULT_MODEL } from '@/stores/models';
 import * as db from '@/features/chat/utils/db';
 import { useStore } from '@/stores';
 import { createActionName } from '@/stores/utils/actionName';
 import { generateId } from '@/stores/utils/ids';
 import { cancelStream } from '@/stores/actions/stream';
+import { deleteImageFile } from '@/features/chat/utils/files-api';
 import {
   createRoot,
   hydrateConversation,
@@ -45,6 +47,7 @@ export async function createConversation() {
     messageCount: 0,
     rootId: root.id,
     activeLeafId: null,
+    model: DEFAULT_MODEL,
   };
   await db.addConversation(conv);
   await db.addMessage(root);
@@ -115,7 +118,15 @@ export async function deleteConversation(id: string) {
   if (useStore.getState().currentConversationId === id) {
     cancelStream();
   }
+  const rows = await db.getMessagesByConversation(id);
+  const fileIds = db.fileIdsOf(rows);
+  const apiKey = useStore.getState().apiKey;
   await db.deleteConversation(id);
+  if (apiKey) {
+    for (const fileId of fileIds) {
+      void deleteImageFile(apiKey, fileId);
+    }
+  }
   useStore.setState(
     (state) => {
       state.conversations = state.conversations.filter(

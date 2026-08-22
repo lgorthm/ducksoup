@@ -8,13 +8,11 @@ import {
 import type { ReactNode, RefObject } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChatMessage } from './chat-message';
-import type { BranchInfo } from '@/stores/models';
 import {
   useChatListController,
   type ChatListController,
 } from '@/features/chat/hooks/use-chat-list-controller';
 import { useMessageListState } from '@/stores/selectors';
-import { deriveBranchInfo } from '@/stores/utils/tree';
 
 interface ChatMessageListProps {
   children?: ReactNode;
@@ -27,16 +25,8 @@ export function ChatMessageList({
   controllerRef,
 }: ChatMessageListProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const { messages, messageNodes, editingMessageId, streamingMessageId } =
+  const { messages, editingMessageId, streamingMessageId, branchInfoMap } =
     useMessageListState();
-
-  const branchInfoMap = useMemo(() => {
-    const map: Record<string, BranchInfo> = {};
-    for (const m of messages) {
-      map[m.id] = deriveBranchInfo(messageNodes, m.id);
-    }
-    return map;
-  }, [messages, messageNodes]);
 
   const totalCount = messages.length;
   // 当前激活路径上"最后一条用户消息"与"最后一条 AI 回复"的下标；

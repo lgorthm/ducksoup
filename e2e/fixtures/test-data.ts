@@ -17,6 +17,7 @@ export function generateConversations(count: number): Conversation[] {
     messageCount: 0,
     rootId: `root-conv-${i}`,
     activeLeafId: null,
+    model: 'deepseek-v4-flash-vision-exp',
   }));
 }
 
@@ -31,6 +32,7 @@ export function generateConversation(
     updatedAt: now,
     messageCount: 0,
     activeLeafId: null,
+    model: 'deepseek-v4-flash-vision-exp',
     ...overrides,
     id,
     rootId: overrides.rootId ?? `root-${id}`,

@@ -1,4 +1,4 @@
-export { setApiKey, clearApiKey, setModel, toggleDeepThink } from './settings';
+export { setApiKey, clearApiKey, toggleDeepThink } from './settings';
 
 export {
   createConversation,

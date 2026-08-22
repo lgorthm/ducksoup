@@ -1,5 +1,5 @@
 import type { ChatMessage } from '@/features/chat/types/deepseek';
-import type { Conversation } from '@/stores/models';
+import type { Conversation, ModelName } from '@/stores/models';
 import {
   createChatStream,
   type ChatStreamEvent,
@@ -107,17 +107,18 @@ export function cancelStream() {
 
 export function runStream(opts: {
   conversationId: string;
+  model: ModelName;
   apiMessages: ChatMessage[];
   streamingMsgId: string;
   rootId: string;
 }) {
   const name = createActionName('chat', runStream);
-  const { conversationId, apiMessages, streamingMsgId, rootId } = opts;
-  const { apiKey, selectedModel, deepThink } = useStore.getState();
+  const { conversationId, model, apiMessages, streamingMsgId, rootId } = opts;
+  const { apiKey, deepThink } = useStore.getState();
 
   const controller = createChatStream({
     apiKey,
-    model: selectedModel,
+    model,
     messages: apiMessages,
     deepThink,
     onEvent: (event: ChatStreamEvent) => {

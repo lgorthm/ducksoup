@@ -29,6 +29,9 @@ export const SELECTORS = {
   messageBranchPosition: '[data-testid="message-branch-position"]',
   chatInput: '[data-testid="chat-input"]',
   sendButton: '[data-testid="send-button"]',
+  attachButton: '[data-testid="attach-button"]',
+  attachFileInput: '[data-testid="attach-file-input"]',
+  attachmentPreview: '[data-testid="attachment-preview"]',
   stopButton: '[data-testid="stop-button"]',
   deepThinkButton: '[data-testid="deep-think-button"]',
 

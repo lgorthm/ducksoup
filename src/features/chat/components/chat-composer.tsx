@@ -1,20 +1,38 @@
 import { useCallback } from 'react';
+import type { ModelName } from '@/stores/models';
 import { ChatInput } from '@/features/chat/components/chat-input';
 import { cancelStream, sendMessage, toggleDeepThink } from '@/stores/actions';
 import { useStore } from '@/stores';
 import { useStreamStatus } from '@/stores/selectors';
+import type { PendingImage } from '@/features/chat/utils/image-attachments';
 
 /**
- * ChatInput 的 store 接线容器：订阅流式状态与 deepThink，
- * 让 ChatArea / ChatWelcome 不必各自重复接线，ChatInput 保持纯受控。
+ * ChatInput 的 store 接线容器。
+ * draftModel 仅对新会话生效（欢迎页传入）；已有会话时 sendMessage 忽略它。
  */
-export function ChatComposer() {
+export function ChatComposer({
+  draftModel,
+  onPendingImagesChange,
+}: {
+  draftModel?: ModelName;
+  onPendingImagesChange?: (count: number) => void;
+}) {
   const { isLoading, isStreaming } = useStreamStatus();
   const deepThink = useStore((s) => s.deepThink);
+  const currentConversationId = useStore((s) => s.currentConversationId);
+  const conversations = useStore((s) => s.conversations);
+  const conversation = conversations.find(
+    (c) => c.id === currentConversationId,
+  );
+  const model = conversation?.model ?? draftModel;
+  const canAttachImages = model !== 'deepseek-v4-pro';
 
-  const handleSend = useCallback((content: string, deepThinkFlag: boolean) => {
-    void sendMessage(content, deepThinkFlag);
-  }, []);
+  const handleSend = useCallback(
+    (content: string, _deepThink: boolean, images: PendingImage[]) => {
+      void sendMessage(content, draftModel, images);
+    },
+    [draftModel],
+  );
 
   return (
     <ChatInput
@@ -24,6 +42,8 @@ export function ChatComposer() {
       onCancel={cancelStream}
       deepThink={deepThink}
       onToggleDeepThink={toggleDeepThink}
+      canAttachImages={canAttachImages}
+      onPendingImagesChange={onPendingImagesChange}
     />
   );
 }

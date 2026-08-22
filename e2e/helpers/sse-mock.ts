@@ -1,43 +1,41 @@
 import type { Page, Route } from '@playwright/test';
 
-const DEEPSEEK_API_URL = '**/api.deepseek.com/chat/completions';
+const DEEPSEEK_API_URL = /api\.deepseek\.com(?:\/v1)?\/responses/;
 
 interface SSEMockOptions {
   thinking?: string[];
   content?: string[];
-  usage?: { prompt_tokens: number; completion_tokens: number };
+  usage?: { input_tokens: number; output_tokens: number };
   delayMs?: number;
   status?: number;
   errorMessage?: string;
 }
 
-function sseData(data: string): string {
-  return `data: ${data}\n\n`;
-}
-
-function chunk(
-  delta: Record<string, string>,
-  usage?: Record<string, number>,
+function sseEvent(
+  type: string,
+  payload: Record<string, unknown>,
+  sequence: number,
 ): string {
-  return JSON.stringify({
-    id: 'mock-chatcmpl',
-    object: 'chat.completion.chunk',
-    created: 0,
-    model: 'test-model',
-    choices: usage ? [] : [{ index: 0, delta, finish_reason: null }],
-    ...(usage ? { usage } : {}),
-  });
+  return `event: ${type}\ndata: ${JSON.stringify({
+    type,
+    sequence_number: sequence,
+    ...payload,
+  })}\n\n`;
 }
 
 function buildSSEBody(
   options: Required<Omit<SSEMockOptions, 'status' | 'errorMessage'>>,
 ): string {
   const { thinking, content, usage } = options;
+  let seq = 1;
   const parts: string[] = [
-    ...thinking.map((t) => sseData(chunk({ reasoning_content: t }))),
-    ...content.map((c) => sseData(chunk({ content: c }))),
-    sseData(chunk({}, usage)),
-    sseData('[DONE]'),
+    ...thinking.map((delta) =>
+      sseEvent('response.reasoning_text.delta', { delta }, seq++),
+    ),
+    ...content.map((delta) =>
+      sseEvent('response.output_text.delta', { delta }, seq++),
+    ),
+    sseEvent('response.completed', { response: { usage } }, seq++),
   ];
   return parts.join('');
 }
@@ -55,7 +53,7 @@ export async function mockDeepSeekSSE(
   const {
     thinking = ['正在思考...', '分析问题中...'],
     content = ['你好', '！我是', 'DeepSeek'],
-    usage = { prompt_tokens: 10, completion_tokens: 5 },
+    usage = { input_tokens: 10, output_tokens: 5 },
     delayMs = 0,
   } = options;
 
@@ -64,7 +62,10 @@ export async function mockDeepSeekSSE(
   if (delayMs > 0) {
     await page.route(DEEPSEEK_API_URL, async (route: Route) => {
       const encoder = new TextEncoder();
-      const parts = body.match(/data:.*\n\n/gs) ?? [body];
+      const parts = body
+        .split('\n\n')
+        .filter(Boolean)
+        .map((part) => `${part}\n\n`);
       const stream = new ReadableStream({
         start(controller) {
           let i = 0;
@@ -123,4 +124,25 @@ export async function mockDeepSeekNetworkError(page: Page): Promise<void> {
 
 export async function unmockDeepSeek(page: Page): Promise<void> {
   await page.unroute(DEEPSEEK_API_URL);
+}
+
+export async function mockDeepSeekFiles(page: Page): Promise<void> {
+  await page.route(/api\.deepseek\.com(?:\/v1)?\/files/, (route: Route) => {
+    if (route.request().method() === 'POST') {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          id: 'file-api-e2e',
+          object: 'file',
+          bytes: 1024,
+          created_at: Math.floor(Date.now() / 1000),
+          filename: 'image.png',
+          purpose: 'user_data',
+        }),
+      });
+      return;
+    }
+    route.fulfill({ status: 200, body: '{}' });
+  });
 }

@@ -13,6 +13,9 @@ import {
   updateMessage,
   chainFlatMessagesIntoTree,
   migrateV2MessagesToV3,
+  putBlob,
+  getBlob,
+  deleteBlobs,
   type LegacyStoredMessage,
   type LegacyConversation,
 } from './db';
@@ -26,6 +29,7 @@ function makeConversation(overrides: Partial<Conversation> = {}): Conversation {
     updatedAt: now,
     messageCount: 0,
     activeLeafId: null,
+    model: 'deepseek-v4-flash-vision-exp',
     ...overrides,
     id,
     rootId: overrides.rootId ?? `root-${id}`,
@@ -49,7 +53,7 @@ function makeMessage(overrides: Partial<MessageNode> = {}): MessageNode {
 }
 
 beforeEach(async () => {
-  const db = await openDB('ducksoup-chat', 3, {
+  const db = await openDB('ducksoup-chat', 4, {
     upgrade(db) {
       if (!db.objectStoreNames.contains('conversations')) {
         const convStore = db.createObjectStore('conversations', {
@@ -66,10 +70,14 @@ beforeEach(async () => {
           'parentId',
         ]);
       }
+      if (!db.objectStoreNames.contains('blobs')) {
+        db.createObjectStore('blobs');
+      }
     },
   });
   await db.clear('conversations');
   await db.clear('messages');
+  await db.clear('blobs');
   db.close();
 });
 
@@ -475,5 +483,55 @@ describe('v2 → v3 迁移', () => {
     expect(migrated[0].id).toBe('root-empty');
     expect(conv.rootId).toBe('root-empty');
     expect(migrated[0].activeChildId).toBeNull();
+  });
+});
+
+describe('blobs store', () => {
+  it('putBlob / getBlob 读写二进制', async () => {
+    const blob = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' });
+    await putBlob('k1', blob);
+    const got = await getBlob('k1');
+    expect(got).toBeInstanceOf(Blob);
+    expect(got?.size).toBe(3);
+    expect(new Uint8Array(await got!.arrayBuffer())).toEqual(
+      new Uint8Array([1, 2, 3]),
+    );
+  });
+
+  it('deleteBlobs 删除指定 key', async () => {
+    await putBlob('k1', new Blob([new Uint8Array([1])]));
+    await putBlob('k2', new Blob([new Uint8Array([2])]));
+    await deleteBlobs(['k1']);
+    expect(await getBlob('k1')).toBeUndefined();
+    expect(await getBlob('k2')).toBeInstanceOf(Blob);
+  });
+
+  it('消息 attachments 随 addMessage 持久化', async () => {
+    const conv = makeConversation({ id: 'c-blob' });
+    await addConversation(conv);
+    await addMessage(
+      makeMessage({
+        conversationId: conv.id,
+        parentId: conv.rootId,
+        attachments: [
+          {
+            id: 'att1',
+            mime: 'image/png',
+            width: 1,
+            height: 1,
+            byteLength: 3,
+            blobKey: 'k1',
+            filename: 'a.png',
+          },
+        ],
+      }),
+    );
+    const rows = await getMessagesByConversation(conv.id);
+    const user = rows.find((m) => m.attachments?.length);
+    expect(user?.attachments?.[0]).toMatchObject({
+      id: 'att1',
+      blobKey: 'k1',
+      mime: 'image/png',
+    });
   });
 });

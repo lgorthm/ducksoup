@@ -1,14 +1,9 @@
 import type { StateCreator } from 'zustand';
 import type { AppStore } from '@/stores/createAppStore';
-import {
-  initialSettingsState,
-  type ModelName,
-  type SettingsState,
-} from '@/stores/models';
+import { initialSettingsState, type SettingsState } from '@/stores/models';
 
 export interface SettingsSlice extends SettingsState {
   setApiKeyState: (apiKey: string, hasApiKey: boolean) => void;
-  setModelState: (model: ModelName) => void;
   setDeepThinkState: (deepThink: boolean) => void;
 }
 
@@ -30,15 +25,6 @@ export const createSettingsSlice: SliceCreator<SettingsSlice> = (set) => ({
       },
       undefined,
       'settings/setApiKeyState',
-    ),
-
-  setModelState: (model) =>
-    set(
-      (state) => {
-        state.selectedModel = model;
-      },
-      undefined,
-      'settings/setModelState',
     ),
 
   setDeepThinkState: (deepThink) =>

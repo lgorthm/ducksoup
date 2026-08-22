@@ -1,10 +1,11 @@
 import { openDB, type DBSchema } from 'idb';
 import type { Conversation, MessageNode } from '@/stores/models';
+import { DEFAULT_MODEL } from '@/stores/models';
 import { generateId } from '@/stores/utils/ids';
 import { createRoot } from '@/stores/utils/tree';
 
 export const DB_NAME = 'ducksoup-chat';
-export const DB_VERSION = 3;
+export const DB_VERSION = 4;
 
 export interface DuckSoupDBSchema extends DBSchema {
   conversations: {
@@ -21,6 +22,16 @@ export interface DuckSoupDBSchema extends DBSchema {
       'by-conversation-parent': [string, string];
     };
   };
+  blobs: {
+    key: string;
+    value: StoredBlob | Blob;
+  };
+}
+
+/** IndexedDB 中的图片二进制；用 ArrayBuffer 包装以便 fake-indexeddb 也能完整往返 */
+export interface StoredBlob {
+  type: string;
+  data: ArrayBuffer;
 }
 
 /** v1/v2 扁平或半树消息，仅用于升级迁移 */
@@ -88,6 +99,20 @@ function getDB() {
         const migrated = migrateV2MessagesToV3(allMsgs, allConvs);
         for (const m of migrated) await msgStore.put(m);
         for (const c of allConvs) await convStore.put(c as Conversation);
+      }
+
+      if (oldVersion < 4) {
+        if (!db.objectStoreNames.contains('blobs')) {
+          db.createObjectStore('blobs');
+        }
+        const convStore = transaction.objectStore('conversations');
+        const allConvs = (await convStore.getAll()) as LegacyConversation[];
+        for (const c of allConvs) {
+          await convStore.put({
+            ...(c as Conversation),
+            model: (c as Conversation).model ?? DEFAULT_MODEL,
+          });
+        }
       }
     },
   });
@@ -216,11 +241,81 @@ export function toDbMessage(node: MessageNode): MessageNode {
     siblingIndex: node.siblingIndex,
     activeChildId: node.activeChildId,
     content: node.content,
+    attachments: node.attachments,
     reasoningContent: node.reasoningContent,
     status: node.status,
     createdAt: node.createdAt,
     deleted: node.deleted ?? false,
   };
+}
+
+function toStoredBlob(blob: Blob, data: ArrayBuffer): StoredBlob {
+  return { type: blob.type, data };
+}
+
+function fromStoredBlob(value: StoredBlob | Blob): Blob {
+  if (value instanceof Blob) return value;
+  return new Blob([value.data], { type: value.type });
+}
+
+export async function putBlob(key: string, blob: Blob): Promise<void> {
+  const db = await getDB();
+  const data = await blob.arrayBuffer();
+  await db.put('blobs', toStoredBlob(blob, data), key);
+}
+
+export async function getBlob(key: string): Promise<Blob | undefined> {
+  const db = await getDB();
+  const value = await db.get('blobs', key);
+  if (!value) return undefined;
+  return fromStoredBlob(value);
+}
+
+export async function deleteBlobs(keys: string[]): Promise<void> {
+  const unique = [...new Set(keys.filter(Boolean))];
+  if (unique.length === 0) return;
+  const db = await getDB();
+  const tx = db.transaction('blobs', 'readwrite');
+  for (const key of unique) {
+    await tx.store.delete(key);
+  }
+  await tx.done;
+}
+
+export function blobKeysOf(messages: MessageNode[]): string[] {
+  return messages.flatMap((m) => m.attachments?.map((a) => a.blobKey) ?? []);
+}
+
+export function fileIdsOf(messages: MessageNode[]): string[] {
+  return messages.flatMap(
+    (m) =>
+      m.attachments?.map((a) => a.fileId).filter((id): id is string => !!id) ??
+      [],
+  );
+}
+
+export async function stripAllAttachmentFileIds(): Promise<void> {
+  const db = await getDB();
+  const messages = await db.getAll('messages');
+  const tx = db.transaction('messages', 'readwrite');
+  for (const msg of messages) {
+    if (!msg.attachments?.some((a) => a.fileId)) continue;
+    await tx.store.put(
+      toDbMessage({
+        ...msg,
+        attachments: msg.attachments.map((a) => ({
+          id: a.id,
+          mime: a.mime,
+          width: a.width,
+          height: a.height,
+          byteLength: a.byteLength,
+          blobKey: a.blobKey,
+          filename: a.filename,
+        })),
+      }),
+    );
+  }
+  await tx.done;
 }
 
 export async function addConversation(conv: Conversation): Promise<void> {
@@ -230,7 +325,10 @@ export async function addConversation(conv: Conversation): Promise<void> {
 
 export async function getAllConversations(): Promise<Conversation[]> {
   const db = await getDB();
-  return db.getAllFromIndex('conversations', 'by-updatedAt');
+  const rows = await db.getAllFromIndex('conversations', 'by-updatedAt');
+  // v3 及更早的记录没有 model 字段，读取时归一化为默认模型，
+  // 待下次 updateConversation 落盘补写
+  return rows.map((c) => ({ ...c, model: c.model ?? DEFAULT_MODEL }));
 }
 
 export async function updateConversation(conv: Conversation): Promise<void> {
@@ -245,11 +343,21 @@ export async function deleteConversation(id: string): Promise<void> {
     'by-conversationId',
     id,
   );
-  const tx = db.transaction(['messages', 'conversations'], 'readwrite');
+  const blobKeys = blobKeysOf(messages);
+  const storeNames = (['messages', 'conversations', 'blobs'] as const).filter(
+    (name) => db.objectStoreNames.contains(name),
+  );
+  const tx = db.transaction(storeNames, 'readwrite');
   for (const msg of messages) {
     await tx.objectStore('messages').delete(msg.id);
   }
   await tx.objectStore('conversations').delete(id);
+  if (storeNames.includes('blobs')) {
+    const blobs = tx.objectStore('blobs');
+    for (const key of blobKeys) {
+      await blobs.delete(key);
+    }
+  }
   await tx.done;
 }
 
@@ -295,19 +403,33 @@ export async function clearConversationMessages(
     conversationId,
   );
   const rootId = conv?.rootId;
-  const tx = db.transaction('messages', 'readwrite');
+  const blobKeys = blobKeysOf(
+    messages.filter((msg) => !(rootId && msg.id === rootId)),
+  );
+  const storeNames = (['messages', 'blobs'] as const).filter((name) =>
+    db.objectStoreNames.contains(name),
+  );
+  const tx = db.transaction(storeNames, 'readwrite');
+  const msgStore = tx.objectStore('messages');
   for (const msg of messages) {
     if (rootId && msg.id === rootId) {
-      await tx.store.put(
+      await msgStore.put(
         toDbMessage({
           ...msg,
           childrenIds: [],
           activeChildId: null,
+          attachments: undefined,
         }),
       );
       continue;
     }
-    await tx.store.delete(msg.id);
+    await msgStore.delete(msg.id);
+  }
+  if (storeNames.includes('blobs')) {
+    const blobs = tx.objectStore('blobs');
+    for (const key of blobKeys) {
+      await blobs.delete(key);
+    }
   }
   await tx.done;
 }

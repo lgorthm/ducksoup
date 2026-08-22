@@ -18,31 +18,34 @@ vi.mock('@/features/chat/components/chat-input', () => ({
     onCancel,
     deepThink,
     onToggleDeepThink,
+    canAttachImages,
   }: {
-    onSend: (content: string, deepThink: boolean) => void;
+    onSend: (content: string, deepThink: boolean, images?: unknown[]) => void;
     disabled?: boolean;
     isStreaming?: boolean;
     onCancel?: () => void;
     deepThink: boolean;
     onToggleDeepThink: () => void;
+    canAttachImages?: boolean;
   }) => (
     <div
       data-testid="chat-input"
       data-disabled={String(disabled)}
       data-streaming={String(isStreaming)}
       data-deep-think={String(deepThink)}
+      data-can-attach={String(canAttachImages)}
     >
       <button
         type="button"
         data-testid="send-false"
-        onClick={() => onSend('hello', false)}
+        onClick={() => onSend('hello', false, [])}
       >
         send-false
       </button>
       <button
         type="button"
         data-testid="send-true"
-        onClick={() => onSend('hello', true)}
+        onClick={() => onSend('hello', true, [])}
       >
         send-true
       </button>
@@ -70,16 +73,32 @@ beforeEach(() => {
 });
 
 describe('ChatComposer', () => {
-  it('将 deepThink=true 转发给 sendMessage（回归测试）', () => {
-    render(<ChatComposer />);
-    screen.getByTestId('send-true').click();
-    expect(sendMessage).toHaveBeenCalledWith('hello', true);
+  it('draftModel 为 Flash 时允许加图', () => {
+    render(<ChatComposer draftModel="deepseek-v4-flash-vision-exp" />);
+    expect(screen.getByTestId('chat-input')).toHaveAttribute(
+      'data-can-attach',
+      'true',
+    );
   });
 
-  it('将 deepThink=false 转发给 sendMessage', () => {
+  it('draftModel 为 Pro 时禁用加图', () => {
+    render(<ChatComposer draftModel="deepseek-v4-pro" />);
+    expect(screen.getByTestId('chat-input')).toHaveAttribute(
+      'data-can-attach',
+      'false',
+    );
+  });
+
+  it('将 draftModel 转发给 sendMessage（新会话的草稿模型）', () => {
+    render(<ChatComposer draftModel="deepseek-v4-pro" />);
+    screen.getByTestId('send-true').click();
+    expect(sendMessage).toHaveBeenCalledWith('hello', 'deepseek-v4-pro', []);
+  });
+
+  it('未传 draftModel 时 sendMessage 第二参为 undefined', () => {
     render(<ChatComposer />);
     screen.getByTestId('send-false').click();
-    expect(sendMessage).toHaveBeenCalledWith('hello', false);
+    expect(sendMessage).toHaveBeenCalledWith('hello', undefined, []);
   });
 
   it('从 store 读取 deepThink 并传给 ChatInput', () => {

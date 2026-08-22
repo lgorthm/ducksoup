@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '@/stores';
-import { pathNodes } from '@/stores/utils/tree';
+import type { BranchInfo } from '@/stores/models';
+import { buildBranchInfoMap, pathNodes } from '@/stores/utils/tree';
 
 export function useConversationListState() {
   return useStore(
@@ -18,7 +19,6 @@ export function useChatLayoutState() {
     useShallow((s) => ({
       conversations: s.conversations,
       currentConversationId: s.currentConversationId,
-      selectedModel: s.selectedModel,
       initialized: s.initialized,
     })),
   );
@@ -43,7 +43,17 @@ export function useMessageListState() {
     () => pathNodes(snapshot.messageNodes, snapshot.activePath),
     [snapshot.messageNodes, snapshot.activePath],
   );
-  return { ...snapshot, messages };
+  const prevBranchInfoRef = useRef<Record<string, BranchInfo>>({});
+  const branchInfoMap = useMemo(() => {
+    const next = buildBranchInfoMap(
+      messages,
+      snapshot.messageNodes,
+      prevBranchInfoRef.current,
+    );
+    prevBranchInfoRef.current = next;
+    return next;
+  }, [messages, snapshot.messageNodes]);
+  return { ...snapshot, messages, branchInfoMap };
 }
 
 /**

@@ -98,4 +98,79 @@ describe('buildApiMessages', () => {
       { role: 'user', content: '再试一次' },
     ]);
   });
+
+  it('纯图 user 编成 input_image，优先 file_id', () => {
+    const map = new Map<string, MessageNode>();
+    const root = createRoot('c1', 'root');
+    map.set(root.id, root);
+    appendChild(map, 'root', {
+      id: 'u1',
+      conversationId: 'c1',
+      role: 'user',
+      content: '',
+      createdAt: 1,
+      attachments: [
+        {
+          id: 'att1',
+          mime: 'image/png',
+          width: 1,
+          height: 1,
+          byteLength: 10,
+          blobKey: 'blob1',
+        },
+      ],
+    });
+    const path = rebuildActivePath(map, 'root');
+    const payload = buildApiMessages(
+      map,
+      path,
+      new Map([['att1', { kind: 'file', fileId: 'file-api-1' }]]),
+    );
+    expect(payload[1]).toEqual({
+      role: 'user',
+      content: [{ type: 'input_image', file_id: 'file-api-1' }],
+    });
+  });
+
+  it('无 fileId 时用 data URL 内联', () => {
+    const map = new Map<string, MessageNode>();
+    const root = createRoot('c1', 'root');
+    map.set(root.id, root);
+    appendChild(map, 'root', {
+      id: 'u1',
+      conversationId: 'c1',
+      role: 'user',
+      content: '看图',
+      createdAt: 1,
+      attachments: [
+        {
+          id: 'att1',
+          mime: 'image/png',
+          width: 1,
+          height: 1,
+          byteLength: 10,
+          blobKey: 'blob1',
+        },
+      ],
+    });
+    const path = rebuildActivePath(map, 'root');
+    const payload = buildApiMessages(
+      map,
+      path,
+      new Map([
+        ['att1', { kind: 'inline', dataUrl: 'data:image/png;base64,xx' }],
+      ]),
+    );
+    expect(payload[1]).toEqual({
+      role: 'user',
+      content: [
+        { type: 'input_text', text: '看图' },
+        {
+          type: 'input_image',
+          image_url: 'data:image/png;base64,xx',
+          detail: 'auto',
+        },
+      ],
+    });
+  });
 });

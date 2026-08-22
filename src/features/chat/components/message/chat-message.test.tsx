@@ -4,10 +4,13 @@ import type { MessageNode } from '@/stores/models';
 import { useStore } from '@/stores';
 import { ChatMessage } from './chat-message';
 
+const markdownRender = vi.fn(({ children }: { children: React.ReactNode }) => (
+  <div data-testid="markdown-renderer">{children}</div>
+));
+
 vi.mock('@/shared/components/markdown-renderer', () => ({
-  MarkdownRenderer: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="markdown-renderer">{children}</div>
-  ),
+  MarkdownRenderer: (props: { children: React.ReactNode }) =>
+    markdownRender(props),
 }));
 
 function makeMessage(overrides: Partial<MessageNode> = {}): MessageNode {
@@ -49,6 +52,74 @@ describe('ChatMessage', () => {
     const markdown = await screen.findByTestId('markdown-renderer');
     expect(markdown).toBeInTheDocument();
     expect(screen.getByText('# 标题')).toBeInTheDocument();
+  });
+
+  it('branchInfo 仅引用变化时不重渲染 Markdown', async () => {
+    markdownRender.mockClear();
+    const msg = makeMessage({
+      role: 'assistant',
+      content: '# 标题',
+    });
+    const { rerender } = render(
+      <ChatMessage
+        message={msg}
+        branchInfo={{
+          current: 1,
+          total: 1,
+          prevSiblingId: null,
+          nextSiblingId: null,
+        }}
+      />,
+    );
+    await screen.findByTestId('markdown-renderer');
+    const afterFirst = markdownRender.mock.calls.length;
+
+    rerender(
+      <ChatMessage
+        message={msg}
+        branchInfo={{
+          current: 1,
+          total: 1,
+          prevSiblingId: null,
+          nextSiblingId: null,
+        }}
+      />,
+    );
+    expect(markdownRender.mock.calls.length).toBe(afterFirst);
+  });
+
+  it('branchInfo 数值变化时重新渲染 Markdown', async () => {
+    markdownRender.mockClear();
+    const msg = makeMessage({
+      role: 'assistant',
+      content: '# 标题',
+    });
+    const { rerender } = render(
+      <ChatMessage
+        message={msg}
+        branchInfo={{
+          current: 1,
+          total: 1,
+          prevSiblingId: null,
+          nextSiblingId: null,
+        }}
+      />,
+    );
+    await screen.findByTestId('markdown-renderer');
+    const afterFirst = markdownRender.mock.calls.length;
+
+    rerender(
+      <ChatMessage
+        message={msg}
+        branchInfo={{
+          current: 1,
+          total: 2,
+          prevSiblingId: null,
+          nextSiblingId: 's2',
+        }}
+      />,
+    );
+    expect(markdownRender.mock.calls.length).toBeGreaterThan(afterFirst);
   });
 
   it('无思考步骤时不显示思考区域', () => {

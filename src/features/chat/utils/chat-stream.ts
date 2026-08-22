@@ -1,15 +1,16 @@
 /**
  * 聊天流式响应服务
  *
- * 基于 SSE 客户端，封装 DeepSeek Chat Completion 流式调用。
+ * 通过 OpenAI SDK 调用 DeepSeek Responses API。
  * 支持深度思考模式的推理过程输出（单个累积文本块）。
  */
 
-import type { ChatMessage, StreamChunk } from '@/features/chat/types/deepseek';
-import {
-  createSSEConnection,
-  type SSEConnection,
-} from '@/features/chat/utils/sse-client';
+import type {
+  ChatMessage,
+  InputImagePart,
+  InputTextPart,
+  ResponsesUsage,
+} from '@/features/chat/types/deepseek';
 
 // ========== 流式事件类型 ==========
 
@@ -17,7 +18,7 @@ import {
 export type ChatStreamEvent =
   | { type: 'thinking'; text: string }
   | { type: 'content'; text: string }
-  | { type: 'done'; usage?: StreamChunk['usage'] }
+  | { type: 'done'; usage?: ResponsesUsage }
   | { type: 'error'; error: Error };
 
 export interface ChatStreamOptions {
@@ -42,18 +43,68 @@ export interface ChatStreamOptions {
 export type ChatStreamController = {
   /** 中止流 */
   abort: () => void;
-  /** 连接对象 */
-  readonly connection: SSEConnection;
 };
 
 const DEEPSEEK_BASE = 'https://api.deepseek.com';
 const THINKING_BUFFER_MS = 16; // ~60fps 用于思考过程渲染
 const CONTENT_BUFFER_MS = 32; // ~30fps 用于内容渲染
 
+export type ResponsesInputContent =
+  | string
+  | Array<InputTextPart | InputImagePart>;
+
+export type ResponsesInputItem = {
+  role: 'user' | 'assistant';
+  content: ResponsesInputContent;
+};
+
+export function toResponsesParams(messages: ChatMessage[]): {
+  instructions?: string;
+  input: ResponsesInputItem[];
+} {
+  const instructions = messages
+    .filter((m) => m.role === 'system')
+    .map((m) => m.content)
+    .join('\n');
+  const input = messages
+    .filter((m) => m.role === 'user' || m.role === 'assistant')
+    .map((m) => ({
+      role: m.role as 'user' | 'assistant',
+      content: (m.content ?? '') as ResponsesInputContent,
+    }));
+  return {
+    ...(instructions ? { instructions } : {}),
+    input,
+  };
+}
+
+function toUsage(usage: unknown): ResponsesUsage | undefined {
+  if (!usage || typeof usage !== 'object') return undefined;
+  const u = usage as ResponsesUsage;
+  if (
+    typeof u.input_tokens !== 'number' ||
+    typeof u.output_tokens !== 'number'
+  ) {
+    return undefined;
+  }
+  return u;
+}
+
+function toChatError(err: unknown): Error {
+  if (err instanceof Error) {
+    const status = 'status' in err ? err.status : undefined;
+    if (typeof status === 'number') {
+      return new Error(`HTTP ${status} ${err.message}`);
+    }
+    return err;
+  }
+  return new Error(String(err));
+}
+
 /**
  * 创建聊天流式连接
  *
- * 当 deepThink 为 true 时，会从 stream 中提取 reasoning_content 并以
+ * 当 deepThink 为 true 时，会从 stream 中提取 reasoning 文本并以
  * thinking 事件输出（累积文本块，由上层拼接）。思考过程作为连续文本块展示，
  * 反映模型完整推理过程。
  */
@@ -80,28 +131,12 @@ export function createChatStream(
     onEvent(event);
   }
 
-  // 组合外部 signal
   const combinedSignal = signal
-    ? combineSignals(signal, abortController.signal)
+    ? AbortSignal.any([signal, abortController.signal])
     : abortController.signal;
 
-  const body = JSON.stringify({
-    messages,
-    model,
-    stream: true,
-    stream_options: { include_usage: true },
-    max_tokens: maxTokens ?? null,
-    temperature: temperature ?? null,
-    thinking: deepThink
-      ? { type: 'enabled', reasoning_effort: 'max' }
-      : undefined,
-  });
-
-  // 思考过程缓冲区：定期合并后输出
   let thinkingBuffer = '';
   let thinkingTimer: ReturnType<typeof setTimeout> | null = null;
-
-  // 内容缓冲区：定期合并后输出
   let contentBuffer = '';
   let contentTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -121,68 +156,86 @@ export function createChatStream(
     onEvent({ type: 'content', text });
   }
 
-  const connection = createSSEConnection(`${DEEPSEEK_BASE}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body,
-    signal: combinedSignal,
-    onEvent: (sseEvent) => {
-      const data = sseEvent.data;
+  function settleDone(usage?: ResponsesUsage) {
+    flushThinking();
+    flushContent();
+    settle(usage ? { type: 'done', usage } : { type: 'done' });
+  }
 
-      // DeepSeek 流的结束标记
-      if (data === '[DONE]') {
-        flushThinking();
-        flushContent();
-        settle({ type: 'done' });
-        return;
-      }
+  void (async () => {
+    try {
+      const { default: OpenAI } = await import('openai');
+      if (settled || combinedSignal.aborted) return;
 
-      if (typeof data !== 'object' || data === null) return;
+      const client = new OpenAI({
+        apiKey,
+        baseURL: DEEPSEEK_BASE,
+        dangerouslyAllowBrowser: true,
+        maxRetries: 0,
+      });
 
-      const chunk = data as StreamChunk;
+      const { instructions, input } = toResponsesParams(messages);
+      const stream = await client.responses.create(
+        {
+          model,
+          instructions,
+          input: input as never,
+          stream: true,
+          reasoning: { effort: deepThink ? 'max' : 'none' },
+          ...(maxTokens != null ? { max_output_tokens: maxTokens } : {}),
+          ...(temperature != null ? { temperature } : {}),
+        },
+        { signal: combinedSignal },
+      );
 
-      // usage 信息
-      if (chunk.usage) {
-        flushThinking();
-        flushContent();
-        settle({ type: 'done', usage: chunk.usage });
-        return;
-      }
+      for await (const event of stream) {
+        if (settled || combinedSignal.aborted) return;
 
-      const delta = chunk.choices?.[0]?.delta;
-      if (!delta) return;
-
-      // 深度思考模式：推理内容
-      if (deepThink && delta.reasoning_content) {
-        thinkingBuffer += delta.reasoning_content;
-        // 定期刷新思考内容，保证流畅的逐步输出
-        if (!thinkingTimer) {
-          thinkingTimer = setTimeout(flushThinking, THINKING_BUFFER_MS);
+        switch (event.type) {
+          case 'response.reasoning_text.delta':
+            if (event.delta) {
+              thinkingBuffer += event.delta;
+              if (!thinkingTimer) {
+                thinkingTimer = setTimeout(flushThinking, THINKING_BUFFER_MS);
+              }
+            }
+            break;
+          case 'response.output_text.delta':
+            if (event.delta) {
+              contentBuffer += event.delta;
+              if (!contentTimer) {
+                contentTimer = setTimeout(flushContent, CONTENT_BUFFER_MS);
+              }
+            }
+            break;
+          case 'response.completed':
+          case 'response.incomplete':
+            settleDone(toUsage(event.response?.usage));
+            return;
+          case 'response.failed': {
+            flushThinking();
+            flushContent();
+            const message = event.response.error?.message ?? 'Response failed';
+            settle({ type: 'error', error: new Error(message) });
+            return;
+          }
+          case 'error': {
+            flushThinking();
+            flushContent();
+            settle({ type: 'error', error: new Error(event.message) });
+            return;
+          }
         }
       }
 
-      // 普通内容
-      if (delta.content) {
-        contentBuffer += delta.content;
-        if (!contentTimer) {
-          contentTimer = setTimeout(flushContent, CONTENT_BUFFER_MS);
-        }
-      }
-    },
-    onClose: () => {
+      settleDone();
+    } catch (err) {
+      if (settled || combinedSignal.aborted) return;
       flushThinking();
       flushContent();
-      settle({ type: 'done' });
-    },
-    onError: (error) => {
-      flushThinking();
-      flushContent();
-      settle({ type: 'error', error });
-    },
-  });
+      settle({ type: 'error', error: toChatError(err) });
+    }
+  })();
 
   return {
     abort() {
@@ -191,14 +244,5 @@ export function createChatStream(
       settled = true;
       abortController.abort();
     },
-    connection,
   };
-}
-
-function combineSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
-  if (a.aborted || b.aborted) return AbortSignal.abort();
-  const controller = new AbortController();
-  a.addEventListener('abort', () => controller.abort(), { once: true });
-  b.addEventListener('abort', () => controller.abort(), { once: true });
-  return controller.signal;
 }

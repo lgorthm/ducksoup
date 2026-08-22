@@ -4,6 +4,20 @@ export type MessageStatus = 'pending' | 'done' | 'error';
 
 export type MessageRole = 'system' | 'user' | 'assistant' | 'tool';
 
+export type ImageMime = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
+
+export interface ImageAttachment {
+  id: string;
+  mime: ImageMime;
+  width: number;
+  height: number;
+  byteLength: number;
+  blobKey: string;
+  filename?: string;
+  /** Files API 返回的 id；缺省表示尚未上传或当轮降级为 base64 */
+  fileId?: string;
+}
+
 export interface MessageNode {
   id: MessageId;
   conversationId: string;
@@ -13,6 +27,7 @@ export interface MessageNode {
   siblingIndex: number;
   activeChildId: MessageId | null;
   content: string;
+  attachments?: ImageAttachment[];
   reasoningContent?: string;
   status?: MessageStatus;
   createdAt: number;

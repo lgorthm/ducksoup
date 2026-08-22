@@ -1,28 +1,25 @@
 import { http, HttpResponse } from 'msw';
 
-const DEEPSEEK_API = 'https://api.deepseek.com/chat/completions';
+const DEEPSEEK_API = /^https:\/\/api\.deepseek\.com(?:\/v1)?\/responses$/;
+const DEEPSEEK_FILES_API = /^https:\/\/api\.deepseek\.com(?:\/v1)?\/files$/;
 const DEEPSEEK_BALANCE_API = 'https://api.deepseek.com/user/balance';
 
-/**
- * 构造 SSE 格式的 data 行
- */
-function sseData(data: string): string {
-  return `data: ${data}\n\n`;
-}
+const SSE_HEADERS = {
+  'Content-Type': 'text/event-stream',
+  'Cache-Control': 'no-cache',
+  Connection: 'keep-alive',
+};
 
-/**
- * 构造模拟的 DeepSeek 流式响应 chunk
- */
-function chunk(
-  delta: Record<string, string>,
-  usage?: Record<string, number>,
+function sseEvent(
+  type: string,
+  payload: Record<string, unknown>,
+  sequence: number,
 ): string {
-  return JSON.stringify({
-    id: 'mock-chatcmpl',
-    object: 'chat.completion.chunk',
-    choices: usage ? [] : [{ index: 0, delta, finish_reason: null }],
-    ...(usage ? { usage } : {}),
-  });
+  return `event: ${type}\ndata: ${JSON.stringify({
+    type,
+    sequence_number: sequence,
+    ...payload,
+  })}\n\n`;
 }
 
 /**
@@ -32,49 +29,57 @@ function createStreamingResponse(
   options: {
     thinking?: string[];
     content?: string[];
-    usage?: { prompt_tokens: number; completion_tokens: number };
+    usage?: { input_tokens: number; output_tokens: number };
   } = {},
 ): ReadableStream<Uint8Array> {
   const {
     thinking = ['正在思考...', '分析问题中...'],
     content = ['你好', '！我是', 'DeepSeek'],
-    usage = { prompt_tokens: 10, completion_tokens: 5 },
+    usage = { input_tokens: 10, output_tokens: 5 },
   } = options;
 
   const encoder = new TextEncoder();
-
+  let seq = 1;
   const chunks: string[] = [
-    ...thinking.map((t) => sseData(chunk({ reasoning_content: t }))),
-    ...content.map((c) => sseData(chunk({ content: c }))),
-    sseData(chunk({}, usage)),
-    sseData('[DONE]'),
+    ...thinking.map((delta) =>
+      sseEvent('response.reasoning_text.delta', { delta }, seq++),
+    ),
+    ...content.map((delta) =>
+      sseEvent('response.output_text.delta', { delta }, seq++),
+    ),
+    sseEvent('response.completed', { response: { usage } }, seq++),
   ];
 
   return new ReadableStream({
     start(controller) {
-      chunks.forEach((data, i) => {
+      for (const data of chunks) {
         controller.enqueue(encoder.encode(data));
-        void i;
-      });
+      }
       controller.close();
     },
   });
 }
 
+function streamingHttpResponse(
+  options?: Parameters<typeof createStreamingResponse>[0],
+) {
+  return new HttpResponse(createStreamingResponse(options), {
+    headers: SSE_HEADERS,
+  });
+}
+
 export const deepseekHandlers = [
-  /**
-   * 默认流式响应
-   */
-  http.post(DEEPSEEK_API, () => {
-    const stream = createStreamingResponse();
-    return new HttpResponse(stream, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
-      },
-    });
-  }),
+  http.post(DEEPSEEK_API, () => streamingHttpResponse()),
+  http.post(DEEPSEEK_FILES_API, async () =>
+    HttpResponse.json({
+      id: 'file-api-test',
+      object: 'file',
+      bytes: 1024,
+      created_at: Math.floor(Date.now() / 1000),
+      filename: 'image.png',
+      purpose: 'user_data',
+    }),
+  ),
 ];
 
 /**
@@ -83,16 +88,7 @@ export const deepseekHandlers = [
 export function mockDeepSeekStream(
   options: Parameters<typeof createStreamingResponse>[0],
 ) {
-  return http.post(DEEPSEEK_API, () => {
-    const stream = createStreamingResponse(options);
-    return new HttpResponse(stream, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
-      },
-    });
-  });
+  return http.post(DEEPSEEK_API, () => streamingHttpResponse(options));
 }
 
 /**
