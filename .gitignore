@@ -12,7 +12,6 @@ dist
 dist-ssr
 *.local
 *.png
-!public/*.png
 
 # Superpowers
 .superpowers/
