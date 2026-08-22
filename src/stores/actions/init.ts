@@ -2,7 +2,7 @@ import * as db from '@/features/chat/utils/db';
 import { useStore } from '@/stores';
 import { createActionName } from '@/stores/utils/actionName';
 import { API_KEY_STORAGE_KEY } from '@/stores/utils/constants';
-import { hydrateConversation } from '@/stores/utils/tree';
+import { hydrateConversation, settlePendingNodes } from '@/stores/utils/tree';
 
 export async function init() {
   const name = createActionName('chat', init);
@@ -22,6 +22,10 @@ export async function init() {
     const hydrated = rootId
       ? hydrateConversation(rows, rootId)
       : { map: new Map(), activePath: [] as string[], activeLeafId: null };
+    const settled = settlePendingNodes(hydrated.map);
+    for (const node of settled) {
+      db.updateMessage(node).catch(() => {});
+    }
 
     useStore.setState(
       (state) => {

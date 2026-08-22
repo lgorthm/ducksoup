@@ -72,6 +72,13 @@ export function createChatStream(
   } = options;
 
   const abortController = new AbortController();
+  let settled = false;
+
+  function settle(event: ChatStreamEvent) {
+    if (settled) return;
+    settled = true;
+    onEvent(event);
+  }
 
   // 组合外部 signal
   const combinedSignal = signal
@@ -129,7 +136,7 @@ export function createChatStream(
       if (data === '[DONE]') {
         flushThinking();
         flushContent();
-        onEvent({ type: 'done' });
+        settle({ type: 'done' });
         return;
       }
 
@@ -141,7 +148,7 @@ export function createChatStream(
       if (chunk.usage) {
         flushThinking();
         flushContent();
-        onEvent({ type: 'done', usage: chunk.usage });
+        settle({ type: 'done', usage: chunk.usage });
         return;
       }
 
@@ -168,11 +175,12 @@ export function createChatStream(
     onClose: () => {
       flushThinking();
       flushContent();
+      settle({ type: 'done' });
     },
     onError: (error) => {
       flushThinking();
       flushContent();
-      onEvent({ type: 'error', error });
+      settle({ type: 'error', error });
     },
   });
 
@@ -180,6 +188,7 @@ export function createChatStream(
     abort() {
       flushThinking();
       flushContent();
+      settled = true;
       abortController.abort();
     },
     connection,

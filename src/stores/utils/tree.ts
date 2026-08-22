@@ -239,6 +239,19 @@ export function hydrateConversation(
   return { map, activePath, activeLeafId };
 }
 
+/** 无活跃流时把残留 pending 收口，避免刷新后仍被当成正在生成 */
+export function settlePendingNodes(
+  map: Map<MessageId, MessageNode>,
+): MessageNode[] {
+  const settled: MessageNode[] = [];
+  for (const node of map.values()) {
+    if (node.status !== 'pending') continue;
+    node.status = node.content || node.reasoningContent ? 'done' : 'error';
+    settled.push(node);
+  }
+  return settled;
+}
+
 export function resetRoot(
   map: Map<MessageId, MessageNode>,
   rootId: MessageId,

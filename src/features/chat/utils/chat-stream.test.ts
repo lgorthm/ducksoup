@@ -230,6 +230,36 @@ describe('事件路由', () => {
     });
   });
 
+  it('连接关闭且尚未 done/error 时发出 done', () => {
+    const onEvent = vi.fn();
+    createChatStream({
+      apiKey: 'key',
+      model: 'model',
+      messages: [],
+      onEvent,
+    });
+
+    capturedOptions.onClose?.();
+
+    expect(onEvent).toHaveBeenCalledWith({ type: 'done' });
+  });
+
+  it('[DONE] 之后 onClose 不再重复发出 done', () => {
+    const onEvent = vi.fn();
+    createChatStream({
+      apiKey: 'key',
+      model: 'model',
+      messages: [],
+      onEvent,
+    });
+
+    emitSSEData('[DONE]');
+    onEvent.mockClear();
+    capturedOptions.onClose?.();
+
+    expect(onEvent).not.toHaveBeenCalled();
+  });
+
   it('无 delta 的 chunk 被忽略', () => {
     const onEvent = vi.fn();
     createChatStream({

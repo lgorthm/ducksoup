@@ -9,6 +9,7 @@ import {
   liveSiblings,
   pathNodes,
   rebuildActivePath,
+  settlePendingNodes,
   softDelete,
   switchActiveChild,
 } from './tree';
@@ -366,5 +367,53 @@ describe('pathNodes / countVisibleMessages', () => {
       }),
     ]);
     expect(countVisibleMessages(map, 'root')).toBe(2);
+  });
+});
+
+describe('settlePendingNodes', () => {
+  it('将残留 pending 收口为 done 或 error，并返回被改写的节点', () => {
+    const map = hydrateTree([
+      node({ id: 'root', role: 'system' }),
+      node({
+        id: 'u1',
+        parentId: 'root',
+        siblingIndex: 0,
+        status: 'done',
+      }),
+      node({
+        id: 'a1',
+        role: 'assistant',
+        parentId: 'u1',
+        siblingIndex: 0,
+        content: '半句',
+        status: 'pending',
+      }),
+      node({
+        id: 'a2',
+        role: 'assistant',
+        parentId: 'u1',
+        siblingIndex: 1,
+        content: '',
+        status: 'pending',
+      }),
+    ]);
+
+    const settled = settlePendingNodes(map);
+
+    expect(settled.map((n) => n.id).sort()).toEqual(['a1', 'a2']);
+    expect(map.get('a1')?.status).not.toBe('pending');
+    expect(['done', 'error']).toContain(map.get('a1')?.status);
+    expect(map.get('a2')?.status).not.toBe('pending');
+    expect(['done', 'error']).toContain(map.get('a2')?.status);
+    expect(map.get('u1')?.status).toBe('done');
+  });
+
+  it('没有 pending 时不改写', () => {
+    const map = hydrateTree([
+      node({ id: 'root', role: 'system' }),
+      node({ id: 'u1', parentId: 'root', siblingIndex: 0, status: 'done' }),
+    ]);
+    expect(settlePendingNodes(map)).toEqual([]);
+    expect(map.get('u1')?.status).toBe('done');
   });
 });

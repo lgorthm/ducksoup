@@ -4,7 +4,12 @@ import * as db from '@/features/chat/utils/db';
 import { useStore } from '@/stores';
 import { createActionName } from '@/stores/utils/actionName';
 import { generateId } from '@/stores/utils/ids';
-import { createRoot, hydrateConversation } from '@/stores/utils/tree';
+import { cancelStream } from '@/stores/actions/stream';
+import {
+  createRoot,
+  hydrateConversation,
+  settlePendingNodes,
+} from '@/stores/utils/tree';
 
 function emptyTree(state: {
   messageNodes: Map<string, unknown>;
@@ -27,6 +32,7 @@ function emptyTree(state: {
 }
 
 export async function createConversation() {
+  cancelStream();
   const name = createActionName('conversation', createConversation);
   const now = Date.now();
   const id = generateId();
@@ -61,6 +67,7 @@ export async function createConversation() {
 }
 
 export function startNewConversation() {
+  cancelStream();
   const name = createActionName('conversation', startNewConversation);
   useStore.setState(
     (state) => {
@@ -73,6 +80,7 @@ export function startNewConversation() {
 }
 
 export async function switchConversation(id: string) {
+  cancelStream();
   const name = createActionName('conversation', switchConversation);
   const rows = await db.getMessagesByConversation(id);
   const conv = useStore.getState().conversations.find((c) => c.id === id);
@@ -80,6 +88,10 @@ export async function switchConversation(id: string) {
   const hydrated = rootId
     ? hydrateConversation(rows, rootId)
     : { map: new Map(), activePath: [] as string[], activeLeafId: null };
+  const settled = settlePendingNodes(hydrated.map);
+  for (const node of settled) {
+    db.updateMessage(node).catch(() => {});
+  }
 
   useStore.setState(
     (state) => {
@@ -100,6 +112,9 @@ export async function switchConversation(id: string) {
 
 export async function deleteConversation(id: string) {
   const name = createActionName('conversation', deleteConversation);
+  if (useStore.getState().currentConversationId === id) {
+    cancelStream();
+  }
   await db.deleteConversation(id);
   useStore.setState(
     (state) => {

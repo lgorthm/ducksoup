@@ -138,8 +138,7 @@ export function ChatMessageList({
       >
         {virtualItems.map((virtualItem) => {
           const msg = messages[virtualItem.index];
-          const isStreaming =
-            msg.status === 'pending' || msg.id === streamingMessageId;
+          const isStreaming = msg.id === streamingMessageId;
 
           return (
             <div

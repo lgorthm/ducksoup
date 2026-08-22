@@ -185,6 +185,50 @@ describe('init', () => {
     expect(state.hasApiKey).toBe(true);
     expect(state.initialized).toBe(true);
   });
+
+  it('加载时将残留 pending 收口并写回 DB', async () => {
+    const root = createRoot('c1', 'root-c1');
+    root.activeChildId = 'u1';
+    const u1: MessageNode = {
+      id: 'u1',
+      conversationId: 'c1',
+      role: 'user',
+      parentId: 'root-c1',
+      childrenIds: [],
+      siblingIndex: 0,
+      activeChildId: 'a1',
+      content: '问',
+      status: 'done',
+      createdAt: 1,
+    };
+    const a1: MessageNode = {
+      id: 'a1',
+      conversationId: 'c1',
+      role: 'assistant',
+      parentId: 'u1',
+      childrenIds: [],
+      siblingIndex: 0,
+      activeChildId: null,
+      content: '半句回复',
+      status: 'pending',
+      createdAt: 2,
+    };
+    vi.mocked(db.getAllConversations).mockResolvedValue([
+      makeConversation({ id: 'c1', rootId: 'root-c1', activeLeafId: 'a1' }),
+    ]);
+    vi.mocked(db.getMessagesByConversation).mockResolvedValue([root, u1, a1]);
+    vi.mocked(db.updateMessage).mockResolvedValue(undefined);
+
+    await init();
+
+    const loaded = useStore.getState().messageNodes.get('a1');
+    expect(loaded?.status).not.toBe('pending');
+    expect(['done', 'error']).toContain(loaded?.status);
+    expect(useStore.getState().streamingMessageId).toBeNull();
+    expect(db.updateMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'a1', status: loaded?.status }),
+    );
+  });
 });
 
 describe('setApiKey / clearApiKey', () => {
@@ -499,13 +543,35 @@ describe('sendMessage', () => {
     expect(state.streamingMessageId).toBeNull();
     expect(state.error).toBe('API 错误');
   });
+
+  it('失败后的下一条不把空 error assistant 发给模型', async () => {
+    await sendMessage('hello');
+    capturedOnEvent({ type: 'error', error: new Error('API 错误') });
+    const failedId = useStore.getState().activeLeafId!;
+    vi.mocked(createChatStream).mockClear();
+
+    await sendMessage('再试一次');
+
+    expect(useStore.getState().activePath).toContain(failedId);
+    const payload = vi.mocked(createChatStream).mock.calls[0][0].messages;
+    expect(
+      payload.some((m) => m.role === 'assistant' && m.content === ''),
+    ).toBe(false);
+    expect(
+      payload.filter((m) => m.role === 'user').map((m) => m.content),
+    ).toEqual(['hello', '再试一次']);
+  });
 });
 
 describe('cancelStream', () => {
-  it('调用 controller.abort()', async () => {
+  beforeEach(() => {
     seedEmptyConv('c1');
     vi.mocked(db.addMessage).mockResolvedValue(undefined);
     vi.mocked(db.updateMessage).mockResolvedValue(undefined);
+    vi.mocked(db.updateConversation).mockResolvedValue(undefined);
+  });
+
+  it('调用 controller.abort()', async () => {
     await sendMessage('hello');
     mockAbort.mockClear();
 
@@ -516,6 +582,55 @@ describe('cancelStream', () => {
   it('无活跃流时安全调用', () => {
     cancelStream();
     expect(mockAbort).not.toHaveBeenCalled();
+  });
+
+  it('中止后将 pending assistant 标为 done，清空流式标记并写回 DB', async () => {
+    await sendMessage('hello');
+    capturedOnEvent({ type: 'content', text: '半句' });
+    const id = useStore.getState().streamingMessageId!;
+    vi.mocked(db.updateMessage).mockClear();
+
+    cancelStream();
+
+    const state = useStore.getState();
+    expect(state.streamingMessageId).toBeNull();
+    expect(state.isLoading).toBe(false);
+    expect(state.messageNodes.get(id)?.status).toBe('done');
+    expect(state.messageNodes.get(id)?.content).toBe('半句');
+    expect(db.updateMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ id, status: 'done', content: '半句' }),
+    );
+  });
+
+  it('中止空回复也将 pending 收口，不再保持流式', async () => {
+    await sendMessage('hello');
+    const id = useStore.getState().streamingMessageId!;
+
+    cancelStream();
+
+    const node = useStore.getState().messageNodes.get(id);
+    expect(node?.status).not.toBe('pending');
+    expect(['done', 'error']).toContain(node?.status);
+    expect(useStore.getState().streamingMessageId).toBeNull();
+    expect(useStore.getState().isLoading).toBe(false);
+  });
+
+  it('取消空生成后的下一条不把空 assistant 发给模型', async () => {
+    await sendMessage('hello');
+    const failedId = useStore.getState().streamingMessageId!;
+    cancelStream();
+    vi.mocked(createChatStream).mockClear();
+
+    await sendMessage('再试一次');
+
+    expect(useStore.getState().activePath).toContain(failedId);
+    const payload = vi.mocked(createChatStream).mock.calls[0][0].messages;
+    expect(
+      payload.some((m) => m.role === 'assistant' && m.content === ''),
+    ).toBe(false);
+    expect(
+      payload.filter((m) => m.role === 'user').map((m) => m.content),
+    ).toEqual(['hello', '再试一次']);
   });
 });
 
