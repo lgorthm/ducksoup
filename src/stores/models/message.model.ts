@@ -1,3 +1,14 @@
+import type {
+  UrlCitation,
+  WebSearchCall,
+} from '@/features/chat/types/deepseek';
+
+export type { UrlCitation, WebSearchCall };
+
+export type MessageActivityItem =
+  | { type: 'thinking'; text: string }
+  | { type: 'web_search'; callId: string };
+
 export type MessageId = string;
 
 export type MessageStatus = 'pending' | 'done' | 'error' | 'aborted';
@@ -29,6 +40,9 @@ export interface MessageNode {
   content: string;
   attachments?: ImageAttachment[];
   reasoningContent?: string;
+  webSearchCalls?: WebSearchCall[];
+  citations?: UrlCitation[];
+  activity?: MessageActivityItem[];
   status?: MessageStatus;
   createdAt: number;
   deleted?: boolean;

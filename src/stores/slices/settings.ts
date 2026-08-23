@@ -5,6 +5,7 @@ import { initialSettingsState, type SettingsState } from '@/stores/models';
 export interface SettingsSlice extends SettingsState {
   setApiKeyState: (apiKey: string, hasApiKey: boolean) => void;
   setDeepThinkState: (deepThink: boolean) => void;
+  setWebSearchState: (webSearch: boolean) => void;
 }
 
 export type SliceCreator<T> = StateCreator<
@@ -34,5 +35,14 @@ export const createSettingsSlice: SliceCreator<SettingsSlice> = (set) => ({
       },
       undefined,
       'settings/setDeepThinkState',
+    ),
+
+  setWebSearchState: (webSearch) =>
+    set(
+      (state) => {
+        state.webSearch = webSearch;
+      },
+      undefined,
+      'settings/setWebSearchState',
     ),
 });

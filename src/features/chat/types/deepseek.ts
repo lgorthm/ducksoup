@@ -26,6 +26,36 @@ export interface UserMessage {
   name?: string;
 }
 
+export type WebSearchCallStatus =
+  | 'in_progress'
+  | 'searching'
+  | 'completed'
+  | 'failed';
+
+export type WebSearchAction =
+  | {
+      type: 'search';
+      query?: string;
+      queries?: string[];
+      sources?: Array<{ type: 'url'; url: string }>;
+    }
+  | { type: 'open_page'; url?: string | null }
+  | { type: 'find_in_page'; url: string; pattern: string };
+
+export interface WebSearchCall {
+  id: string;
+  status: WebSearchCallStatus;
+  action?: WebSearchAction;
+}
+
+export interface UrlCitation {
+  type: 'url_citation';
+  url: string;
+  title?: string;
+  start_index?: number;
+  end_index?: number;
+}
+
 export interface AssistantMessage {
   role: 'assistant';
   content: string | null;
@@ -33,6 +63,7 @@ export interface AssistantMessage {
   prefix?: boolean;
   reasoning_content?: string | null;
   tool_calls?: ToolCall[];
+  web_search_calls?: WebSearchCall[];
 }
 
 export interface ToolMessage {

@@ -20,6 +20,9 @@ import {
   type PendingImage,
 } from '@/features/chat/utils/image-attachments';
 
+const activeToggleClass =
+  'border-amber-400 bg-amber-400/15 text-amber-400 hover:bg-amber-400/15 hover:text-amber-400 dark:border-amber-400 dark:bg-amber-400/15 dark:hover:bg-amber-400/15 dark:hover:text-amber-400';
+
 interface ChatInputProps {
   onSend: (content: string, deepThink: boolean, images: PendingImage[]) => void;
   disabled?: boolean;
@@ -27,6 +30,8 @@ interface ChatInputProps {
   onCancel?: () => void;
   deepThink: boolean;
   onToggleDeepThink: () => void;
+  webSearch: boolean;
+  onToggleWebSearch: () => void;
   canAttachImages?: boolean;
   onPendingImagesChange?: (count: number) => void;
 }
@@ -38,6 +43,8 @@ export function ChatInput({
   onCancel,
   deepThink,
   onToggleDeepThink,
+  webSearch,
+  onToggleWebSearch,
   canAttachImages = false,
   onPendingImagesChange,
 }: ChatInputProps) {
@@ -249,20 +256,28 @@ export function ChatInput({
         onChange={handleChange}
       />
       <div className="mt-2 flex items-center justify-between">
-        <Button
-          data-testid="deep-think-button"
-          variant="outline"
-          size="default"
-          disabled={inputDisabled}
-          onClick={onToggleDeepThink}
-          className={cn(
-            deepThink &&
-              'border-amber-400 bg-amber-400/15 text-amber-400 hover:bg-amber-400/15 hover:text-amber-400 dark:border-amber-400 dark:bg-amber-400/15 dark:hover:bg-amber-400/15 dark:hover:text-amber-400',
-            'rounded-full',
-          )}
-        >
-          {t('chat.input.deepThink')}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            data-testid="deep-think-button"
+            variant="outline"
+            size="default"
+            disabled={inputDisabled}
+            onClick={onToggleDeepThink}
+            className={cn(deepThink && activeToggleClass, 'rounded-full')}
+          >
+            {t('chat.input.deepThink')}
+          </Button>
+          <Button
+            data-testid="web-search-button"
+            variant="outline"
+            size="default"
+            disabled={inputDisabled}
+            onClick={onToggleWebSearch}
+            className={cn(webSearch && activeToggleClass, 'rounded-full')}
+          >
+            {t('chat.input.webSearch')}
+          </Button>
+        </div>
         <div className="flex items-center gap-1">
           {canAttachImages ? (
             <Button

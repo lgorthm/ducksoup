@@ -327,6 +327,67 @@ describe('updateMessage', () => {
     expect(msgs).toHaveLength(1);
     expect(msgs[0].content).toBe('新');
   });
+
+  it('往返保留 webSearchCalls 与 citations', async () => {
+    await addConversation(makeConversation({ id: 'c1' }));
+    const webSearchCalls = [
+      {
+        id: 'ws_1',
+        status: 'completed' as const,
+        action: { type: 'search' as const, query: 'news' },
+      },
+    ];
+    const citations = [
+      {
+        type: 'url_citation' as const,
+        url: 'https://example.com',
+        title: 'Ex',
+      },
+    ];
+    await addMessage(
+      makeMessage({
+        id: 'a1',
+        conversationId: 'c1',
+        role: 'assistant',
+        content: '答',
+        webSearchCalls,
+        citations,
+      }),
+    );
+    const stored = await getMessagesByConversation('c1');
+    expect(stored[0].webSearchCalls).toEqual(webSearchCalls);
+    expect(stored[0].citations).toEqual(citations);
+
+    await updateMessage({
+      ...stored[0],
+      content: '答2',
+      webSearchCalls,
+      citations,
+    });
+    const updated = await getMessagesByConversation('c1');
+    expect(updated[0].content).toBe('答2');
+    expect(updated[0].webSearchCalls).toEqual(webSearchCalls);
+    expect(updated[0].citations).toEqual(citations);
+  });
+
+  it('往返保留 activity 时间线', async () => {
+    await addConversation(makeConversation({ id: 'c1' }));
+    const activity = [
+      { type: 'thinking' as const, text: '先想' },
+      { type: 'web_search' as const, callId: 'ws_1' },
+    ];
+    await addMessage(
+      makeMessage({
+        id: 'a1',
+        conversationId: 'c1',
+        role: 'assistant',
+        content: '答',
+        activity,
+      }),
+    );
+    const stored = await getMessagesByConversation('c1');
+    expect(stored[0].activity).toEqual(activity);
+  });
 });
 
 describe('v1 → v2 迁移', () => {

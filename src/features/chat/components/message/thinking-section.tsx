@@ -3,6 +3,15 @@ import { useTranslation } from 'react-i18next';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import type { MessageNode } from '@/stores/models';
+import {
+  resolveActivity,
+  toActivityView,
+} from '@/features/chat/utils/web-search';
+import {
+  BrowsePagesRow,
+  FindInPageRow,
+  SearchPagesRow,
+} from './thinking-search-row';
 
 interface ThinkingSectionProps {
   message: MessageNode;
@@ -14,17 +23,18 @@ export const ThinkingSection = memo(function ThinkingSection({
   isStreaming,
 }: ThinkingSectionProps) {
   const { t } = useTranslation();
+  const activity = resolveActivity(message);
+  const view = toActivityView(activity, message.webSearchCalls);
+  const hasBody = view.length > 0;
+  const [userExpanded, setUserExpanded] = useState<boolean | null>(null);
+
   const isActive = isStreaming && message.content.length === 0;
   const isStoppedThinking =
-    message.status === 'aborted' &&
-    message.content.length === 0 &&
-    !!message.reasoningContent;
-  const [userExpanded, setUserExpanded] = useState<boolean | null>(null);
+    message.status === 'aborted' && message.content.length === 0 && hasBody;
   const defaultExpanded = isActive || isStoppedThinking;
   const expanded = userExpanded ?? defaultExpanded;
 
-  const reasoning = message.reasoningContent;
-  if (!reasoning) return null;
+  if (!hasBody) return null;
 
   const title = isActive
     ? t('chat.area.thinking')
@@ -59,10 +69,39 @@ export const ThinkingSection = memo(function ThinkingSection({
       </button>
 
       {expanded && (
-        <div className="mt-2 border-l-2 border-border/60 pl-3">
-          <div className="text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground">
-            {reasoning}
-          </div>
+        <div className="mt-2 space-y-2">
+          {view.map((item) => {
+            if (item.type === 'thinking') {
+              return (
+                <div
+                  key={`t-${item.text.length}-${item.text.slice(0, 24)}`}
+                  className="border-l-2 border-border/60 pl-3 text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground"
+                >
+                  {item.text}
+                </div>
+              );
+            }
+            const callKey = item.calls.map((c) => c.id).join('-');
+            if (item.type === 'search') {
+              return (
+                <SearchPagesRow
+                  key={`s-${callKey}`}
+                  calls={item.calls}
+                  citations={message.citations}
+                />
+              );
+            }
+            if (item.type === 'open_page') {
+              return (
+                <BrowsePagesRow
+                  key={`p-${callKey}`}
+                  calls={item.calls}
+                  citations={message.citations}
+                />
+              );
+            }
+            return <FindInPageRow key={`f-${callKey}`} calls={item.calls} />;
+          })}
           {isActive && (
             <span className="inline-block animate-pulse text-xs text-muted-foreground">
               ▊

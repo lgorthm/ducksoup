@@ -87,14 +87,13 @@ export function buildApiMessages(
           : {
               role: 'assistant' as const,
               content: m.content,
-              ...(m.id === continueMessageId
-                ? {
-                    prefix: true as const,
-                    ...(m.reasoningContent
-                      ? { reasoning_content: m.reasoningContent }
-                      : {}),
-                  }
+              ...(m.reasoningContent
+                ? { reasoning_content: m.reasoningContent }
                 : {}),
+              ...(m.webSearchCalls && m.webSearchCalls.length > 0
+                ? { web_search_calls: m.webSearchCalls }
+                : {}),
+              ...(m.id === continueMessageId ? { prefix: true as const } : {}),
             },
       ),
   ];

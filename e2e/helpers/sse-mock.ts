@@ -4,6 +4,17 @@ const DEEPSEEK_API_URL = /api\.deepseek\.com(?:\/v1)?\/responses/;
 const DEEPSEEK_CHAT_COMPLETIONS_URL =
   /api\.deepseek\.com(?:\/beta)?(?:\/v1)?\/chat\/completions/;
 
+interface SSEMockWebSearchCall {
+  id?: string;
+  action?: {
+    type: 'search' | 'open_page' | 'find_in_page';
+    query?: string;
+    url?: string;
+    pattern?: string;
+    sources?: Array<{ type: 'url'; url: string }>;
+  };
+}
+
 interface SSEMockOptions {
   thinking?: string[];
   content?: string[];
@@ -11,6 +22,13 @@ interface SSEMockOptions {
   delayMs?: number;
   status?: number;
   errorMessage?: string;
+  webSearch?: SSEMockWebSearchCall[];
+  citations?: Array<{
+    url: string;
+    title?: string;
+    start_index?: number;
+    end_index?: number;
+  }>;
 }
 
 function sseEvent(
@@ -26,19 +44,72 @@ function sseEvent(
 }
 
 function buildSSEBody(
-  options: Required<Omit<SSEMockOptions, 'status' | 'errorMessage'>>,
+  options: Required<
+    Omit<SSEMockOptions, 'status' | 'errorMessage' | 'webSearch' | 'citations'>
+  > &
+    Pick<SSEMockOptions, 'webSearch' | 'citations'>,
 ): string {
-  const { thinking, content, usage } = options;
+  const { thinking, content, usage, webSearch = [], citations = [] } = options;
   let seq = 1;
-  const parts: string[] = [
+  const parts: string[] = [];
+  for (const [index, call] of webSearch.entries()) {
+    const id = call.id ?? `ws_${index + 1}`;
+    const action = call.action ?? { type: 'search' as const, query: 'query' };
+    parts.push(
+      sseEvent(
+        'response.output_item.added',
+        {
+          item: {
+            type: 'web_search_call',
+            id,
+            status: 'in_progress',
+            action,
+          },
+        },
+        seq++,
+      ),
+      sseEvent('response.web_search_call.searching', { item_id: id }, seq++),
+      sseEvent(
+        'response.output_item.done',
+        {
+          item: {
+            type: 'web_search_call',
+            id,
+            status: 'completed',
+            action,
+          },
+        },
+        seq++,
+      ),
+      sseEvent('response.web_search_call.completed', { item_id: id }, seq++),
+    );
+  }
+  parts.push(
     ...thinking.map((delta) =>
       sseEvent('response.reasoning_text.delta', { delta }, seq++),
     ),
     ...content.map((delta) =>
       sseEvent('response.output_text.delta', { delta }, seq++),
     ),
-    sseEvent('response.completed', { response: { usage } }, seq++),
-  ];
+  );
+  for (const [index, citation] of citations.entries()) {
+    parts.push(
+      sseEvent(
+        'response.output_text.annotation.added',
+        {
+          annotation: {
+            type: 'url_citation',
+            url: citation.url,
+            title: citation.title ?? citation.url,
+            start_index: citation.start_index ?? index,
+            end_index: citation.end_index ?? index + 1,
+          },
+        },
+        seq++,
+      ),
+    );
+  }
+  parts.push(sseEvent('response.completed', { response: { usage } }, seq++));
   return parts.join('');
 }
 
@@ -49,7 +120,9 @@ const SSE_HEADERS = {
 };
 
 function buildChatCompletionsSSEBody(
-  options: Required<Omit<SSEMockOptions, 'status' | 'errorMessage'>>,
+  options: Required<
+    Omit<SSEMockOptions, 'status' | 'errorMessage' | 'webSearch' | 'citations'>
+  >,
 ): string {
   const { thinking, content } = options;
   const chunks: string[] = [];
@@ -158,9 +231,18 @@ export async function mockDeepSeekSSE(
     content = ['你好', '！我是', 'DeepSeek'],
     usage = { input_tokens: 10, output_tokens: 5 },
     delayMs = 0,
+    webSearch = [],
+    citations = [],
   } = options;
 
-  const body = buildSSEBody({ thinking, content, usage, delayMs });
+  const body = buildSSEBody({
+    thinking,
+    content,
+    usage,
+    delayMs,
+    webSearch,
+    citations,
+  });
   await fulfillSse(page, DEEPSEEK_API_URL, body, delayMs);
 }
 

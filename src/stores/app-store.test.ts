@@ -11,6 +11,7 @@ import {
   setApiKey,
   clearApiKey,
   toggleDeepThink,
+  toggleWebSearch,
   createConversation,
   startNewConversation,
   switchConversation,
@@ -290,6 +291,16 @@ describe('toggleDeepThink', () => {
     expect(useStore.getState().deepThink).toBe(true);
     toggleDeepThink();
     expect(useStore.getState().deepThink).toBe(false);
+  });
+});
+
+describe('toggleWebSearch', () => {
+  it('切换 webSearch 状态', () => {
+    expect(useStore.getState().webSearch).toBe(false);
+    toggleWebSearch();
+    expect(useStore.getState().webSearch).toBe(true);
+    toggleWebSearch();
+    expect(useStore.getState().webSearch).toBe(false);
   });
 });
 
@@ -616,6 +627,79 @@ describe('sendMessage', () => {
     expect(useStore.getState().messageNodes.get(id)!.reasoningContent).toBe(
       '思考中',
     );
+  });
+
+  it('thinking 与 web_search 交错写入 activity', async () => {
+    await sendMessage('hello');
+    capturedOnEvent({ type: 'thinking', text: '先想' });
+    capturedOnEvent({
+      type: 'web_search',
+      call: {
+        id: 'ws_1',
+        status: 'searching',
+        action: { type: 'search', query: 'news' },
+      },
+    });
+    capturedOnEvent({ type: 'thinking', text: '再想' });
+
+    const id = useStore.getState().streamingMessageId!;
+    expect(useStore.getState().messageNodes.get(id)!.activity).toEqual([
+      { type: 'thinking', text: '先想' },
+      { type: 'web_search', callId: 'ws_1' },
+      { type: 'thinking', text: '再想' },
+    ]);
+  });
+
+  it('web_search 事件按 id 合并到 webSearchCalls', async () => {
+    await sendMessage('hello');
+    capturedOnEvent({
+      type: 'web_search',
+      call: {
+        id: 'ws_1',
+        status: 'in_progress',
+        action: { type: 'search', query: 'news' },
+      },
+    });
+    capturedOnEvent({
+      type: 'web_search',
+      call: { id: 'ws_1', status: 'completed' },
+    });
+
+    const id = useStore.getState().streamingMessageId!;
+    expect(useStore.getState().messageNodes.get(id)!.webSearchCalls).toEqual([
+      {
+        id: 'ws_1',
+        status: 'completed',
+        action: { type: 'search', query: 'news' },
+      },
+    ]);
+  });
+
+  it('citation 事件追加到 citations', async () => {
+    await sendMessage('hello');
+    capturedOnEvent({
+      type: 'citation',
+      citation: {
+        type: 'url_citation',
+        url: 'https://example.com',
+        title: 'Example',
+      },
+    });
+
+    const id = useStore.getState().streamingMessageId!;
+    expect(useStore.getState().messageNodes.get(id)!.citations).toEqual([
+      {
+        type: 'url_citation',
+        url: 'https://example.com',
+        title: 'Example',
+      },
+    ]);
+  });
+
+  it('开启 webSearch 时把开关传给 createChatStream', async () => {
+    useStore.setState({ webSearch: true });
+    await sendMessage('hello');
+    expect(vi.mocked(createChatStream).mock.calls[0][0].webSearch).toBe(true);
   });
 
   it('content 事件追加到 content', async () => {

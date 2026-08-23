@@ -10,7 +10,13 @@ import type {
   InputImagePart,
   InputTextPart,
   ResponsesUsage,
+  UrlCitation,
+  WebSearchCall,
 } from '@/features/chat/types/deepseek';
+import {
+  toUrlCitation,
+  toWebSearchCall,
+} from '@/features/chat/utils/web-search';
 
 // ========== 流式事件类型 ==========
 
@@ -18,6 +24,8 @@ import type {
 export type ChatStreamEvent =
   | { type: 'thinking'; text: string }
   | { type: 'content'; text: string }
+  | { type: 'web_search'; call: WebSearchCall }
+  | { type: 'citation'; citation: UrlCitation }
   | { type: 'done'; usage?: ResponsesUsage }
   | { type: 'error'; error: Error };
 
@@ -30,6 +38,8 @@ export interface ChatStreamOptions {
   messages: ChatMessage[];
   /** 是否启用深度思考模式 */
   deepThink?: boolean;
+  /** 是否启用服务端网页搜索 */
+  webSearch?: boolean;
   /** 最大 token 数 */
   maxTokens?: number;
   /** 温度 */
@@ -54,25 +64,72 @@ export type ResponsesInputContent =
   | string
   | Array<InputTextPart | InputImagePart>;
 
-export type ResponsesInputItem = {
+export type ResponsesMessageItem = {
   role: 'user' | 'assistant';
   content: ResponsesInputContent;
 };
 
-export function toResponsesParams(messages: ChatMessage[]): {
+export type ResponsesReasoningItem = {
+  type: 'reasoning';
+  content: Array<{ type: 'reasoning_text'; text: string }>;
+};
+
+export type ResponsesWebSearchCallItem = {
+  type: 'web_search_call';
+  id: string;
+  status: WebSearchCall['status'];
+  action?: WebSearchCall['action'];
+};
+
+export type ResponsesInputItem =
+  | ResponsesMessageItem
+  | ResponsesReasoningItem
+  | ResponsesWebSearchCallItem;
+
+export function toResponsesParams(
+  messages: ChatMessage[],
+  opts?: { includeReasoning?: boolean },
+): {
   instructions?: string;
   input: ResponsesInputItem[];
 } {
+  const includeReasoning = opts?.includeReasoning ?? false;
   const instructions = messages
     .filter((m) => m.role === 'system')
     .map((m) => m.content)
     .join('\n');
-  const input = messages
-    .filter((m) => m.role === 'user' || m.role === 'assistant')
-    .map((m) => ({
-      role: m.role as 'user' | 'assistant',
+  const input: ResponsesInputItem[] = [];
+  for (const m of messages) {
+    if (m.role === 'user') {
+      input.push({
+        role: 'user',
+        content: (m.content ?? '') as ResponsesInputContent,
+      });
+      continue;
+    }
+    if (m.role !== 'assistant') continue;
+    const calls = m.web_search_calls ?? [];
+    const shouldReason =
+      (includeReasoning || calls.length > 0) && !!m.reasoning_content;
+    if (shouldReason && m.reasoning_content) {
+      input.push({
+        type: 'reasoning',
+        content: [{ type: 'reasoning_text', text: m.reasoning_content }],
+      });
+    }
+    for (const call of calls) {
+      input.push({
+        type: 'web_search_call',
+        id: call.id,
+        status: call.status,
+        ...(call.action ? { action: call.action } : {}),
+      });
+    }
+    input.push({
+      role: 'assistant',
       content: (m.content ?? '') as ResponsesInputContent,
-    }));
+    });
+  }
   return {
     ...(instructions ? { instructions } : {}),
     input,
@@ -121,7 +178,7 @@ export function toChatCompletionMessages(
         role: 'assistant',
         content: m.content ?? '',
         ...(m.prefix ? { prefix: true } : {}),
-        ...(m.reasoning_content != null
+        ...(m.prefix && m.reasoning_content != null
           ? { reasoning_content: m.reasoning_content }
           : {}),
       });
@@ -182,6 +239,7 @@ export function createChatStream(
     model,
     messages,
     deepThink = false,
+    webSearch = false,
     maxTokens,
     temperature,
     onEvent,
@@ -298,7 +356,9 @@ export function createChatStream(
         return;
       }
 
-      const { instructions, input } = toResponsesParams(messages);
+      const { instructions, input } = toResponsesParams(messages, {
+        includeReasoning: webSearch,
+      });
       const stream = await client.responses.create(
         {
           model,
@@ -306,6 +366,7 @@ export function createChatStream(
           input: input as never,
           stream: true,
           reasoning: { effort: deepThink ? 'max' : 'none' },
+          ...(webSearch ? { tools: [{ type: 'web_search' as const }] } : {}),
           ...(maxTokens != null ? { max_output_tokens: maxTokens } : {}),
           ...(temperature != null ? { temperature } : {}),
         },
@@ -322,6 +383,29 @@ export function createChatStream(
           case 'response.output_text.delta':
             if (event.delta) queueContent(event.delta);
             break;
+          case 'response.output_item.added':
+          case 'response.output_item.done': {
+            const call = toWebSearchCall(event.item);
+            if (call) onEvent({ type: 'web_search', call });
+            break;
+          }
+          case 'response.web_search_call.in_progress':
+          case 'response.web_search_call.searching':
+          case 'response.web_search_call.completed': {
+            const status = event.type.slice(
+              'response.web_search_call.'.length,
+            ) as WebSearchCall['status'];
+            onEvent({
+              type: 'web_search',
+              call: { id: event.item_id, status },
+            });
+            break;
+          }
+          case 'response.output_text.annotation.added': {
+            const citation = toUrlCitation(event.annotation);
+            if (citation) onEvent({ type: 'citation', citation });
+            break;
+          }
           case 'response.completed':
           case 'response.incomplete':
             settleDone(toUsage(event.response?.usage));

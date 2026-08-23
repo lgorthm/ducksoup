@@ -1,13 +1,19 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ChatComposer } from './chat-composer';
-import { cancelStream, sendMessage, toggleDeepThink } from '@/stores/actions';
+import {
+  cancelStream,
+  sendMessage,
+  toggleDeepThink,
+  toggleWebSearch,
+} from '@/stores/actions';
 import { useStore } from '@/stores';
 
 vi.mock('@/stores/actions', () => ({
   sendMessage: vi.fn(),
   cancelStream: vi.fn(),
   toggleDeepThink: vi.fn(),
+  toggleWebSearch: vi.fn(),
 }));
 
 vi.mock('@/features/chat/components/chat-input', () => ({
@@ -18,6 +24,8 @@ vi.mock('@/features/chat/components/chat-input', () => ({
     onCancel,
     deepThink,
     onToggleDeepThink,
+    webSearch,
+    onToggleWebSearch,
     canAttachImages,
   }: {
     onSend: (content: string, deepThink: boolean, images?: unknown[]) => void;
@@ -26,6 +34,8 @@ vi.mock('@/features/chat/components/chat-input', () => ({
     onCancel?: () => void;
     deepThink: boolean;
     onToggleDeepThink: () => void;
+    webSearch: boolean;
+    onToggleWebSearch: () => void;
     canAttachImages?: boolean;
   }) => (
     <div
@@ -33,6 +43,7 @@ vi.mock('@/features/chat/components/chat-input', () => ({
       data-disabled={String(disabled)}
       data-streaming={String(isStreaming)}
       data-deep-think={String(deepThink)}
+      data-web-search={String(webSearch)}
       data-can-attach={String(canAttachImages)}
     >
       <button
@@ -59,6 +70,13 @@ vi.mock('@/features/chat/components/chat-input', () => ({
       >
         toggle
       </button>
+      <button
+        type="button"
+        data-testid="toggle-web-search"
+        onClick={onToggleWebSearch}
+      >
+        toggle-search
+      </button>
     </div>
   ),
 }));
@@ -69,6 +87,7 @@ beforeEach(() => {
     isLoading: false,
     streamingMessageId: null,
     deepThink: false,
+    webSearch: false,
   });
 });
 
@@ -114,6 +133,21 @@ describe('ChatComposer', () => {
     render(<ChatComposer />);
     screen.getByTestId('toggle-deep-think').click();
     expect(toggleDeepThink).toHaveBeenCalledOnce();
+  });
+
+  it('从 store 读取 webSearch 并传给 ChatInput', () => {
+    useStore.setState({ webSearch: true });
+    render(<ChatComposer />);
+    expect(screen.getByTestId('chat-input')).toHaveAttribute(
+      'data-web-search',
+      'true',
+    );
+  });
+
+  it('点击网页搜索按钮调用 store.toggleWebSearch', () => {
+    render(<ChatComposer />);
+    screen.getByTestId('toggle-web-search').click();
+    expect(toggleWebSearch).toHaveBeenCalledOnce();
   });
 
   it('isLoading 时禁用输入', () => {

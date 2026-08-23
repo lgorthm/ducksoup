@@ -1,7 +1,12 @@
 import { useCallback } from 'react';
 import type { ModelName } from '@/stores/models';
 import { ChatInput } from '@/features/chat/components/chat-input';
-import { cancelStream, sendMessage, toggleDeepThink } from '@/stores/actions';
+import {
+  cancelStream,
+  sendMessage,
+  toggleDeepThink,
+  toggleWebSearch,
+} from '@/stores/actions';
 import { useStore } from '@/stores';
 import { useStreamStatus } from '@/stores/selectors';
 import type { PendingImage } from '@/features/chat/utils/image-attachments';
@@ -19,6 +24,7 @@ export function ChatComposer({
 }) {
   const { isLoading, isStreaming } = useStreamStatus();
   const deepThink = useStore((s) => s.deepThink);
+  const webSearch = useStore((s) => s.webSearch);
   const currentConversationId = useStore((s) => s.currentConversationId);
   const conversations = useStore((s) => s.conversations);
   const conversation = conversations.find(
@@ -42,6 +48,8 @@ export function ChatComposer({
       onCancel={cancelStream}
       deepThink={deepThink}
       onToggleDeepThink={toggleDeepThink}
+      webSearch={webSearch}
+      onToggleWebSearch={toggleWebSearch}
       canAttachImages={canAttachImages}
       onPendingImagesChange={onPendingImagesChange}
     />

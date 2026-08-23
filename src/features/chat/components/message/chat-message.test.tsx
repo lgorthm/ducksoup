@@ -169,6 +169,173 @@ describe('ChatMessage', () => {
     expect(markdownRender.mock.calls.length).toBeGreaterThan(afterFirst);
   });
 
+  it('无网页搜索时不显示搜索行', () => {
+    const msg = makeMessage({ role: 'assistant', content: '回复' });
+    render(<ChatMessage message={msg} />);
+    expect(screen.queryByTestId('thinking-search-row')).not.toBeInTheDocument();
+  });
+
+  it('有搜索调用时搜索嵌在思考过程中（折叠）', () => {
+    const msg = makeMessage({
+      role: 'assistant',
+      content: '回复',
+      webSearchCalls: [
+        {
+          id: 'ws_1',
+          status: 'completed',
+          action: {
+            type: 'search',
+            query: 'deepseek',
+            sources: [{ type: 'url', url: 'https://api-docs.deepseek.com' }],
+          },
+        },
+      ],
+    });
+    render(<ChatMessage message={msg} />);
+    expect(screen.getByTestId('thinking-label')).toHaveTextContent('思考过程');
+    expect(screen.queryByTestId('thinking-search-row')).not.toBeInTheDocument();
+  });
+
+  it('点击思考过程展开搜索行与来源', () => {
+    const msg = makeMessage({
+      role: 'assistant',
+      content: '回复',
+      webSearchCalls: [
+        {
+          id: 'ws_1',
+          status: 'completed',
+          action: {
+            type: 'search',
+            query: 'deepseek',
+            sources: [{ type: 'url', url: 'https://api-docs.deepseek.com' }],
+          },
+        },
+      ],
+    });
+    render(<ChatMessage message={msg} />);
+    fireEvent.click(screen.getByTestId('thinking-label'));
+    expect(screen.getByTestId('thinking-search-row')).toHaveTextContent(
+      /搜索到 1 个网页/,
+    );
+    const source = screen.getByTestId('web-search-source');
+    expect(source).toHaveAttribute('href', 'https://api-docs.deepseek.com');
+  });
+
+  it('流式搜索中默认展开过程', () => {
+    const msg = makeMessage({
+      role: 'assistant',
+      content: '',
+      webSearchCalls: [
+        {
+          id: 'ws_1',
+          status: 'searching',
+          action: { type: 'search', query: 'news' },
+        },
+      ],
+    });
+    render(<ChatMessage message={msg} isStreaming />);
+    expect(screen.getByTestId('thinking-label')).toHaveTextContent('思考中...');
+    expect(screen.getByText('news')).toBeInTheDocument();
+  });
+
+  it('思考与搜索按 activity 交错展示', () => {
+    const msg = makeMessage({
+      role: 'assistant',
+      content: '最终答案',
+      reasoningContent: '先想再想',
+      webSearchCalls: [
+        {
+          id: 'ws_1',
+          status: 'completed',
+          action: { type: 'search', query: 'news' },
+        },
+      ],
+      activity: [
+        { type: 'thinking', text: '先想' },
+        { type: 'web_search', callId: 'ws_1' },
+        { type: 'thinking', text: '再想' },
+      ],
+    });
+    render(<ChatMessage message={msg} />);
+    fireEvent.click(screen.getByTestId('thinking-label'));
+    const body = screen.getByTestId('thinking-label').closest('div')!;
+    expect(body.textContent).toMatch(/先想.*搜索到.*再想/s);
+  });
+
+  it('搜索完成后思考标题仍在，步骤默认折叠，点击可展开', () => {
+    const searchingMsg = makeMessage({
+      role: 'assistant',
+      content: '',
+      webSearchCalls: [
+        {
+          id: 'ws_1',
+          status: 'searching',
+          action: { type: 'search', query: 'news' },
+        },
+      ],
+    });
+    const { rerender } = render(
+      <ChatMessage message={searchingMsg} isStreaming />,
+    );
+    expect(screen.getByText('news')).toBeInTheDocument();
+
+    const doneCalls = [
+      {
+        id: 'ws_1',
+        status: 'completed' as const,
+        action: {
+          type: 'search' as const,
+          query: 'news',
+          sources: [{ type: 'url' as const, url: 'https://example.com' }],
+        },
+      },
+    ];
+    const doneMsg = {
+      ...searchingMsg,
+      content: '最终答案',
+      webSearchCalls: doneCalls,
+      status: 'done' as const,
+    };
+    rerender(<ChatMessage message={doneMsg} />);
+    expect(screen.getByTestId('thinking-label')).toHaveTextContent('思考过程');
+    expect(screen.queryByText('news')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('thinking-label'));
+    expect(screen.getByTestId('thinking-search-row')).toHaveTextContent(
+      /搜索到 1 个网页/,
+    );
+    expect(screen.getByTestId('web-search-source')).toHaveAttribute(
+      'href',
+      'https://example.com',
+    );
+  });
+
+  it('正文开始流出后思考标题仍在且搜索行折叠', () => {
+    const searchingMsg = makeMessage({
+      role: 'assistant',
+      content: '',
+      webSearchCalls: [
+        {
+          id: 'ws_1',
+          status: 'completed',
+          action: { type: 'search', query: 'news' },
+        },
+      ],
+    });
+    const { rerender } = render(
+      <ChatMessage message={searchingMsg} isStreaming />,
+    );
+    expect(screen.getByText('news')).toBeInTheDocument();
+
+    rerender(
+      <ChatMessage
+        message={{ ...searchingMsg, content: '答案开头' }}
+        isStreaming
+      />,
+    );
+    expect(screen.getByTestId('thinking-label')).toHaveTextContent('思考过程');
+    expect(screen.queryByText('news')).not.toBeInTheDocument();
+  });
+
   it('无思考步骤时不显示思考区域', () => {
     const msg = makeMessage({ role: 'assistant', content: '回复' });
     render(<ChatMessage message={msg} />);

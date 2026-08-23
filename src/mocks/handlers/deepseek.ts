@@ -22,33 +22,106 @@ function sseEvent(
   })}\n\n`;
 }
 
-/**
- * 默认流式响应：思考过程 + 正文内容 + 完成
- */
+export interface MockWebSearchCall {
+  id?: string;
+  action?: {
+    type: 'search' | 'open_page' | 'find_in_page';
+    query?: string;
+    url?: string;
+    pattern?: string;
+    sources?: Array<{ type: 'url'; url: string }>;
+  };
+}
+
 function createStreamingResponse(
   options: {
     thinking?: string[];
     content?: string[];
     usage?: { input_tokens: number; output_tokens: number };
+    webSearch?: MockWebSearchCall[];
+    citations?: Array<{
+      url: string;
+      title?: string;
+      start_index?: number;
+      end_index?: number;
+    }>;
   } = {},
 ): ReadableStream<Uint8Array> {
   const {
     thinking = ['正在思考...', '分析问题中...'],
     content = ['你好', '！我是', 'DeepSeek'],
     usage = { input_tokens: 10, output_tokens: 5 },
+    webSearch = [],
+    citations = [],
   } = options;
 
   const encoder = new TextEncoder();
   let seq = 1;
-  const chunks: string[] = [
+  const chunks: string[] = [];
+  for (const [index, call] of webSearch.entries()) {
+    const id = call.id ?? `ws_${index + 1}`;
+    const action = call.action ?? { type: 'search' as const, query: 'query' };
+    chunks.push(
+      sseEvent(
+        'response.output_item.added',
+        {
+          item: {
+            type: 'web_search_call',
+            id,
+            status: 'in_progress',
+            action,
+          },
+        },
+        seq++,
+      ),
+    );
+    chunks.push(
+      sseEvent('response.web_search_call.searching', { item_id: id }, seq++),
+    );
+    chunks.push(
+      sseEvent(
+        'response.output_item.done',
+        {
+          item: {
+            type: 'web_search_call',
+            id,
+            status: 'completed',
+            action,
+          },
+        },
+        seq++,
+      ),
+    );
+    chunks.push(
+      sseEvent('response.web_search_call.completed', { item_id: id }, seq++),
+    );
+  }
+  chunks.push(
     ...thinking.map((delta) =>
       sseEvent('response.reasoning_text.delta', { delta }, seq++),
     ),
     ...content.map((delta) =>
       sseEvent('response.output_text.delta', { delta }, seq++),
     ),
-    sseEvent('response.completed', { response: { usage } }, seq++),
-  ];
+  );
+  for (const [index, citation] of citations.entries()) {
+    chunks.push(
+      sseEvent(
+        'response.output_text.annotation.added',
+        {
+          annotation: {
+            type: 'url_citation',
+            url: citation.url,
+            title: citation.title ?? citation.url,
+            start_index: citation.start_index ?? index,
+            end_index: citation.end_index ?? index + 1,
+          },
+        },
+        seq++,
+      ),
+    );
+  }
+  chunks.push(sseEvent('response.completed', { response: { usage } }, seq++));
 
   return new ReadableStream({
     start(controller) {
