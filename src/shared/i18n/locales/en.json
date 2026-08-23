@@ -15,6 +15,7 @@
     "input": {
       "placeholder": "Type a message... (Enter to send, Shift+Enter for new line)",
       "deepThink": "Deep Think",
+      "webSearch": "Web Search",
       "send": "Send",
       "attach": "Add image",
       "imageTitle": "Image",
@@ -27,11 +28,21 @@
     },
     "area": {
       "thinking": "Thinking...",
+      "searching": "Searching...",
       "stop": "Stop"
     },
     "message": {
       "thinkingLabel": "Thinking",
       "thinkingStopped": "Stopped",
+      "webSearchLabel": "Web Search",
+      "webSearchSources": "{{count}} sources",
+      "webSearchQuery": "Search",
+      "webSearchOpenPage": "Open page",
+      "webSearchFindInPage": "Find in page",
+      "webSearchSourceList": "Sources",
+      "searchedPages": "Searched {{count}} pages",
+      "browsedPages": "Browsed {{count}} pages",
+      "viewAll": "View all",
       "copy": "Copy",
       "copied": "Copied",
       "edit": "Edit",

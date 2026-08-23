@@ -21,6 +21,9 @@ export type {
   MessageNode,
   BranchInfo,
   MessageState,
+  UrlCitation,
+  WebSearchCall,
+  MessageActivityItem,
 } from './message.model';
 export {
   initialMessageState,

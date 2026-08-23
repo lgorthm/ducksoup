@@ -3,6 +3,7 @@ import {
   createChatStream,
   isPrefixContinue,
   toChatCompletionMessages,
+  toResponsesParams,
 } from './chat-stream';
 
 const mockCreate = vi.fn();
@@ -152,6 +153,32 @@ describe('createChatStream', () => {
     });
   });
 
+  it('webSearch 时带 tools web_search', async () => {
+    createChatStream({
+      apiKey: 'key',
+      model: 'model',
+      messages: [],
+      webSearch: true,
+      onEvent: vi.fn(),
+    });
+    await flushAsync();
+
+    expect(mockCreate.mock.calls[0][0].tools).toEqual([{ type: 'web_search' }]);
+  });
+
+  it('webSearch 为 false 时不带 tools', async () => {
+    createChatStream({
+      apiKey: 'key',
+      model: 'model',
+      messages: [],
+      webSearch: false,
+      onEvent: vi.fn(),
+    });
+    await flushAsync();
+
+    expect(mockCreate.mock.calls[0][0].tools).toBeUndefined();
+  });
+
   it('deepThink 为 false 时 reasoning.effort 为 none', async () => {
     createChatStream({
       apiKey: 'key',
@@ -210,6 +237,105 @@ describe('事件路由', () => {
     expect(onEvent).toHaveBeenCalledWith({
       type: 'thinking',
       text: '思考中',
+    });
+  });
+
+  it('web_search_call 事件路由到 web_search', async () => {
+    const onEvent = vi.fn();
+    mockCreate.mockResolvedValue(
+      fromEvents([
+        {
+          type: 'response.output_item.added',
+          item: {
+            type: 'web_search_call',
+            id: 'ws_1',
+            status: 'in_progress',
+            action: { type: 'search', query: 'news' },
+          },
+        },
+        {
+          type: 'response.web_search_call.searching',
+          item_id: 'ws_1',
+        },
+        {
+          type: 'response.output_item.done',
+          item: {
+            type: 'web_search_call',
+            id: 'ws_1',
+            status: 'completed',
+            action: { type: 'search', query: 'news' },
+          },
+        },
+        { type: 'response.completed', response: {} },
+      ]),
+    );
+
+    createChatStream({
+      apiKey: 'key',
+      model: 'model',
+      messages: [],
+      webSearch: true,
+      onEvent,
+    });
+    await flushAsync();
+
+    expect(onEvent).toHaveBeenCalledWith({
+      type: 'web_search',
+      call: {
+        id: 'ws_1',
+        status: 'in_progress',
+        action: { type: 'search', query: 'news' },
+      },
+    });
+    expect(onEvent).toHaveBeenCalledWith({
+      type: 'web_search',
+      call: { id: 'ws_1', status: 'searching' },
+    });
+    expect(onEvent).toHaveBeenCalledWith({
+      type: 'web_search',
+      call: {
+        id: 'ws_1',
+        status: 'completed',
+        action: { type: 'search', query: 'news' },
+      },
+    });
+  });
+
+  it('url_citation 注解路由到 citation 事件', async () => {
+    const onEvent = vi.fn();
+    mockCreate.mockResolvedValue(
+      fromEvents([
+        {
+          type: 'response.output_text.annotation.added',
+          annotation: {
+            type: 'url_citation',
+            url: 'https://example.com',
+            title: 'Example',
+            start_index: 0,
+            end_index: 4,
+          },
+        },
+        { type: 'response.completed', response: {} },
+      ]),
+    );
+
+    createChatStream({
+      apiKey: 'key',
+      model: 'model',
+      messages: [],
+      onEvent,
+    });
+    await flushAsync();
+
+    expect(onEvent).toHaveBeenCalledWith({
+      type: 'citation',
+      citation: {
+        type: 'url_citation',
+        url: 'https://example.com',
+        title: 'Example',
+        start_index: 0,
+        end_index: 4,
+      },
     });
   });
 
@@ -509,6 +635,78 @@ const prefixMessages = [
   { role: 'assistant' as const, content: '半句', prefix: true },
 ];
 
+describe('toResponsesParams', () => {
+  it('user/assistant 仍为 role+content', () => {
+    expect(
+      toResponsesParams([
+        { role: 'system', content: 'sys' },
+        { role: 'user', content: 'hi' },
+        { role: 'assistant', content: 'hello' },
+      ]),
+    ).toEqual({
+      instructions: 'sys',
+      input: [
+        { role: 'user', content: 'hi' },
+        { role: 'assistant', content: 'hello' },
+      ],
+    });
+  });
+
+  it('includeReasoning 时回传 reasoning item', () => {
+    const { input } = toResponsesParams(
+      [
+        { role: 'user', content: 'hi' },
+        {
+          role: 'assistant',
+          content: '答',
+          reasoning_content: '想了想',
+        },
+      ],
+      { includeReasoning: true },
+    );
+    expect(input).toEqual([
+      { role: 'user', content: 'hi' },
+      {
+        type: 'reasoning',
+        content: [{ type: 'reasoning_text', text: '想了想' }],
+      },
+      { role: 'assistant', content: '答' },
+    ]);
+  });
+
+  it('有 web_search_calls 时原样回传，即使未 includeReasoning 也带 reasoning', () => {
+    const { input } = toResponsesParams([
+      { role: 'user', content: '今天新闻' },
+      {
+        role: 'assistant',
+        content: '如下',
+        reasoning_content: '需要搜索',
+        web_search_calls: [
+          {
+            id: 'ws_1',
+            status: 'completed',
+            action: { type: 'search', query: 'news' },
+          },
+        ],
+      },
+    ]);
+    expect(input).toEqual([
+      { role: 'user', content: '今天新闻' },
+      {
+        type: 'reasoning',
+        content: [{ type: 'reasoning_text', text: '需要搜索' }],
+      },
+      {
+        type: 'web_search_call',
+        id: 'ws_1',
+        status: 'completed',
+        action: { type: 'search', query: 'news' },
+      },
+      { role: 'assistant', content: '如下' },
+    ]);
+  });
+});
+
 describe('prefix continue', () => {
   it('isPrefixContinue 只看最后一条 user/assistant', () => {
     expect(isPrefixContinue(prefixMessages)).toBe(true);
@@ -566,6 +764,7 @@ describe('prefix continue', () => {
       apiKey: 'key',
       model: 'deepseek-v4-pro',
       messages: prefixMessages,
+      webSearch: true,
       onEvent: vi.fn(),
     });
     await flushAsync();
@@ -577,6 +776,7 @@ describe('prefix continue', () => {
     );
     expect(mockChatCreate).toHaveBeenCalledOnce();
     expect(mockCreate).not.toHaveBeenCalled();
+    expect(mockChatCreate.mock.calls[0][0].tools).toBeUndefined();
     expect(mockChatCreate.mock.calls[0][0]).toEqual(
       expect.objectContaining({
         model: 'deepseek-v4-pro',

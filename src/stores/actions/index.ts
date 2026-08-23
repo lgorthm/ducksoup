@@ -1,4 +1,9 @@
-export { setApiKey, clearApiKey, toggleDeepThink } from './settings';
+export {
+  setApiKey,
+  clearApiKey,
+  toggleDeepThink,
+  toggleWebSearch,
+} from './settings';
 
 export {
   createConversation,

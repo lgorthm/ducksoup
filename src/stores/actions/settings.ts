@@ -52,3 +52,14 @@ export function toggleDeepThink() {
     name(),
   );
 }
+
+export function toggleWebSearch() {
+  const name = createActionName('settings', toggleWebSearch);
+  useStore.setState(
+    (state) => {
+      state.webSearch = !state.webSearch;
+    },
+    undefined,
+    name(),
+  );
+}

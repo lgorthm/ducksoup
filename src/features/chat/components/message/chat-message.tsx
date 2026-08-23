@@ -40,7 +40,10 @@ export const ChatMessage = memo(
     isLast = false,
   }: ChatMessageProps) {
     const isUser = message.role === 'user';
-    const hasThinking = !!message.reasoningContent;
+    const hasThinking =
+      !!message.reasoningContent ||
+      (message.webSearchCalls?.length ?? 0) > 0 ||
+      (message.activity?.length ?? 0) > 0;
     const hasAttachments = (message.attachments?.length ?? 0) > 0;
     const canHover = useCanHover();
 

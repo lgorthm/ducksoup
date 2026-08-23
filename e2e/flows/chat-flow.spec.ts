@@ -74,6 +74,45 @@ test.describe('聊天流程', () => {
     });
   });
 
+  test('网页搜索模式显示搜索过程与来源', async ({ page }) => {
+    await mockDeepSeekSSE(page, {
+      thinking: [],
+      webSearch: [
+        {
+          id: 'ws_1',
+          action: {
+            type: 'search',
+            query: '今日新闻',
+            sources: [{ type: 'url', url: 'https://example.com/news' }],
+          },
+        },
+      ],
+      citations: [
+        {
+          url: 'https://example.com/news',
+          title: 'Example News',
+        },
+      ],
+      content: ['根据搜索结果，今天的要闻如下。'],
+    });
+
+    await page.getByTestId('web-search-button').click();
+    await typeAndSend(page, '今天有什么新闻');
+
+    await expect(page.getByTestId('message-item')).toHaveCount(2, {
+      timeout: 10000,
+    });
+    await expect(page.getByTestId('thinking-label')).toBeVisible({
+      timeout: 5000,
+    });
+    await page.getByTestId('thinking-label').click();
+    await expect(page.getByTestId('thinking-search-row')).toContainText(
+      '搜索到 1 个网页',
+    );
+    const source = page.getByTestId('web-search-source');
+    await expect(source).toHaveAttribute('href', 'https://example.com/news');
+  });
+
   test('流式传输中显示停止按钮', async ({ page }) => {
     await mockDeepSeekSSE(page, {
       thinking: [],

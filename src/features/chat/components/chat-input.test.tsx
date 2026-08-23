@@ -14,6 +14,7 @@ function setupInput(overrides: Partial<Parameters<typeof ChatInput>[0]> = {}) {
   const onSend = vi.fn();
   const onCancel = vi.fn();
   const onToggleDeepThink = vi.fn();
+  const onToggleWebSearch = vi.fn();
   const props = {
     onSend,
     disabled: false,
@@ -21,10 +22,19 @@ function setupInput(overrides: Partial<Parameters<typeof ChatInput>[0]> = {}) {
     onCancel,
     deepThink: false,
     onToggleDeepThink,
+    webSearch: false,
+    onToggleWebSearch,
     ...overrides,
   };
-  render(<ChatInput {...props} />);
-  return { onSend, onCancel, onToggleDeepThink, props };
+  const view = render(<ChatInput {...props} />);
+  return {
+    onSend,
+    onCancel,
+    onToggleDeepThink,
+    onToggleWebSearch,
+    props,
+    unmount: view.unmount,
+  };
 }
 
 function setEditorText(text: string) {
@@ -103,6 +113,38 @@ describe('ChatInput', () => {
     setEditorText('你好');
     fireEvent.click(screen.getByText('发送'));
     expect(onSend).toHaveBeenCalledWith('你好', true, []);
+  });
+
+  it('网页搜索按钮调用 onToggleWebSearch', () => {
+    const { onToggleWebSearch } = setupInput();
+    fireEvent.click(screen.getByText('网页搜索'));
+    expect(onToggleWebSearch).toHaveBeenCalledOnce();
+  });
+
+  it('网页搜索按钮在深度思考按钮右侧', () => {
+    setupInput();
+    const deepThink = screen.getByTestId('deep-think-button');
+    const webSearch = screen.getByTestId('web-search-button');
+    expect(
+      deepThink.compareDocumentPosition(webSearch) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+  });
+
+  it('webSearch 激活态与深度思考相同', () => {
+    const { unmount } = setupInput({ webSearch: true });
+    const webSearchActive = screen.getByTestId('web-search-button').className;
+    unmount();
+
+    setupInput({ deepThink: true });
+    const deepThinkActive = screen.getByTestId('deep-think-button').className;
+    const amberClasses = deepThinkActive
+      .split(/\s+/)
+      .filter((c) => c.includes('amber-400'));
+    expect(amberClasses.length).toBeGreaterThan(0);
+    for (const cls of amberClasses) {
+      expect(webSearchActive.split(/\s+/)).toContain(cls);
+    }
   });
 
   it('流式时显示停止按钮', () => {

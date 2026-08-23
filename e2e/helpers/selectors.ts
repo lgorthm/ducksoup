@@ -38,6 +38,10 @@ export const SELECTORS = {
   attachmentPreview: '[data-testid="attachment-preview"]',
   stopButton: '[data-testid="stop-button"]',
   deepThinkButton: '[data-testid="deep-think-button"]',
+  webSearchButton: '[data-testid="web-search-button"]',
+  thinkingLabel: '[data-testid="thinking-label"]',
+  thinkingSearchRow: '[data-testid="thinking-search-row"]',
+  webSearchSource: '[data-testid="web-search-source"]',
 
   // 对话框
   apiKeyDialog: '[data-testid="api-key-dialog"]',

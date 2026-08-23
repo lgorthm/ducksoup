@@ -134,6 +134,35 @@ describe('buildApiMessages', () => {
     });
   });
 
+  it('把 reasoning 与 web_search_calls 带到 assistant 消息', () => {
+    const { map, path } = treeWithFailedAssistant({
+      assistantStatus: 'done',
+      assistantContent: '答',
+    });
+    map.get('a1')!.reasoningContent = '思路';
+    map.get('a1')!.webSearchCalls = [
+      {
+        id: 'ws_1',
+        status: 'completed',
+        action: { type: 'search', query: 'q' },
+      },
+    ];
+
+    const payload = buildApiMessages(map, path);
+    expect(payload.at(-1)).toEqual({
+      role: 'assistant',
+      content: '答',
+      reasoning_content: '思路',
+      web_search_calls: [
+        {
+          id: 'ws_1',
+          status: 'completed',
+          action: { type: 'search', query: 'q' },
+        },
+      ],
+    });
+  });
+
   it('有内容的 assistant 即使 status=error 仍保留', () => {
     const { map, path } = treeWithFailedAssistant({
       assistantStatus: 'error',
