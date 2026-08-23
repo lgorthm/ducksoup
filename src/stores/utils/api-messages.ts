@@ -15,10 +15,14 @@ export type ResolvedAttachment =
   | { kind: 'file'; fileId: string }
   | { kind: 'inline'; dataUrl: string };
 
-/** 失败/空取消的 assistant 会留在树上，但不能发给模型。 */
-function isSendablePathNode(node: MessageNode): boolean {
+/** 失败/空取消的 assistant 会留在树上，但不能发给模型。续写目标除外。 */
+function isSendablePathNode(
+  node: MessageNode,
+  continueMessageId?: MessageId,
+): boolean {
   if (node.deleted) return false;
   if (node.role !== 'user' && node.role !== 'assistant') return false;
+  if (node.id === continueMessageId && node.role === 'assistant') return true;
   if (node.status === 'pending') return false;
   if (node.role === 'assistant' && !node.content) return false;
   return true;
@@ -67,11 +71,13 @@ export function buildApiMessages(
   map: Map<MessageId, MessageNode>,
   activePath: MessageId[],
   resolved?: ReadonlyMap<string, ResolvedAttachment>,
+  opts?: { continueMessageId?: MessageId },
 ): ChatMessage[] {
+  const continueMessageId = opts?.continueMessageId;
   return [
     { role: 'system', content: buildSystemPrompt() },
     ...pathNodes(map, activePath)
-      .filter(isSendablePathNode)
+      .filter((m) => isSendablePathNode(m, continueMessageId))
       .map((m) =>
         m.role === 'user'
           ? {
@@ -81,6 +87,14 @@ export function buildApiMessages(
           : {
               role: 'assistant' as const,
               content: m.content,
+              ...(m.id === continueMessageId
+                ? {
+                    prefix: true as const,
+                    ...(m.reasoningContent
+                      ? { reasoning_content: m.reasoningContent }
+                      : {}),
+                  }
+                : {}),
             },
       ),
   ];

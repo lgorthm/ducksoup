@@ -4,13 +4,19 @@ import { useTranslation } from 'react-i18next';
 import { ArrowUp, Loader2, Paperclip, X } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
-import type { ImageAttachment, MessageNode } from '@/stores/models';
+import {
+  DEFAULT_MODEL,
+  type ImageAttachment,
+  type MessageNode,
+} from '@/stores/models';
 import { editMessage, setEditingMessage } from '@/stores/actions';
 import { useEditFormState } from '@/stores/selectors';
 import { MessageImages } from './message-images';
 import * as db from '@/features/chat/utils/db';
 import { generateId } from '@/stores/utils/ids';
+import { useStore } from '@/stores';
 import {
+  isVisionModel,
   type PendingImage,
   validateImageFile,
 } from '@/features/chat/utils/image-attachments';
@@ -22,6 +28,10 @@ interface EditFormProps {
 export const EditForm = memo(function EditForm({ message }: EditFormProps) {
   const { t } = useTranslation();
   const { isLoading } = useEditFormState();
+  const model = useStore(
+    (s) => s.conversations.find((c) => c.id === message.conversationId)?.model,
+  );
+  const canAttachImages = isVisionModel(model ?? DEFAULT_MODEL);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [kept, setKept] = useState<ImageAttachment[]>(
@@ -64,7 +74,7 @@ export const EditForm = memo(function EditForm({ message }: EditFormProps) {
     const next = [...kept, ...added];
     if (!value && next.length === 0) return;
     for (const item of pending) URL.revokeObjectURL(item.previewUrl);
-    void editMessage(message.id, value, next.length > 0 ? next : undefined);
+    void editMessage(message.id, value, next);
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -97,7 +107,7 @@ export const EditForm = memo(function EditForm({ message }: EditFormProps) {
                 key={item.id}
                 src={item.previewUrl}
                 alt={item.filename}
-                className="max-h-20 max-w-24 rounded-lg object-cover"
+                className="size-20 rounded-lg object-cover"
               />
             ))}
           </div>
@@ -114,47 +124,51 @@ export const EditForm = memo(function EditForm({ message }: EditFormProps) {
         rows={1}
         className="min-h-8 w-full resize-none bg-transparent px-3 py-1 text-base leading-relaxed text-foreground outline-none placeholder:text-muted-foreground disabled:opacity-50 md:text-sm"
       />
-      <div className="flex items-center justify-between gap-2 px-1 py-1">
-        <input
-          ref={fileInputRef}
-          data-testid="edit-attach-input"
-          type="file"
-          accept="image/jpeg,image/png,image/gif,image/webp"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            e.target.value = '';
-            if (!file) return;
-            void validateImageFile(file).then((result) => {
-              if (!result.ok) return;
-              setPending((prev) => [
-                ...prev,
-                {
-                  id: generateId(),
-                  blob: file,
-                  mime: result.meta.mime,
-                  width: result.meta.width,
-                  height: result.meta.height,
-                  filename: file.name,
-                  previewUrl: URL.createObjectURL(file),
-                },
-              ]);
-            });
-          }}
-        />
-        <Button
-          type="button"
-          data-testid="edit-attach-button"
-          variant="ghost"
-          size="sm"
-          disabled={isLoading}
-          aria-label={t('chat.input.attach')}
-          className="rounded-full"
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <Paperclip className="size-3.5" />
-        </Button>
-        <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 px-1 py-1">
+        {canAttachImages ? (
+          <>
+            <input
+              ref={fileInputRef}
+              data-testid="edit-attach-input"
+              type="file"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                if (!file) return;
+                void validateImageFile(file).then((result) => {
+                  if (!result.ok) return;
+                  setPending((prev) => [
+                    ...prev,
+                    {
+                      id: generateId(),
+                      blob: file,
+                      mime: result.meta.mime,
+                      width: result.meta.width,
+                      height: result.meta.height,
+                      filename: file.name,
+                      previewUrl: URL.createObjectURL(file),
+                    },
+                  ]);
+                });
+              }}
+            />
+            <Button
+              type="button"
+              data-testid="edit-attach-button"
+              variant="ghost"
+              size="sm"
+              disabled={isLoading}
+              aria-label={t('chat.input.attach')}
+              className="rounded-full"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Paperclip className="size-3.5" />
+            </Button>
+          </>
+        ) : null}
+        <div className="ml-auto flex items-center gap-2">
           <Button
             data-testid="message-edit-cancel"
             variant="ghost"

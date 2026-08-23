@@ -43,6 +43,53 @@ describe('ChatMessage', () => {
     expect(screen.queryByTestId('markdown-renderer')).not.toBeInTheDocument();
   });
 
+  it('附件渲染在用户气泡上方而非气泡内', () => {
+    const msg = makeMessage({
+      role: 'user',
+      content: '看图',
+      attachments: [
+        {
+          id: 'a1',
+          mime: 'image/png',
+          width: 10,
+          height: 10,
+          byteLength: 8,
+          blobKey: 'b1',
+          filename: 'a.png',
+        },
+      ],
+    });
+    render(<ChatMessage message={msg} />);
+    const images = screen.getByTestId('message-images');
+    const text = screen.getByText('看图');
+    expect(
+      images.compareDocumentPosition(text) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    const bubble = text.closest('[class*="bg-primary"]');
+    expect(bubble?.contains(images)).toBe(false);
+  });
+
+  it('纯图消息不渲染文字气泡', () => {
+    const msg = makeMessage({
+      role: 'user',
+      content: '',
+      attachments: [
+        {
+          id: 'a1',
+          mime: 'image/png',
+          width: 10,
+          height: 10,
+          byteLength: 8,
+          blobKey: 'b1',
+          filename: 'a.png',
+        },
+      ],
+    });
+    const { container } = render(<ChatMessage message={msg} />);
+    expect(screen.getByTestId('message-images')).toBeInTheDocument();
+    expect(container.querySelector('[class*="bg-primary"]')).toBeNull();
+  });
+
   it('assistant 消息使用 MarkdownRenderer', async () => {
     const msg = makeMessage({
       role: 'assistant',
@@ -163,7 +210,7 @@ describe('ChatMessage', () => {
     expect(pulse).toBeInTheDocument();
   });
 
-  it('流式且有推理内容时显示"思考中..."', () => {
+  it('流式且有推理内容时展开思考过程，不显示回复占位符', () => {
     const msg = makeMessage({
       role: 'assistant',
       content: '',
@@ -171,6 +218,70 @@ describe('ChatMessage', () => {
     });
     render(<ChatMessage message={msg} isStreaming />);
     expect(screen.getByText('思考中...')).toBeInTheDocument();
+    expect(screen.getByText('思考')).toBeInTheDocument();
+    const replyCursor = [...document.querySelectorAll('.animate-pulse')].find(
+      (el) => el.textContent === '▊' && !el.className.includes('text-xs'),
+    );
+    expect(replyCursor).toBeUndefined();
+  });
+
+  it('思考中点击可折叠思考过程', () => {
+    const msg = makeMessage({
+      role: 'assistant',
+      content: '',
+      reasoningContent: '推理内容',
+    });
+    render(<ChatMessage message={msg} isStreaming />);
+    expect(screen.getByText('推理内容')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('思考中...'));
+    expect(screen.queryByText('推理内容')).not.toBeInTheDocument();
+  });
+
+  it('思考阶段被中止时标题为已停止并默认展开', () => {
+    const msg = makeMessage({
+      role: 'assistant',
+      content: '',
+      reasoningContent: '半截思路',
+      status: 'aborted',
+    });
+    render(<ChatMessage message={msg} />);
+    expect(screen.getByTestId('thinking-label')).toHaveTextContent('已停止');
+    expect(screen.getByText('半截思路')).toBeInTheDocument();
+    const thinkingCursor = [
+      ...document.querySelectorAll('.animate-pulse'),
+    ].find((el) => el.textContent === '▊');
+    expect(thinkingCursor).toBeUndefined();
+  });
+
+  it('回复阶段被中止时思考标题仍为思考过程', () => {
+    const msg = makeMessage({
+      role: 'assistant',
+      content: '半句',
+      reasoningContent: '完整思路',
+      status: 'aborted',
+    });
+    render(<ChatMessage message={msg} />);
+    expect(screen.getByTestId('thinking-label')).toHaveTextContent('思考过程');
+  });
+
+  it('流式推理结束后思考过程自动折叠并显示正文', async () => {
+    const thinkingMsg = makeMessage({
+      role: 'assistant',
+      content: '',
+      reasoningContent: '推理内容',
+    });
+    const { rerender } = render(
+      <ChatMessage message={thinkingMsg} isStreaming />,
+    );
+    expect(screen.getByText('推理内容')).toBeInTheDocument();
+
+    const replyMsg = { ...thinkingMsg, content: '最终答案' };
+    rerender(<ChatMessage message={replyMsg} isStreaming />);
+    expect(screen.getByText('思考过程')).toBeInTheDocument();
+    expect(screen.queryByText('推理内容')).not.toBeInTheDocument();
+    const markdown = await screen.findByTestId('markdown-renderer');
+    expect(markdown).toBeInTheDocument();
+    expect(screen.getByText('最终答案')).toBeInTheDocument();
   });
 
   it('流式且有内容时使用 MarkdownRenderer', async () => {
@@ -377,6 +488,69 @@ describe('ChatMessage 操作栏可见性（isLast / 分支常显）', () => {
     expect(hasClass(group, 'opacity-100')).toBe(true);
     expect(hasClass(group, 'opacity-0')).toBe(false);
     expect(screen.getByTestId('message-regenerate-button')).toBeInTheDocument();
+  });
+
+  it('中止的最后一条 assistant 在重新生成右侧显示继续生成', () => {
+    const msg = makeMessage({
+      role: 'assistant',
+      content: '半句',
+      status: 'aborted',
+    });
+    render(<ChatMessage message={msg} isLast />);
+    const continueBtn = screen.getByTestId('message-continue-button');
+    const regen = screen.getByTestId('message-regenerate-button');
+    expect(
+      regen.compareDocumentPosition(continueBtn) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+  });
+
+  it('完成的 assistant 不显示继续生成', () => {
+    const msg = makeMessage({
+      role: 'assistant',
+      content: '回复',
+      status: 'done',
+    });
+    render(<ChatMessage message={msg} isLast />);
+    expect(
+      screen.queryByTestId('message-continue-button'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('非最后一条的中止消息不显示继续生成', () => {
+    const msg = makeMessage({
+      role: 'assistant',
+      content: '半句',
+      status: 'aborted',
+    });
+    render(<ChatMessage message={msg} />);
+    expect(
+      screen.queryByTestId('message-continue-button'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('user 消息不显示继续生成', () => {
+    const msg = makeMessage({
+      role: 'user',
+      content: '你好',
+      status: 'aborted',
+    });
+    render(<ChatMessage message={msg} isLast />);
+    expect(
+      screen.queryByTestId('message-continue-button'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('流式中不显示继续生成', () => {
+    const msg = makeMessage({
+      role: 'assistant',
+      content: '半句',
+      status: 'aborted',
+    });
+    render(<ChatMessage message={msg} isStreaming isLast />);
+    expect(
+      screen.queryByTestId('message-continue-button'),
+    ).not.toBeInTheDocument();
   });
 
   it('最后一条且有分支：分支导航与操作分组均常显', () => {

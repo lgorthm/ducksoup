@@ -14,18 +14,29 @@ export const ThinkingSection = memo(function ThinkingSection({
   isStreaming,
 }: ThinkingSectionProps) {
   const { t } = useTranslation();
-  const [expanded, setExpanded] = useState(false);
+  const isActive = isStreaming && message.content.length === 0;
+  const isStoppedThinking =
+    message.status === 'aborted' &&
+    message.content.length === 0 &&
+    !!message.reasoningContent;
+  const [userExpanded, setUserExpanded] = useState<boolean | null>(null);
+  const defaultExpanded = isActive || isStoppedThinking;
+  const expanded = userExpanded ?? defaultExpanded;
 
   const reasoning = message.reasoningContent;
   if (!reasoning) return null;
 
-  const isActive = isStreaming && message.content.length === 0;
+  const title = isActive
+    ? t('chat.area.thinking')
+    : isStoppedThinking
+      ? t('chat.message.thinkingStopped')
+      : t('chat.message.thinkingLabel');
 
   return (
     <div className="mb-3">
       <button
         type="button"
-        onClick={() => setExpanded((prev) => !prev)}
+        onClick={() => setUserExpanded((prev) => !(prev ?? defaultExpanded))}
         className={cn(
           'flex w-full items-center gap-2 text-left text-xs transition-colors',
           isActive
@@ -39,8 +50,8 @@ export const ThinkingSection = memo(function ThinkingSection({
             expanded && 'rotate-90',
           )}
         />
-        <span className="font-medium">
-          {isActive ? t('chat.area.thinking') : t('chat.message.thinkingLabel')}
+        <span data-testid="thinking-label" className="font-medium">
+          {title}
         </span>
         {isActive && (
           <span className="inline-block size-1.5 animate-pulse rounded-full bg-foreground/60" />

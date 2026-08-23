@@ -1,9 +1,17 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createChatStream } from './chat-stream';
+import {
+  createChatStream,
+  isPrefixContinue,
+  toChatCompletionMessages,
+} from './chat-stream';
 
 const mockCreate = vi.fn();
+const mockChatCreate = vi.fn();
 const OpenAI = vi.fn(function MockOpenAI() {
-  return { responses: { create: mockCreate } };
+  return {
+    responses: { create: mockCreate },
+    chat: { completions: { create: mockChatCreate } },
+  };
 });
 
 vi.mock('openai', () => ({
@@ -39,7 +47,9 @@ beforeEach(() => {
   vi.useFakeTimers();
   OpenAI.mockClear();
   mockCreate.mockReset();
+  mockChatCreate.mockReset();
   mockCreate.mockResolvedValue(fromEvents([]));
+  mockChatCreate.mockResolvedValue(fromEvents([]));
 });
 
 afterEach(() => {
@@ -490,5 +500,136 @@ describe('abort', () => {
     await flushAsync();
 
     expect(onEvent).not.toHaveBeenCalled();
+  });
+});
+
+const prefixMessages = [
+  { role: 'system' as const, content: 'You are a helpful assistant.' },
+  { role: 'user' as const, content: 'hi' },
+  { role: 'assistant' as const, content: '半句', prefix: true },
+];
+
+describe('prefix continue', () => {
+  it('isPrefixContinue 只看最后一条 user/assistant', () => {
+    expect(isPrefixContinue(prefixMessages)).toBe(true);
+    expect(
+      isPrefixContinue([
+        { role: 'user', content: 'hi' },
+        { role: 'assistant', content: 'ok' },
+      ]),
+    ).toBe(false);
+  });
+
+  it('toChatCompletionMessages 转换图片与 prefix 字段', () => {
+    expect(
+      toChatCompletionMessages([
+        { role: 'system', content: 'sys' },
+        {
+          role: 'user',
+          content: [
+            { type: 'input_text', text: '看图' },
+            { type: 'input_image', image_url: 'data:image/png;base64,xx' },
+            { type: 'input_image', file_id: 'file-1' },
+          ],
+        },
+        {
+          role: 'assistant',
+          content: '半句',
+          prefix: true,
+          reasoning_content: '思路',
+        },
+      ]),
+    ).toEqual([
+      { role: 'system', content: 'sys' },
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: '看图' },
+          {
+            type: 'image_url',
+            image_url: { url: 'data:image/png;base64,xx' },
+          },
+          { type: 'image_url', image_url: { url: 'file-1' } },
+        ],
+      },
+      {
+        role: 'assistant',
+        content: '半句',
+        prefix: true,
+        reasoning_content: '思路',
+      },
+    ]);
+  });
+
+  it('走 /beta Chat Completions 而不是 Responses', async () => {
+    createChatStream({
+      apiKey: 'key',
+      model: 'deepseek-v4-pro',
+      messages: prefixMessages,
+      onEvent: vi.fn(),
+    });
+    await flushAsync();
+
+    expect(OpenAI).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseURL: 'https://api.deepseek.com/beta',
+      }),
+    );
+    expect(mockChatCreate).toHaveBeenCalledOnce();
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(mockChatCreate.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        model: 'deepseek-v4-pro',
+        stream: true,
+        messages: [
+          { role: 'system', content: 'You are a helpful assistant.' },
+          { role: 'user', content: 'hi' },
+          { role: 'assistant', content: '半句', prefix: true },
+        ],
+      }),
+    );
+  });
+
+  it('reasoning_content / content delta 映射到 thinking 与 content', async () => {
+    const onEvent = vi.fn();
+    mockChatCreate.mockResolvedValue(
+      fromEventsOpen([
+        { choices: [{ delta: { reasoning_content: '续想' } }] },
+        { choices: [{ delta: { content: '下文' } }] },
+      ]),
+    );
+
+    createChatStream({
+      apiKey: 'key',
+      model: 'model',
+      messages: prefixMessages,
+      onEvent,
+    });
+    await flushAsync();
+    vi.advanceTimersByTime(16);
+    expect(onEvent).toHaveBeenCalledWith({
+      type: 'thinking',
+      text: '续想',
+    });
+    vi.advanceTimersByTime(16);
+    expect(onEvent).toHaveBeenCalledWith({ type: 'content', text: '下文' });
+  });
+
+  it('prefix 流结束发出 done', async () => {
+    const onEvent = vi.fn();
+    mockChatCreate.mockResolvedValue(
+      fromEvents([{ choices: [{ delta: { content: '完' } }] }]),
+    );
+
+    createChatStream({
+      apiKey: 'key',
+      model: 'model',
+      messages: prefixMessages,
+      onEvent,
+    });
+    await flushAsync();
+
+    expect(onEvent).toHaveBeenCalledWith({ type: 'content', text: '完' });
+    expect(onEvent).toHaveBeenCalledWith({ type: 'done' });
   });
 });

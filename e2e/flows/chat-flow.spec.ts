@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { setupApp, typeAndSend } from '../helpers/setup';
 import {
   mockDeepSeekSSE,
+  mockDeepSeekPrefixSSE,
   mockDeepSeekError,
   mockDeepSeekNetworkError,
 } from '../helpers/sse-mock';
@@ -105,6 +106,79 @@ test.describe('聊天流程', () => {
     expect(content2).toBe(content1);
   });
 
+  test('思考阶段停止后显示已停止，继续生成在同一条消息上续写', async ({
+    page,
+  }) => {
+    await mockDeepSeekSSE(page, {
+      thinking: ['首先分析', '然后推导', '最后总结'],
+      content: [],
+      delayMs: 400,
+    });
+
+    await typeAndSend(page, '复杂问题');
+
+    await expect(page.getByTestId('thinking-label')).toHaveText('思考中...', {
+      timeout: 10000,
+    });
+    await expect(page.getByText('首先分析')).toBeVisible();
+    await page.getByTestId('stop-button').click();
+
+    await expect(page.getByTestId('thinking-label')).toHaveText('已停止', {
+      timeout: 5000,
+    });
+    await expect(page.getByTestId('message-continue-button')).toBeVisible();
+    await expect(page.getByTestId('message-item')).toHaveCount(2);
+
+    await mockDeepSeekPrefixSSE(page, {
+      thinking: ['继续推理'],
+      content: ['续写答案'],
+    });
+    await page.getByTestId('message-continue-button').click();
+
+    await expect(page.getByTestId('message-item').nth(1)).toContainText(
+      '续写答案',
+      { timeout: 15000 },
+    );
+    await expect(page.getByTestId('message-item')).toHaveCount(2);
+    await expect(page.getByTestId('message-continue-button')).toHaveCount(0);
+    await expect(page.getByTestId('thinking-label')).toHaveText('思考过程');
+  });
+
+  test('回复阶段停止后思考标题不变，继续生成追加正文', async ({ page }) => {
+    await mockDeepSeekSSE(page, {
+      thinking: ['分析完毕'],
+      content: ['第一段', '第二段', '第三段', '第四段'],
+      delayMs: 300,
+    });
+
+    await typeAndSend(page, '写一篇长文');
+
+    await expect(page.getByTestId('message-item').nth(1)).toContainText(
+      '第一段',
+      { timeout: 15000 },
+    );
+    await expect(page.getByTestId('stop-button')).toBeVisible();
+    await page.getByTestId('stop-button').click();
+
+    await expect(page.getByTestId('message-continue-button')).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(page.getByTestId('thinking-label')).toHaveText('思考过程');
+
+    await mockDeepSeekPrefixSSE(page, {
+      thinking: [],
+      content: ['后续段落'],
+    });
+    await page.getByTestId('message-continue-button').click();
+
+    await expect(page.getByTestId('message-item').nth(1)).toContainText(
+      '后续段落',
+      { timeout: 15000 },
+    );
+    await expect(page.getByTestId('message-item')).toHaveCount(2);
+    await expect(page.getByTestId('message-continue-button')).toHaveCount(0);
+  });
+
   test('API 401 错误显示错误信息', async ({ page }) => {
     await mockDeepSeekError(page, 401, 'Invalid API key');
 
@@ -145,14 +219,13 @@ test.describe('聊天流程', () => {
       .poll(
         async () => {
           const data = await getIndexedDBData(page);
-          return data.messages.length;
+          return data.messages.some((m) => m.content === '回复内容');
         },
         { timeout: 10000, intervals: [500, 1000, 2000] },
       )
-      .toBeGreaterThanOrEqual(2);
+      .toBeTruthy();
 
     const data = await getIndexedDBData(page);
     expect(data.messages.some((m) => m.content === '持久化测试')).toBeTruthy();
-    expect(data.messages.some((m) => m.content === '回复内容')).toBeTruthy();
   });
 });

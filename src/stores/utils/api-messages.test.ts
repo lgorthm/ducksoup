@@ -82,6 +82,58 @@ describe('buildApiMessages', () => {
     ).toEqual(['hello', '再试一次']);
   });
 
+  it('续写把空内容但有推理的 assistant 标 prefix 发出', () => {
+    const { map, path } = treeWithFailedAssistant({
+      assistantStatus: 'pending',
+      assistantContent: '',
+    });
+    map.get('a1')!.reasoningContent = '半截思路';
+
+    const payload = buildApiMessages(map, path, undefined, {
+      continueMessageId: 'a1',
+    });
+
+    expect(payload).toEqual([
+      { role: 'system', content: 'You are a helpful assistant.' },
+      { role: 'user', content: 'hello' },
+      {
+        role: 'assistant',
+        content: '',
+        prefix: true,
+        reasoning_content: '半截思路',
+      },
+    ]);
+  });
+
+  it('普通请求仍不把空 assistant 发给模型', () => {
+    const { map, path } = treeWithFailedAssistant({
+      assistantStatus: 'aborted',
+      assistantContent: '',
+    });
+    map.get('a1')!.reasoningContent = '半截思路';
+
+    const payload = buildApiMessages(map, path);
+
+    expect(payload.some((m) => m.role === 'assistant')).toBe(false);
+  });
+
+  it('续写把已有正文的 assistant 标 prefix 发出', () => {
+    const { map, path } = treeWithFailedAssistant({
+      assistantStatus: 'pending',
+      assistantContent: '半句',
+    });
+
+    const payload = buildApiMessages(map, path, undefined, {
+      continueMessageId: 'a1',
+    });
+
+    expect(payload.at(-1)).toEqual({
+      role: 'assistant',
+      content: '半句',
+      prefix: true,
+    });
+  });
+
   it('有内容的 assistant 即使 status=error 仍保留', () => {
     const { map, path } = treeWithFailedAssistant({
       assistantStatus: 'error',

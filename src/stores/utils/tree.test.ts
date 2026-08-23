@@ -445,7 +445,7 @@ describe('pathNodes / countVisibleMessages', () => {
 });
 
 describe('settlePendingNodes', () => {
-  it('将残留 pending 收口为 done 或 error，并返回被改写的节点', () => {
+  it('将残留 pending 收口为 aborted 或 error，并返回被改写的节点', () => {
     const map = hydrateTree([
       node({ id: 'root', role: 'system' }),
       node({
@@ -475,10 +475,8 @@ describe('settlePendingNodes', () => {
     const settled = settlePendingNodes(map);
 
     expect(settled.map((n) => n.id).sort()).toEqual(['a1', 'a2']);
-    expect(map.get('a1')?.status).not.toBe('pending');
-    expect(['done', 'error']).toContain(map.get('a1')?.status);
-    expect(map.get('a2')?.status).not.toBe('pending');
-    expect(['done', 'error']).toContain(map.get('a2')?.status);
+    expect(map.get('a1')?.status).toBe('aborted');
+    expect(map.get('a2')?.status).toBe('error');
     expect(map.get('u1')?.status).toBe('done');
   });
 

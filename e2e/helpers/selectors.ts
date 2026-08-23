@@ -20,6 +20,7 @@ export const SELECTORS = {
   messageCopyButton: '[data-testid="message-copy-button"]',
   messageEditButton: '[data-testid="message-edit-button"]',
   messageRegenerateButton: '[data-testid="message-regenerate-button"]',
+  messageContinueButton: '[data-testid="message-continue-button"]',
   messageEditTextarea: '[data-testid="message-edit-textarea"]',
   messageEditCancel: '[data-testid="message-edit-cancel"]',
   messageEditSend: '[data-testid="message-edit-send"]',

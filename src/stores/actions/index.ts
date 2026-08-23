@@ -18,6 +18,7 @@ export {
   clearMessages,
   editMessage,
   regenerateMessage,
+  continueMessage,
   switchSibling,
   getBranchInfo,
 } from './message';

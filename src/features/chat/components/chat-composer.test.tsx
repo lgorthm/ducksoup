@@ -81,7 +81,7 @@ describe('ChatComposer', () => {
     );
   });
 
-  it('draftModel 为 Pro 时禁用加图', () => {
+  it('draftModel 为 Pro 时不传附件能力', () => {
     render(<ChatComposer draftModel="deepseek-v4-pro" />);
     expect(screen.getByTestId('chat-input')).toHaveAttribute(
       'data-can-attach',

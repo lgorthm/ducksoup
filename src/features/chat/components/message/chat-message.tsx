@@ -70,6 +70,8 @@ export const ChatMessage = memo(
         ? undefined
         : () => toggleActiveMessage(message.id);
 
+    const showUserBubble = isUser && (isEditing || !!message.content);
+
     return (
       <div
         className={cn(
@@ -77,56 +79,55 @@ export const ChatMessage = memo(
           isUser ? 'items-end' : 'items-start',
         )}
       >
-        <div
-          onClick={handleBubbleClick}
-          className={cn(
-            'rounded-full px-4 py-2.5 text-sm leading-relaxed',
-            isUser
-              ? isEditing
-                ? 'w-[95%] p-0'
-                : cn(
-                    'max-w-[80%] bg-primary text-primary-foreground',
-                    (!isSingleLine || hasAttachments) && 'rounded-lg',
-                  )
-              : 'max-w-full bg-transparent text-foreground',
-          )}
-        >
-          {isUser ? (
-            isEditing ? (
-              <EditForm message={message} />
-            ) : (
-              <div className="flex flex-col gap-2">
-                {hasAttachments ? (
-                  <MessageImages attachments={message.attachments ?? []} />
-                ) : null}
-                {message.content ? (
-                  <p
-                    ref={contentRef}
-                    className="wrap-break-word whitespace-pre-wrap"
-                  >
-                    {message.content}
-                  </p>
-                ) : (
-                  <span ref={contentRef} className="sr-only">
-                    {message.attachments?.[0]?.filename ?? ''}
-                  </span>
-                )}
-              </div>
-            )
-          ) : (
-            <>
-              <ThinkingSection message={message} isStreaming={isStreaming} />
-
-              {message.content ? (
-                <LazyMarkdownRenderer isStreaming={isStreaming}>
+        {isUser && hasAttachments && !isEditing ? (
+          <div className="mb-2 max-w-[80%]" onClick={handleBubbleClick}>
+            <MessageImages
+              attachments={message.attachments ?? []}
+              className="justify-end"
+            />
+          </div>
+        ) : null}
+        {showUserBubble || !isUser ? (
+          <div
+            onClick={handleBubbleClick}
+            className={cn(
+              'rounded-full px-4 py-2.5 text-sm leading-relaxed',
+              isUser
+                ? isEditing
+                  ? 'w-[95%] p-0'
+                  : cn(
+                      'max-w-[80%] bg-primary text-primary-foreground',
+                      !isSingleLine && 'rounded-lg',
+                    )
+                : 'max-w-full bg-transparent text-foreground',
+            )}
+          >
+            {isUser ? (
+              isEditing ? (
+                <EditForm message={message} />
+              ) : (
+                <p
+                  ref={contentRef}
+                  className="wrap-break-word whitespace-pre-wrap"
+                >
                   {message.content}
-                </LazyMarkdownRenderer>
-              ) : isStreaming || hasThinking ? (
-                <span className="animate-pulse text-muted-foreground">▊</span>
-              ) : null}
-            </>
-          )}
-        </div>
+                </p>
+              )
+            ) : (
+              <>
+                <ThinkingSection message={message} isStreaming={isStreaming} />
+
+                {message.content ? (
+                  <LazyMarkdownRenderer isStreaming={isStreaming}>
+                    {message.content}
+                  </LazyMarkdownRenderer>
+                ) : isStreaming && !hasThinking ? (
+                  <span className="animate-pulse text-muted-foreground">▊</span>
+                ) : null}
+              </>
+            )}
+          </div>
+        ) : null}
         {!isStreaming && !isEditing && (
           <MessageActions
             message={message}

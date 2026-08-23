@@ -10,14 +10,8 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Paperclip, Square } from 'lucide-react';
+import { Paperclip } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/shared/components/ui/tooltip';
 import { cn } from '@/shared/lib/utils';
 import { generateId } from '@/stores/utils/ids';
 import {
@@ -131,6 +125,7 @@ export function ChatInput({
     const content = value.trim();
     if ((!content && pending.length === 0) || disabled) return;
     onSend(content, deepThink, pending);
+    for (const item of pending) URL.revokeObjectURL(item.previewUrl);
     setValue('');
     setPending([]);
   }, [value, onSend, disabled, deepThink, pending]);
@@ -181,21 +176,6 @@ export function ChatInput({
 
   const inputDisabled = disabled || isStreaming;
 
-  const attachButton = (
-    <Button
-      type="button"
-      data-testid="attach-button"
-      variant="outline"
-      size="icon"
-      disabled={inputDisabled || !canAttachImages}
-      onClick={() => fileInputRef.current?.click()}
-      aria-label={t('chat.input.attach')}
-      className="rounded-full"
-    >
-      <Paperclip className="size-4" />
-    </Button>
-  );
-
   return (
     <div
       data-testid="chat-input"
@@ -212,20 +192,22 @@ export function ChatInput({
       onDragLeave={() => setIsDragging(false)}
       onDrop={handleDrop}
     >
-      <input
-        ref={fileInputRef}
-        data-testid="attach-file-input"
-        type="file"
-        accept="image/jpeg,image/png,image/gif,image/webp"
-        multiple
-        className="hidden"
-        disabled={inputDisabled || !canAttachImages}
-        onChange={(e) => {
-          const list = e.target.files ? [...e.target.files] : [];
-          e.target.value = '';
-          void addFiles(list);
-        }}
-      />
+      {canAttachImages ? (
+        <input
+          ref={fileInputRef}
+          data-testid="attach-file-input"
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          multiple
+          className="hidden"
+          disabled={inputDisabled}
+          onChange={(e) => {
+            const list = e.target.files ? [...e.target.files] : [];
+            e.target.value = '';
+            void addFiles(list);
+          }}
+        />
+      ) : null}
       {pending.length > 0 ? (
         <div
           data-testid="attachment-preview"
@@ -236,7 +218,7 @@ export function ChatInput({
               <img
                 src={item.previewUrl}
                 alt={item.filename}
-                className="max-h-20 max-w-24 rounded-lg object-cover"
+                className="size-20 rounded-lg object-cover"
               />
               <button
                 type="button"
@@ -267,57 +249,55 @@ export function ChatInput({
         onChange={handleChange}
       />
       <div className="mt-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {canAttachImages ? (
-            attachButton
-          ) : (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger render={<span className="inline-flex" />}>
-                  {attachButton}
-                </TooltipTrigger>
-                <TooltipContent>
-                  {t('chat.input.attachDisabled')}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+        <Button
+          data-testid="deep-think-button"
+          variant="outline"
+          size="default"
+          disabled={inputDisabled}
+          onClick={onToggleDeepThink}
+          className={cn(
+            deepThink &&
+              'border-amber-400 bg-amber-400/15 text-amber-400 hover:bg-amber-400/15 hover:text-amber-400 dark:border-amber-400 dark:bg-amber-400/15 dark:hover:bg-amber-400/15 dark:hover:text-amber-400',
+            'rounded-full',
           )}
-          <Button
-            data-testid="deep-think-button"
-            variant="outline"
-            size="default"
-            disabled={inputDisabled}
-            onClick={onToggleDeepThink}
-            className={cn(
-              deepThink &&
-                'border-amber-400 bg-amber-400/15 text-amber-400 hover:bg-amber-400/15 hover:text-amber-400 dark:border-amber-400 dark:bg-amber-400/15 dark:hover:bg-amber-400/15 dark:hover:text-amber-400',
-              'rounded-full',
-            )}
-          >
-            {t('chat.input.deepThink')}
-          </Button>
+        >
+          {t('chat.input.deepThink')}
+        </Button>
+        <div className="flex items-center gap-1">
+          {canAttachImages ? (
+            <Button
+              type="button"
+              data-testid="attach-button"
+              variant="ghost"
+              size="icon"
+              disabled={inputDisabled}
+              onClick={() => fileInputRef.current?.click()}
+              aria-label={t('chat.input.attach')}
+            >
+              <Paperclip className="size-4" />
+            </Button>
+          ) : null}
+          {isStreaming ? (
+            <Button
+              data-testid="stop-button"
+              size="default"
+              onClick={onCancel}
+              className="rounded-full"
+            >
+              {t('chat.area.stop')}
+            </Button>
+          ) : (
+            <Button
+              data-testid="send-button"
+              size="default"
+              disabled={disabled || isEmpty}
+              onClick={handleSend}
+              className="rounded-full"
+            >
+              {t('chat.input.send')}
+            </Button>
+          )}
         </div>
-        {isStreaming ? (
-          <Button
-            data-testid="stop-button"
-            size="default"
-            onClick={onCancel}
-            className="gap-1.5 rounded-full"
-          >
-            <Square className="size-3" />
-            {t('chat.area.stop')}
-          </Button>
-        ) : (
-          <Button
-            data-testid="send-button"
-            size="default"
-            disabled={disabled || isEmpty}
-            onClick={handleSend}
-            className="rounded-full"
-          >
-            {t('chat.input.send')}
-          </Button>
-        )}
       </div>
     </div>
   );

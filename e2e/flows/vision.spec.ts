@@ -13,10 +13,10 @@ test.describe('图像理解', () => {
     await setupApp(page);
   });
 
-  test('Flash 默认可加图，切到 Pro 后禁用', async ({ page }) => {
+  test('Flash 默认可加图，切到 Pro 后隐藏', async ({ page }) => {
     await expect(page.getByTestId('attach-button')).toBeEnabled();
     await page.locator('[data-value="deepseek-v4-pro"]').click();
-    await expect(page.getByTestId('attach-button')).toBeDisabled();
+    await expect(page.getByTestId('attach-button')).toHaveCount(0);
   });
 
   test('选择图片后隐藏模型切换并可纯图发送', async ({ page }) => {
@@ -42,6 +42,11 @@ test.describe('图像理解', () => {
       timeout: 10000,
     });
     await expect(page.getByTestId('message-images')).toBeVisible();
+    await expect(page.getByTestId('message-image')).toBeVisible();
+    await page.getByTestId('message-image').click();
+    await expect(page.getByTestId('image-lightbox')).toBeVisible();
+    await page.getByTestId('image-lightbox-close').click();
+    await expect(page.getByTestId('image-lightbox')).toHaveCount(0);
     await expect(page.getByTestId('message-item').nth(1)).toContainText(
       '我看到了一张图',
       { timeout: 15000 },

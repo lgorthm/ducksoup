@@ -1,6 +1,6 @@
 export type MessageId = string;
 
-export type MessageStatus = 'pending' | 'done' | 'error';
+export type MessageStatus = 'pending' | 'done' | 'error' | 'aborted';
 
 export type MessageRole = 'system' | 'user' | 'assistant' | 'tool';
 

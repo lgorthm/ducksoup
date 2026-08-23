@@ -20,6 +20,7 @@ import {
   clearMessages,
   editMessage,
   regenerateMessage,
+  continueMessage,
   switchSibling,
   getBranchInfo,
   toggleActiveMessage,
@@ -254,8 +255,7 @@ describe('init', () => {
     await init();
 
     const loaded = useStore.getState().messageNodes.get('a1');
-    expect(loaded?.status).not.toBe('pending');
-    expect(['done', 'error']).toContain(loaded?.status);
+    expect(loaded?.status).toBe('aborted');
     expect(useStore.getState().streamingMessageId).toBeNull();
     expect(db.updateMessage).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'a1', status: loaded?.status }),
@@ -726,7 +726,7 @@ describe('cancelStream', () => {
     expect(mockAbort).not.toHaveBeenCalled();
   });
 
-  it('中止后将 pending assistant 标为 done，清空流式标记并写回 DB', async () => {
+  it('中止后将 pending assistant 标为 aborted，清空流式标记并写回 DB', async () => {
     await sendMessage('hello');
     capturedOnEvent({ type: 'content', text: '半句' });
     const id = useStore.getState().streamingMessageId!;
@@ -737,11 +737,24 @@ describe('cancelStream', () => {
     const state = useStore.getState();
     expect(state.streamingMessageId).toBeNull();
     expect(state.isLoading).toBe(false);
-    expect(state.messageNodes.get(id)?.status).toBe('done');
+    expect(state.messageNodes.get(id)?.status).toBe('aborted');
     expect(state.messageNodes.get(id)?.content).toBe('半句');
     expect(db.updateMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ id, status: 'done', content: '半句' }),
+      expect.objectContaining({ id, status: 'aborted', content: '半句' }),
     );
+  });
+
+  it('思考阶段中止也标为 aborted', async () => {
+    await sendMessage('hello');
+    capturedOnEvent({ type: 'thinking', text: '半截思路' });
+    const id = useStore.getState().streamingMessageId!;
+
+    cancelStream();
+
+    const node = useStore.getState().messageNodes.get(id);
+    expect(node?.status).toBe('aborted');
+    expect(node?.reasoningContent).toBe('半截思路');
+    expect(node?.content).toBe('');
   });
 
   it('中止空回复也将 pending 收口，不再保持流式', async () => {
@@ -830,6 +843,94 @@ describe('regenerateMessage', () => {
   });
 });
 
+describe('continueMessage', () => {
+  beforeEach(() => {
+    vi.mocked(db.updateMessage).mockResolvedValue(undefined);
+    vi.mocked(db.updateConversation).mockResolvedValue(undefined);
+    vi.mocked(db.addMessage).mockResolvedValue(undefined);
+  });
+
+  function seedAborted(opts?: { content?: string; reasoning?: string }) {
+    const map = seedQa({ assistantContent: opts?.content ?? '半句' });
+    const a1 = map.get('a1')!;
+    a1.status = 'aborted';
+    if (opts?.reasoning) a1.reasoningContent = opts.reasoning;
+    if (opts?.content === '') a1.content = '';
+  }
+
+  it('在同一条消息上续写并带 prefix', async () => {
+    seedAborted({ content: '半句', reasoning: '思路' });
+    await continueMessage('a1');
+
+    const state = useStore.getState();
+    expect(state.isLoading).toBe(true);
+    expect(state.streamingMessageId).toBe('a1');
+    expect(state.messageNodes.get('a1')?.status).toBe('pending');
+    expect(createChatStream).toHaveBeenCalledOnce();
+    const payload = vi.mocked(createChatStream).mock.calls[0][0].messages;
+    expect(payload.at(-1)).toEqual({
+      role: 'assistant',
+      content: '半句',
+      prefix: true,
+      reasoning_content: '思路',
+    });
+  });
+
+  it('思考阶段空正文也可以续写', async () => {
+    seedAborted({ content: '', reasoning: '半截思路' });
+    await continueMessage('a1');
+
+    const payload = vi.mocked(createChatStream).mock.calls[0][0].messages;
+    expect(payload.at(-1)).toEqual({
+      role: 'assistant',
+      content: '',
+      prefix: true,
+      reasoning_content: '半截思路',
+    });
+  });
+
+  it('续写 token 追加到原消息，done 后收口为 done', async () => {
+    seedAborted({ content: '半句' });
+    await continueMessage('a1');
+    capturedOnEvent({ type: 'content', text: '下文' });
+    capturedOnEvent({ type: 'done' });
+
+    const node = useStore.getState().messageNodes.get('a1');
+    expect(node?.content).toBe('半句下文');
+    expect(node?.status).toBe('done');
+    expect(useStore.getState().streamingMessageId).toBeNull();
+    expect(useStore.getState().isLoading).toBe(false);
+    expect(visible().map((m) => m.id)).toEqual(['u1', 'a1']);
+  });
+
+  it('非 aborted 或流式中直接返回', async () => {
+    seedQa();
+    await continueMessage('a1');
+    expect(createChatStream).not.toHaveBeenCalled();
+
+    seedAborted();
+    useStore.setState({ isLoading: true });
+    await continueMessage('a1');
+    expect(createChatStream).not.toHaveBeenCalled();
+  });
+
+  it('已有后续子消息时不续写', async () => {
+    seedAborted();
+    const map = useStore.getState().messageNodes;
+    appendChild(map, 'a1', {
+      id: 'u2',
+      conversationId: 'c1',
+      role: 'user',
+      content: '再问',
+      createdAt: 3,
+    });
+    useStore.setState({ messageNodes: map });
+
+    await continueMessage('a1');
+    expect(createChatStream).not.toHaveBeenCalled();
+  });
+});
+
 describe('editMessage', () => {
   beforeEach(() => {
     vi.mocked(db.updateMessage).mockResolvedValue(undefined);
@@ -885,6 +986,29 @@ describe('editMessage', () => {
     useStore.setState({ isLoading: true });
     await editMessage('u1', 'x');
     expect(createChatStream).not.toHaveBeenCalled();
+  });
+
+  it('传入空附件列表时新分支不保留原图', async () => {
+    const original = {
+      id: 'att-1',
+      mime: 'image/png' as const,
+      width: 10,
+      height: 10,
+      byteLength: 8,
+      blobKey: 'blob-1',
+      filename: 'a.png',
+    };
+    useStore.setState((state) => {
+      const node = state.messageNodes.get('u1');
+      if (node) node.attachments = [original];
+    });
+
+    await editMessage('u1', '改问', []);
+
+    const newUser = [...useStore.getState().messageNodes.values()].find(
+      (n) => n.content === '改问',
+    );
+    expect(newUser?.attachments).toBeUndefined();
   });
 });
 

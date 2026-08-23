@@ -15,7 +15,7 @@ import { countVisibleMessages } from '@/stores/utils/tree';
 
 function completeStreaming(opts: {
   streamingMsgId: string;
-  status: 'done' | 'error';
+  status: 'done' | 'error' | 'aborted';
   actionName: string;
   conversationId: string;
   rootId: string;
@@ -23,6 +23,7 @@ function completeStreaming(opts: {
 }) {
   const { streamingMsgId, status, actionName, conversationId, rootId, error } =
     opts;
+  const persistConversation = status === 'done' || status === 'aborted';
 
   useStore.setState(
     (state) => {
@@ -40,7 +41,7 @@ function completeStreaming(opts: {
       if (error !== undefined) {
         state.error = error;
       }
-      if (status === 'done') {
+      if (persistConversation) {
         const messageCount = countVisibleMessages(state.messageNodes, rootId);
         state.conversations = state.conversations.map((c: Conversation) =>
           c.id === conversationId
@@ -62,7 +63,7 @@ function completeStreaming(opts: {
   if (finalNode) {
     db.updateMessage(finalNode).catch(() => {});
   }
-  if (status === 'done') {
+  if (persistConversation) {
     const updatedConv = useStore
       .getState()
       .conversations.find((c: Conversation) => c.id === conversationId);
@@ -98,7 +99,7 @@ export function cancelStream() {
 
   completeStreaming({
     streamingMsgId: streamingMessageId,
-    status: node.content || node.reasoningContent ? 'done' : 'error',
+    status: node.content || node.reasoningContent ? 'aborted' : 'error',
     actionName: name(),
     conversationId: node.conversationId,
     rootId,

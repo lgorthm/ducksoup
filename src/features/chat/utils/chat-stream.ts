@@ -46,6 +46,7 @@ export type ChatStreamController = {
 };
 
 const DEEPSEEK_BASE = 'https://api.deepseek.com';
+const DEEPSEEK_BETA_BASE = 'https://api.deepseek.com/beta';
 const THINKING_BUFFER_MS = 16; // ~60fps 用于思考过程渲染
 const CONTENT_BUFFER_MS = 32; // ~30fps 用于内容渲染
 
@@ -76,6 +77,71 @@ export function toResponsesParams(messages: ChatMessage[]): {
     ...(instructions ? { instructions } : {}),
     input,
   };
+}
+
+export function isPrefixContinue(messages: ChatMessage[]): boolean {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role === 'user' || m.role === 'assistant') {
+      return m.role === 'assistant' && m.prefix === true;
+    }
+  }
+  return false;
+}
+
+export type ChatCompletionContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } };
+
+export type ChatCompletionMessage = {
+  role: 'system' | 'user' | 'assistant';
+  content: string | ChatCompletionContentPart[] | null;
+  prefix?: boolean;
+  reasoning_content?: string | null;
+};
+
+function toChatImagePart(part: InputImagePart): ChatCompletionContentPart {
+  if ('image_url' in part) {
+    return { type: 'image_url', image_url: { url: part.image_url } };
+  }
+  return { type: 'image_url', image_url: { url: part.file_id } };
+}
+
+export function toChatCompletionMessages(
+  messages: ChatMessage[],
+): ChatCompletionMessage[] {
+  const result: ChatCompletionMessage[] = [];
+  for (const m of messages) {
+    if (m.role === 'system') {
+      result.push({ role: 'system', content: m.content });
+      continue;
+    }
+    if (m.role === 'assistant') {
+      result.push({
+        role: 'assistant',
+        content: m.content ?? '',
+        ...(m.prefix ? { prefix: true } : {}),
+        ...(m.reasoning_content != null
+          ? { reasoning_content: m.reasoning_content }
+          : {}),
+      });
+      continue;
+    }
+    if (m.role !== 'user') continue;
+    if (typeof m.content === 'string') {
+      result.push({ role: 'user', content: m.content });
+      continue;
+    }
+    result.push({
+      role: 'user',
+      content: m.content.map((part) =>
+        part.type === 'input_text'
+          ? { type: 'text' as const, text: part.text }
+          : toChatImagePart(part),
+      ),
+    });
+  }
+  return result;
 }
 
 function toUsage(usage: unknown): ResponsesUsage | undefined {
@@ -162,17 +228,75 @@ export function createChatStream(
     settle(usage ? { type: 'done', usage } : { type: 'done' });
   }
 
+  function queueThinking(text: string) {
+    if (!text) return;
+    thinkingBuffer += text;
+    if (!thinkingTimer) {
+      thinkingTimer = setTimeout(flushThinking, THINKING_BUFFER_MS);
+    }
+  }
+
+  function queueContent(text: string) {
+    if (!text) return;
+    contentBuffer += text;
+    if (!contentTimer) {
+      contentTimer = setTimeout(flushContent, CONTENT_BUFFER_MS);
+    }
+  }
+
   void (async () => {
     try {
       const { default: OpenAI } = await import('openai');
       if (settled || combinedSignal.aborted) return;
 
+      const prefix = isPrefixContinue(messages);
       const client = new OpenAI({
         apiKey,
-        baseURL: DEEPSEEK_BASE,
+        baseURL: prefix ? DEEPSEEK_BETA_BASE : DEEPSEEK_BASE,
         dangerouslyAllowBrowser: true,
         maxRetries: 0,
       });
+
+      if (prefix) {
+        const enableThinking =
+          deepThink ||
+          messages.some((m) => m.role === 'assistant' && !!m.reasoning_content);
+        const stream = (await client.chat.completions.create(
+          {
+            model,
+            messages: toChatCompletionMessages(messages),
+            stream: true,
+            ...(maxTokens != null ? { max_tokens: maxTokens } : {}),
+            ...(temperature != null ? { temperature } : {}),
+            reasoning_effort: enableThinking ? 'high' : 'none',
+            thinking: {
+              type: enableThinking ? 'enabled' : 'disabled',
+            },
+          } as never,
+          { signal: combinedSignal },
+        )) as unknown as AsyncIterable<{
+          choices: Array<{
+            delta?: {
+              content?: string | null;
+              reasoning_content?: string | null;
+            };
+          }>;
+        }>;
+
+        for await (const chunk of stream) {
+          if (settled || combinedSignal.aborted) return;
+          const delta = chunk.choices[0]?.delta;
+          if (delta?.reasoning_content) {
+            queueThinking(delta.reasoning_content);
+          }
+          if (delta?.content) {
+            queueContent(delta.content);
+          }
+        }
+
+        settleDone();
+        return;
+      }
 
       const { instructions, input } = toResponsesParams(messages);
       const stream = await client.responses.create(
@@ -193,20 +317,10 @@ export function createChatStream(
 
         switch (event.type) {
           case 'response.reasoning_text.delta':
-            if (event.delta) {
-              thinkingBuffer += event.delta;
-              if (!thinkingTimer) {
-                thinkingTimer = setTimeout(flushThinking, THINKING_BUFFER_MS);
-              }
-            }
+            if (event.delta) queueThinking(event.delta);
             break;
           case 'response.output_text.delta':
-            if (event.delta) {
-              contentBuffer += event.delta;
-              if (!contentTimer) {
-                contentTimer = setTimeout(flushContent, CONTENT_BUFFER_MS);
-              }
-            }
+            if (event.delta) queueContent(event.delta);
             break;
           case 'response.completed':
           case 'response.incomplete':

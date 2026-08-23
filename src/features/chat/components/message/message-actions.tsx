@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Copy,
   Pencil,
+  Play,
   RefreshCw,
 } from 'lucide-react';
 import {
@@ -18,6 +19,7 @@ import {
 } from '@/shared/components/ui/tooltip';
 import { useCanHover } from '@/shared/hooks/use-media-query';
 import {
+  continueMessage,
   regenerateMessage,
   setEditingMessage,
   switchSibling,
@@ -43,6 +45,7 @@ export const MessageActions = memo(function MessageActions({
   const isActive = useStore((s) => s.activeMessageId === message.id);
 
   const isUser = message.role === 'user';
+  const showContinue = !isUser && isLast && message.status === 'aborted';
   const showBranch = !!branchInfo && branchInfo.total > 1;
   // 最后一轮与有分支的消息操作栏常显；移动端点击激活的消息同样常显
   const forceVisible = isLast || showBranch || (!canHover && isActive);
@@ -198,6 +201,28 @@ export const MessageActions = memo(function MessageActions({
               </TooltipContent>
             </Tooltip>
           )}
+
+          {showContinue ? (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    data-testid="message-continue-button"
+                    aria-label={t('chat.message.continue')}
+                    disabled={isLoading}
+                    onClick={() => continueMessage(message.id)}
+                    className="inline-flex items-center justify-center rounded-full p-1 text-muted-foreground transition-colors hover:bg-foreground/15 hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40 dark:hover:bg-foreground/15"
+                  >
+                    <Play className="size-3.5" />
+                  </button>
+                }
+              />
+              <TooltipContent side="bottom">
+                {t('chat.message.continue')}
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
         </div>
       </div>
     </TooltipProvider>

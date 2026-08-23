@@ -276,7 +276,7 @@ export function settlePendingNodes(
   const settled: MessageNode[] = [];
   for (const node of map.values()) {
     if (node.status !== 'pending') continue;
-    node.status = node.content || node.reasoningContent ? 'done' : 'error';
+    node.status = node.content || node.reasoningContent ? 'aborted' : 'error';
     settled.push(node);
   }
   return settled;

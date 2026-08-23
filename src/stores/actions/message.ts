@@ -96,8 +96,9 @@ async function startPreparedStream(opts: {
   conversationId: string;
   streamingMsgId: string;
   rootId: string;
+  continueFromId?: string;
 }) {
-  const { conversationId, streamingMsgId, rootId } = opts;
+  const { conversationId, streamingMsgId, rootId, continueFromId } = opts;
   const state = useStore.getState();
   try {
     const resolved = await resolveAttachments(
@@ -125,6 +126,7 @@ async function startPreparedStream(opts: {
         latest.messageNodes,
         latest.activePath,
         resolved,
+        continueFromId ? { continueMessageId: continueFromId } : undefined,
       ),
       streamingMsgId,
       rootId,
@@ -330,7 +332,10 @@ export async function editMessage(
         conversationId,
         role: 'user',
         content: newContent,
-        attachments: nextAttachments,
+        attachments:
+          nextAttachments && nextAttachments.length > 0
+            ? nextAttachments
+            : undefined,
         createdAt: now,
         status: 'done',
       });
@@ -411,6 +416,43 @@ export async function regenerateMessage(messageId: string) {
     conversationId,
     streamingMsgId: assistantId,
     rootId,
+  });
+}
+
+export async function continueMessage(messageId: string) {
+  const name = createActionName('chat', continueMessage);
+  if (useStore.getState().isLoading) return;
+  const original = useStore.getState().messageNodes.get(messageId);
+  if (original?.role !== 'assistant' || original.status !== 'aborted') return;
+  if (!useStore.getState().apiKey) return;
+  if (!original.content && !original.reasoningContent) return;
+  const hasLiveChild = original.childrenIds.some((id) => {
+    const child = useStore.getState().messageNodes.get(id);
+    return !!child && !child.deleted;
+  });
+  if (hasLiveChild) return;
+  const rootId = useStore.getState().rootId;
+  if (!rootId) return;
+
+  useStore.setState(
+    (state) => {
+      const node = state.messageNodes.get(messageId);
+      if (node) node.status = 'pending';
+      state.streamingMessageId = messageId;
+      state.isLoading = true;
+      state.error = null;
+    },
+    undefined,
+    name('start'),
+  );
+
+  persistNode(useStore.getState().messageNodes.get(messageId));
+
+  await startPreparedStream({
+    conversationId: original.conversationId,
+    streamingMsgId: messageId,
+    rootId,
+    continueFromId: messageId,
   });
 }
 

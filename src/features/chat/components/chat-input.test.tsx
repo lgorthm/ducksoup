@@ -1,6 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ChatInput } from './chat-input';
+
+/** 1×1 PNG，通过魔数校验 */
+const PNG_1X1 = Uint8Array.from(
+  atob(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  ),
+  (c) => c.charCodeAt(0),
+);
 
 function setupInput(overrides: Partial<Parameters<typeof ChatInput>[0]> = {}) {
   const onSend = vi.fn();
@@ -119,13 +127,51 @@ describe('ChatInput', () => {
     expect(screen.getByRole('textbox')).toBeDisabled();
   });
 
-  it('canAttachImages 为 false 时附件按钮禁用', () => {
+  it('canAttachImages 为 false 时不渲染附件按钮', () => {
     setupInput({ canAttachImages: false });
-    expect(screen.getByTestId('attach-button')).toBeDisabled();
+    expect(screen.queryByTestId('attach-button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('attach-file-input')).not.toBeInTheDocument();
   });
 
   it('canAttachImages 为 true 时附件按钮启用', () => {
     setupInput({ canAttachImages: true });
     expect(screen.getByTestId('attach-button')).toBeEnabled();
+  });
+
+  it('附件按钮在发送按钮左侧', () => {
+    setupInput({ canAttachImages: true });
+    const attach = screen.getByTestId('attach-button');
+    const send = screen.getByTestId('send-button');
+    expect(
+      attach.compareDocumentPosition(send) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+  });
+
+  it('流式时停止按钮只有文案没有图标', () => {
+    setupInput({ isStreaming: true });
+    const stop = screen.getByTestId('stop-button');
+    expect(stop).toHaveTextContent('停止');
+    expect(stop.querySelector('svg')).toBeNull();
+  });
+
+  it('发送后释放图片预览 URL', async () => {
+    const previewUrl = 'blob:preview-send';
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue(previewUrl);
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+
+    setupInput({ canAttachImages: true });
+    const file = new File([PNG_1X1], 'tiny.png', { type: 'image/png' });
+    fireEvent.change(screen.getByTestId('attach-file-input'), {
+      target: { files: [file] },
+    });
+
+    await screen.findByTestId('attachment-preview');
+    fireEvent.click(screen.getByTestId('send-button'));
+
+    await waitFor(() => {
+      expect(revoke).toHaveBeenCalledWith(previewUrl);
+    });
+
+    vi.restoreAllMocks();
   });
 });

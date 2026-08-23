@@ -2,7 +2,8 @@
   "common": {
     "save": "Save",
     "cancel": "Cancel",
-    "saved": "Saved"
+    "saved": "Saved",
+    "close": "Close"
   },
   "error": {
     "title": "Something went wrong",
@@ -16,7 +17,6 @@
       "deepThink": "Deep Think",
       "send": "Send",
       "attach": "Add image",
-      "attachDisabled": "Only Flash supports image understanding",
       "imageTitle": "Image",
       "imageFormatError": "Only JPEG, PNG, GIF, and WebP images are supported",
       "imageTooLarge": "Image is too large to send",
@@ -31,14 +31,17 @@
     },
     "message": {
       "thinkingLabel": "Thinking",
+      "thinkingStopped": "Stopped",
       "copy": "Copy",
       "copied": "Copied",
       "edit": "Edit",
       "regenerate": "Regenerate",
+      "continue": "Continue",
       "editPlaceholder": "Edit message... (Enter to send, Esc to cancel)",
       "branchPrev": "Previous version",
       "branchNext": "Next version",
-      "branchPosition": "{{current}}/{{total}}"
+      "branchPosition": "{{current}}/{{total}}",
+      "imagePreview": "Image preview"
     },
     "scrollNav": {
       "label": "Message navigation",
