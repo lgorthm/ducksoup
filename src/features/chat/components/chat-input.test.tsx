@@ -157,7 +157,9 @@ describe('ChatInput', () => {
   it('发送后释放图片预览 URL', async () => {
     const previewUrl = 'blob:preview-send';
     vi.spyOn(URL, 'createObjectURL').mockReturnValue(previewUrl);
-    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const revoke = vi
+      .spyOn(URL, 'revokeObjectURL')
+      .mockImplementation(() => {});
 
     setupInput({ canAttachImages: true });
     const file = new File([PNG_1X1], 'tiny.png', { type: 'image/png' });

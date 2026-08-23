@@ -66,7 +66,16 @@
     "delete": "Delete Chat",
     "deleteConfirmDesc": "Once deleted, this conversation cannot be recovered.",
     "deleteConfirmBtn": "Delete This Conversation",
-    "empty": "No conversations"
+    "empty": "No conversations",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "group": {
+      "pinned": "Pinned",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "last7Days": "Previous 7 Days",
+      "last30Days": "Previous 30 Days"
+    }
   },
   "apiKey": {
     "dialogTitle": "Set API Key",

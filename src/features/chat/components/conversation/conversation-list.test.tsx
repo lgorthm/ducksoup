@@ -6,6 +6,7 @@ import {
   deleteConversation,
   startNewConversation,
   switchConversation,
+  togglePinConversation,
 } from '@/stores/actions';
 import { useConversationListState } from '@/stores/selectors';
 import { useIsMobile } from '@/shared/hooks/use-media-query';
@@ -18,6 +19,7 @@ vi.mock('@/stores/actions', () => ({
   deleteConversation: vi.fn(),
   startNewConversation: vi.fn(),
   switchConversation: vi.fn(),
+  togglePinConversation: vi.fn(),
 }));
 
 vi.mock('@/shared/hooks/use-media-query', () => ({
@@ -37,11 +39,16 @@ vi.mock('@/shared/components/ui/dropdown-menu', () => ({
   DropdownMenuItem: ({
     children,
     onClick,
+    ...props
   }: {
     children: React.ReactNode;
     onClick?: () => void;
+    'data-testid'?: string;
   }) => (
-    <div data-testid="dropdown-item" onClick={onClick}>
+    <div
+      data-testid={props['data-testid'] ?? 'dropdown-item'}
+      onClick={onClick}
+    >
       {children}
     </div>
   ),
@@ -187,7 +194,7 @@ describe('ConversationList', () => {
     });
 
     render(<ConversationList />);
-    const deleteItem = screen.getByTestId('dropdown-item');
+    const deleteItem = screen.getByTestId('conversation-delete-menu');
     fireEvent.click(deleteItem);
     // 点击删除菜单项后不应直接调用 deleteConversation
     expect(deleteConversation).not.toHaveBeenCalled();
@@ -206,7 +213,7 @@ describe('ConversationList', () => {
     });
 
     render(<ConversationList />);
-    fireEvent.click(screen.getByTestId('dropdown-item'));
+    fireEvent.click(screen.getByTestId('conversation-delete-menu'));
     // 点击取消按钮（ghost 样式）不执行删除
     const cancelBtn = screen.getByText('取消');
     fireEvent.click(cancelBtn);
@@ -229,5 +236,87 @@ describe('ConversationList', () => {
     // c2 是非当前会话，移动端应显示禁用按钮
     const disabledButtons = screen.getAllByRole('button', { name: '' });
     expect(disabledButtons.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('按时间分组渲染标题，今天在昨天之上', () => {
+    const now = Date.now();
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const yesterday = new Date(todayStart);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const convs = [
+      makeConv({
+        id: 'c-yest',
+        title: '昨天的会话',
+        updatedAt: yesterday.getTime() + 12 * 3600 * 1000,
+      }),
+      makeConv({
+        id: 'c-today',
+        title: '今天的会话',
+        updatedAt: now,
+      }),
+    ];
+    vi.mocked(useConversationListState).mockReturnValue({
+      conversations: convs,
+      currentConversationId: 'c-today',
+      initialized: true,
+    });
+
+    render(<ConversationList />);
+    const groups = screen.getAllByTestId('conversation-group');
+    expect(groups[0]).toHaveAttribute('data-group', 'today');
+    expect(groups[0]).toHaveTextContent('今天');
+    expect(groups[1]).toHaveAttribute('data-group', 'yesterday');
+    expect(groups[1]).toHaveTextContent('昨天');
+  });
+
+  it('置顶会话出现在置顶组', () => {
+    const convs = [
+      makeConv({
+        id: 'c1',
+        title: '置顶会话',
+        pinnedAt: Date.now(),
+      }),
+    ];
+    vi.mocked(useConversationListState).mockReturnValue({
+      conversations: convs,
+      currentConversationId: 'c1',
+      initialized: true,
+    });
+
+    render(<ConversationList />);
+    const group = screen.getByTestId('conversation-group');
+    expect(group).toHaveAttribute('data-group', 'pinned');
+    expect(group).toHaveTextContent('置顶');
+    expect(screen.getByText('置顶会话')).toBeInTheDocument();
+  });
+
+  it('点击置顶菜单项调用 togglePinConversation', () => {
+    const convs = [makeConv({ id: 'c1', title: '会话一' })];
+    vi.mocked(useConversationListState).mockReturnValue({
+      conversations: convs,
+      currentConversationId: 'c1',
+      initialized: true,
+    });
+
+    render(<ConversationList />);
+    fireEvent.click(screen.getByTestId('conversation-pin-menu'));
+    expect(togglePinConversation).toHaveBeenCalledWith('c1');
+  });
+
+  it('已置顶会话显示取消置顶菜单', () => {
+    const convs = [
+      makeConv({ id: 'c1', title: '会话一', pinnedAt: Date.now() }),
+    ];
+    vi.mocked(useConversationListState).mockReturnValue({
+      conversations: convs,
+      currentConversationId: 'c1',
+      initialized: true,
+    });
+
+    render(<ConversationList />);
+    fireEvent.click(screen.getByTestId('conversation-unpin-menu'));
+    expect(togglePinConversation).toHaveBeenCalledWith('c1');
   });
 });

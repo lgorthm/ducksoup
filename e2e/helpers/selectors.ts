@@ -12,6 +12,9 @@ export const SELECTORS = {
   newConversationButton: '[data-testid="new-conversation"]',
   conversationItem: '[data-testid="conversation-item"]',
   conversationDeleteMenu: '[data-testid="conversation-delete-menu"]',
+  conversationPinMenu: '[data-testid="conversation-pin-menu"]',
+  conversationUnpinMenu: '[data-testid="conversation-unpin-menu"]',
+  conversationGroup: '[data-testid="conversation-group"]',
 
   // 消息
   messageList: '[data-testid="message-list"]',

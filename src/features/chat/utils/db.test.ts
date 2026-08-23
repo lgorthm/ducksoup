@@ -112,6 +112,17 @@ describe('getAllConversations', () => {
     const all = await getAllConversations();
     expect(all.map((c) => c.id)).toEqual(['c1', 'c2', 'c3']);
   });
+
+  it('读写 pinnedAt；旧记录缺省视为未置顶', async () => {
+    await addConversation(
+      makeConversation({ id: 'c1', pinnedAt: 123, updatedAt: 100 }),
+    );
+    await addConversation(makeConversation({ id: 'c2', updatedAt: 200 }));
+
+    const all = await getAllConversations();
+    expect(all[0].pinnedAt).toBe(123);
+    expect(all[1].pinnedAt).toBeUndefined();
+  });
 });
 
 describe('updateConversation', () => {

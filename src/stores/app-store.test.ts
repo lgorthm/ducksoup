@@ -15,6 +15,7 @@ import {
   startNewConversation,
   switchConversation,
   deleteConversation,
+  togglePinConversation,
   sendMessage,
   cancelStream,
   clearMessages,
@@ -444,6 +445,45 @@ describe('deleteConversation', () => {
     expect(state.currentConversationId).toBe('c1');
     expect(state.activePath).toHaveLength(1);
     expect(db.getMessagesByConversation).toHaveBeenCalledWith('c2');
+  });
+});
+
+describe('togglePinConversation', () => {
+  it('未置顶时写入 pinnedAt 并持久化，不改 updatedAt', async () => {
+    const c1 = makeConversation({ id: 'c1', updatedAt: 1000 });
+    useStore.setState({ conversations: [c1] });
+    vi.mocked(db.updateConversation).mockResolvedValue(undefined);
+
+    await togglePinConversation('c1');
+
+    const next = useStore.getState().conversations[0];
+    expect(next.pinnedAt).toBeTypeOf('number');
+    expect(next.updatedAt).toBe(1000);
+    expect(db.updateConversation).toHaveBeenCalledWith(next);
+  });
+
+  it('已置顶时去掉 pinnedAt 并持久化', async () => {
+    const c1 = makeConversation({
+      id: 'c1',
+      updatedAt: 1000,
+      pinnedAt: 2000,
+    });
+    useStore.setState({ conversations: [c1] });
+    vi.mocked(db.updateConversation).mockResolvedValue(undefined);
+
+    await togglePinConversation('c1');
+
+    const next = useStore.getState().conversations[0];
+    expect(next.pinnedAt).toBeUndefined();
+    expect(next.updatedAt).toBe(1000);
+    expect('pinnedAt' in next).toBe(false);
+    expect(db.updateConversation).toHaveBeenCalledWith(next);
+  });
+
+  it('会话不存在时不写 DB', async () => {
+    useStore.setState({ conversations: [] });
+    await togglePinConversation('missing');
+    expect(db.updateConversation).not.toHaveBeenCalled();
   });
 });
 

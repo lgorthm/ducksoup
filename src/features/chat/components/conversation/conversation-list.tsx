@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/components/ui/button';
@@ -7,7 +7,12 @@ import { deleteConversation, startNewConversation } from '@/stores/actions';
 import { useConversationListState } from '@/stores/selectors';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { useMinLoadingDisplay } from '@/shared/hooks/use-min-loading-display';
+import {
+  groupConversations,
+  groupKeyAttr,
+} from '@/features/chat/utils/group-conversations';
 import { ConversationListItem } from './conversation-list-item';
+import { ConversationGroupHeader } from './conversation-group-header';
 import { DeleteConversationDialog } from './delete-conversation-dialog';
 
 export function ConversationList() {
@@ -20,6 +25,11 @@ export function ConversationList() {
   // initialized 到达时若不足最短展示时长，等剩余时间再切换到列表
   const { revealed, wasLoading: showedSkeleton } =
     useMinLoadingDisplay(initialized);
+
+  const groups = useMemo(
+    () => groupConversations(conversations, Date.now()),
+    [conversations],
+  );
 
   const handleConfirmDelete = () => {
     if (pendingDeleteId !== null) {
@@ -62,14 +72,22 @@ export function ConversationList() {
             showedSkeleton && 'animate-in fade-in-0 duration-300',
           )}
         >
-          {conversations.map((conv) => (
-            <ConversationListItem
-              key={conv.id}
-              conversation={conv}
-              isActive={conv.id === currentConversationId}
-              isMobile={isMobile}
-              onRequestDelete={setPendingDeleteId}
-            />
+          {groups.map((group, index) => (
+            <div key={groupKeyAttr(group.key)} className="flex flex-col gap-1">
+              <ConversationGroupHeader
+                groupKey={group.key}
+                isFirst={index === 0}
+              />
+              {group.conversations.map((conv) => (
+                <ConversationListItem
+                  key={conv.id}
+                  conversation={conv}
+                  isActive={conv.id === currentConversationId}
+                  isMobile={isMobile}
+                  onRequestDelete={setPendingDeleteId}
+                />
+              ))}
+            </div>
           ))}
         </div>
       )}

@@ -20,6 +20,8 @@ export interface Conversation {
   activeLeafId: MessageId | null;
   /** 会话创建时确定，之后不可变；切换模型需新建会话 */
   model: ModelName;
+  /** 置顶时间戳；缺省表示未置顶 */
+  pinnedAt?: number;
 }
 
 export interface ConversationState {

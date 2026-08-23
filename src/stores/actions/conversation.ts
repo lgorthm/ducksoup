@@ -141,3 +141,32 @@ export async function deleteConversation(id: string) {
     startNewConversation();
   }
 }
+
+function withoutPinnedAt(conv: Conversation): Conversation {
+  const next = { ...conv };
+  delete next.pinnedAt;
+  return next;
+}
+
+export async function togglePinConversation(id: string) {
+  const name = createActionName('conversation', togglePinConversation);
+  const conv = useStore.getState().conversations.find((c) => c.id === id);
+  if (!conv) return;
+
+  const next: Conversation =
+    conv.pinnedAt != null
+      ? withoutPinnedAt(conv)
+      : { ...conv, pinnedAt: Date.now() };
+
+  useStore.setState(
+    (state) => {
+      state.conversations = state.conversations.map((c: Conversation) =>
+        c.id === id ? next : c,
+      );
+    },
+    undefined,
+    name(),
+  );
+
+  await db.updateConversation(next);
+}

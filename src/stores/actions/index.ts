@@ -5,6 +5,7 @@ export {
   startNewConversation,
   switchConversation,
   deleteConversation,
+  togglePinConversation,
 } from './conversation';
 
 export { init } from './init';

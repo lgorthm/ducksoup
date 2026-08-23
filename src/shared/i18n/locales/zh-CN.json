@@ -66,7 +66,16 @@
     "delete": "删除对话",
     "deleteConfirmDesc": "删除后，该对话将不可恢复。",
     "deleteConfirmBtn": "删除该对话",
-    "empty": "暂无对话"
+    "empty": "暂无对话",
+    "pin": "置顶",
+    "unpin": "取消置顶",
+    "group": {
+      "pinned": "置顶",
+      "today": "今天",
+      "yesterday": "昨天",
+      "last7Days": "7 天内",
+      "last30Days": "30 天内"
+    }
   },
   "apiKey": {
     "dialogTitle": "设置 API Key",

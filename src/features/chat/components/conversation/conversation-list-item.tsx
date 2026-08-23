@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { MoreHorizontal, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Pin, PinOff, Trash2 } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import {
   DropdownMenu,
@@ -7,7 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/shared/components/ui/dropdown-menu';
-import { switchConversation } from '@/stores/actions';
+import { switchConversation, togglePinConversation } from '@/stores/actions';
 import type { Conversation } from '@/stores/models';
 
 interface ConversationListItemProps {
@@ -41,6 +41,9 @@ export function ConversationListItem({
       onClick={() => switchConversation(conversation.id)}
     >
       <span className="min-w-0 flex-1 truncate">{conversation.title}</span>
+      {conversation.pinnedAt != null ? (
+        <Pin aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+      ) : null}
       {isMobile && !isActive ? (
         <button
           type="button"
@@ -70,9 +73,22 @@ export function ConversationListItem({
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="start"
-            className="w-36"
+            className="w-40"
             onClick={(e) => e.stopPropagation()}
           >
+            <DropdownMenuItem
+              data-testid={
+                conversation.pinnedAt != null
+                  ? 'conversation-unpin-menu'
+                  : 'conversation-pin-menu'
+              }
+              onClick={() => togglePinConversation(conversation.id)}
+            >
+              {conversation.pinnedAt != null ? <PinOff /> : <Pin />}
+              {conversation.pinnedAt != null
+                ? t('conversation.unpin')
+                : t('conversation.pin')}
+            </DropdownMenuItem>
             <DropdownMenuItem
               variant="destructive"
               data-testid="conversation-delete-menu"
