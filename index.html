@@ -14,6 +14,19 @@
         const theme = localStorage.getItem('theme');
         const dark = theme === 'dark' || (theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
         document.documentElement.classList.add(dark ? 'dark' : 'light');
+        // Unregister leftover Workbox SW from the reverted PWA. Does not
+        // help until this HTML is fetched from the network; public/sw.js
+        // is what replaces a still-controlling worker.
+        if ('serviceWorker' in navigator) {
+          void navigator.serviceWorker.getRegistrations().then((regs) => {
+            for (const reg of regs) void reg.unregister();
+          });
+        }
+        if (window.caches) {
+          void caches.keys().then((keys) => {
+            for (const key of keys) void caches.delete(key);
+          });
+        }
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>

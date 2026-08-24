@@ -55,4 +55,13 @@ test.describe('冒烟测试', () => {
     await expect(editor).toBeVisible();
     await expect(editor).toBeEditable();
   });
+
+  test('不注册 Service Worker', async ({ page }) => {
+    const registrations = await page.evaluate(() =>
+      navigator.serviceWorker.getRegistrations(),
+    );
+    expect(registrations).toHaveLength(0);
+    const cacheKeys = await page.evaluate(() => caches.keys());
+    expect(cacheKeys).toHaveLength(0);
+  });
 });
