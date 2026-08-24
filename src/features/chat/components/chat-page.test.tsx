@@ -38,6 +38,10 @@ vi.mock('@/features/chat/components/message/chat-scroll-nav', () => ({
   ChatScrollNav: () => null,
 }));
 
+vi.mock('@/features/chat/components/message/chat-scroll-to-bottom', () => ({
+  ChatScrollToBottom: () => null,
+}));
+
 vi.mock('@/features/chat/components/message/chat-status', () => ({
   ChatStatus: () => null,
 }));

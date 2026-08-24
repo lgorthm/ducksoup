@@ -3,13 +3,15 @@ import type { RefObject } from 'react';
 import type { Virtualizer } from '@tanstack/react-virtual';
 
 /**
- * 暴露给外部组件的虚拟列表控制器，用于滚动导航栏联动。
+ * 暴露给外部组件的虚拟列表控制器，用于滚动导航栏、回到底部等联动。
  */
 export interface ChatListController {
   /** 滚动容器元素，供外部监听 scroll 事件 */
   readonly scrollContainer: HTMLDivElement | null;
   /** 滚动到指定虚拟索引 */
   scrollToIndex: (index: number, align?: 'start' | 'center' | 'end') => void;
+  /** 滚动到列表底部 */
+  scrollToEnd: () => void;
   /** 获取指定虚拟索引在内容中的起始像素偏移；索引无效时返回 null */
   getItemOffset: (index: number) => number | null;
 }
@@ -28,7 +30,7 @@ interface UseChatListControllerOptions {
  * - 将 virtualizer 的能力以 ChatListController 接口形式回填到外部传入的 controllerRef，
  *   供兄弟组件（如滚动导航栏）通过 ref 访问，避免兄弟组件间的直接依赖。
  *
- * 复用场景：分栏导航、小地图、目录联动等需要把虚拟列表控制能力暴露给外部组件的场景。
+ * 复用场景：分栏导航、回到底部、小地图、目录联动等需要把虚拟列表控制能力暴露给外部组件的场景。
  */
 export function useChatListController({
   scrollContainerRef,
@@ -41,6 +43,9 @@ export function useChatListController({
       scrollContainer: scrollContainerRef.current,
       scrollToIndex: (index, align = 'center') => {
         virtualizer.scrollToIndex(index, { align });
+      },
+      scrollToEnd: () => {
+        virtualizer.scrollToEnd();
       },
       getItemOffset: (index) =>
         virtualizer.measurementsCache[index]?.start ?? null,

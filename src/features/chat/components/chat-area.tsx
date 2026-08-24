@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ChatMessageList } from '@/features/chat/components/message/chat-message-list';
 import type { ChatListController } from '@/features/chat/hooks/use-chat-list-controller';
 import { ChatScrollNav } from '@/features/chat/components/message/chat-scroll-nav';
+import { ChatScrollToBottom } from '@/features/chat/components/message/chat-scroll-to-bottom';
 import { ChatStatus } from '@/features/chat/components/message/chat-status';
 import { ChatComposer } from '@/features/chat/components/chat-composer';
 import { ChatWelcome } from '@/features/chat/components/chat-welcome';
@@ -16,7 +17,7 @@ import { useHasContent } from '@/stores/selectors';
 export function ChatArea() {
   const { t } = useTranslation();
   const hasContent = useHasContent();
-  // 虚拟列表控制器 ref，由 ChatMessageList 填充、ChatScrollNav 消费
+  // 虚拟列表控制器 ref，由 ChatMessageList 填充、滚动导航 / 回到底部消费
   const controllerRef = useRef<ChatListController | null>(null);
 
   if (!hasContent) {
@@ -32,7 +33,10 @@ export function ChatArea() {
       <ChatScrollNav controllerRef={controllerRef} />
 
       <div className="mx-auto w-full max-w-[776px] px-4">
-        <ChatComposer />
+        <div className="relative">
+          <ChatScrollToBottom controllerRef={controllerRef} />
+          <ChatComposer />
+        </div>
         <p
           data-testid="chat-disclaimer"
           className="py-2 text-center text-xs text-muted-foreground"

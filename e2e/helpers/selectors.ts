@@ -32,6 +32,7 @@ export const SELECTORS = {
   messageBranchNext: '[data-testid="message-branch-next"]',
   messageBranchPosition: '[data-testid="message-branch-position"]',
   chatInput: '[data-testid="chat-input"]',
+  scrollToBottom: '[data-testid="scroll-to-bottom"]',
   sendButton: '[data-testid="send-button"]',
   attachButton: '[data-testid="attach-button"]',
   attachFileInput: '[data-testid="attach-file-input"]',
