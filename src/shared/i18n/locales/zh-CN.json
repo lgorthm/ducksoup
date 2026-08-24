@@ -60,7 +60,8 @@
     },
     "disclaimer": "内容由AI生成，请仔细甄别",
     "welcome": {
-      "startChat": "使用 {{model}} 开始对话"
+      "startChat": "使用 {{model}} 开始对话",
+      "subtitle": "输入一条消息即可开始。模型在本会话内固定。"
     },
     "page": {
       "loading": "加载中..."
@@ -68,7 +69,8 @@
   },
   "sidebar": {
     "label": "侧边栏",
-    "toggle": "切换侧边栏"
+    "toggle": "切换侧边栏",
+    "skipToContent": "跳到主内容"
   },
   "conversation": {
     "title": "对话列表",
@@ -80,6 +82,7 @@
     "empty": "暂无对话",
     "pin": "置顶",
     "unpin": "取消置顶",
+    "itemMenu": "会话操作",
     "group": {
       "pinned": "置顶",
       "today": "今天",

@@ -4,7 +4,6 @@ import {
   Sun,
   Moon,
   Monitor,
-  Check,
   Eye,
   EyeOff,
   Languages,
@@ -56,12 +55,24 @@ function GeneralSettings() {
   const { theme, setTheme } = useTheme();
 
   const themeOptions = [
-    { value: 'light' as const, label: t('settings.themeLight'), icon: Sun },
-    { value: 'dark' as const, label: t('settings.themeDark'), icon: Moon },
+    {
+      value: 'light' as const,
+      label: t('settings.themeLight'),
+      icon: Sun,
+      swatch: 'bg-[oklch(0.985_0.008_90)]',
+    },
+    {
+      value: 'dark' as const,
+      label: t('settings.themeDark'),
+      icon: Moon,
+      swatch: 'bg-[oklch(0.18_0.018_75)]',
+    },
     {
       value: 'system' as const,
       label: t('settings.themeSystem'),
       icon: Monitor,
+      swatch:
+        'bg-[linear-gradient(135deg,oklch(0.985_0.008_90)_50%,oklch(0.18_0.018_75)_50%)]',
     },
   ];
 
@@ -85,16 +96,22 @@ function GeneralSettings() {
                 key={option.value}
                 onClick={() => setTheme(option.value)}
                 className={cn(
-                  'flex flex-col items-center gap-1.5 rounded-lg border p-3 text-xs transition-colors',
+                  'flex flex-col items-center gap-1.5 rounded-xl border p-3 text-xs transition-colors duration-200',
                   'min-h-18 justify-center active:translate-y-px',
                   isActive
-                    ? 'border-foreground bg-foreground/5'
+                    ? 'border-primary/50 bg-primary/10'
                     : 'border-border hover:bg-muted/50',
                 )}
               >
+                <span
+                  aria-hidden
+                  className={cn(
+                    'size-6 rounded-md ring-1 ring-border/80',
+                    option.swatch,
+                  )}
+                />
                 <option.icon className="size-4" />
                 <span>{option.label}</span>
-                {isActive && <Check className="size-3 text-foreground" />}
               </button>
             );
           })}
@@ -114,16 +131,15 @@ function GeneralSettings() {
                 key={option.value}
                 onClick={() => i18n.changeLanguage(option.value)}
                 className={cn(
-                  'flex items-center gap-2 rounded-lg border p-3 text-xs transition-colors',
+                  'flex items-center gap-2 rounded-xl border p-3 text-xs transition-colors duration-200',
                   'min-h-11 justify-center active:translate-y-px',
                   isActive
-                    ? 'border-foreground bg-foreground/5'
+                    ? 'border-primary/50 bg-primary/10'
                     : 'border-border hover:bg-muted/50',
                 )}
               >
                 <Languages className="size-4" />
                 <span>{option.label}</span>
-                {isActive && <Check className="size-3 text-foreground" />}
               </button>
             );
           })}
@@ -198,7 +214,7 @@ function formatBalance(amount: string, currency: string): string {
 function BalanceCard({ info }: { info: BalanceInfo }) {
   const { t } = useTranslation();
   return (
-    <div className="space-y-3 rounded-lg border border-border p-3">
+    <div className="space-y-3 rounded-xl bg-muted/60 p-3">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium">
           {info.currency === 'CNY'
@@ -238,7 +254,7 @@ function BalanceCard({ info }: { info: BalanceInfo }) {
 
 function BalanceSkeleton() {
   return (
-    <div className="space-y-3 border border-border p-3">
+    <div className="space-y-3 rounded-xl bg-muted/60 p-3">
       <Skeleton className="h-4 w-20" />
       <div className="space-y-2">
         <div className="flex items-center justify-between">
@@ -313,7 +329,7 @@ function BalanceSettings() {
         <p className="text-xs text-muted-foreground">
           {t('balance.description')}
         </p>
-        <div className="flex items-center gap-2 border border-border p-3 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 rounded-xl bg-muted/60 p-3 text-xs text-muted-foreground">
           <AlertCircle className="size-4 shrink-0" />
           <span>{t('balance.noApiKey')}</span>
         </div>
@@ -356,7 +372,7 @@ function BalanceSettings() {
 
       {/* 错误状态 */}
       {!loading && error && (
-        <div className="flex flex-col gap-2 border border-destructive/30 p-3">
+        <div className="flex flex-col gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-3">
           <div className="flex items-center gap-2 text-xs text-destructive">
             <AlertCircle className="size-4 shrink-0" />
             <span className="font-medium">{t('balance.queryFailed')}</span>
@@ -369,7 +385,7 @@ function BalanceSettings() {
       {!loading && !error && balance && (
         <div className="space-y-3">
           {/* 账户状态 */}
-          <div className="flex items-center gap-2 rounded-lg border border-border p-3">
+          <div className="flex items-center gap-2 rounded-xl bg-muted/60 p-3">
             {balance.is_available ? (
               <CircleCheck className="size-4 shrink-0 text-green-600" />
             ) : (
@@ -442,7 +458,7 @@ function TabButtons({
           className={cn(
             'min-h-11 flex-1 px-3 py-2.5 text-xs font-medium transition-colors',
             active === tab.key
-              ? 'border-b-2 border-foreground text-foreground'
+              ? 'border-b-2 border-primary text-foreground'
               : 'text-muted-foreground hover:text-foreground',
           )}
         >
@@ -489,8 +505,8 @@ export function SettingsDialog({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent
           side="bottom"
-          className="z-10001 h-auto max-h-[80vh] rounded-t-lg"
-          overlayClassName="z-[10001]"
+          className="z-[60] h-auto max-h-[80vh] rounded-t-xl"
+          overlayClassName="z-[60]"
         >
           <SheetHeader>
             <SheetTitle>{t('settings.title')}</SheetTitle>
@@ -503,10 +519,7 @@ export function SettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="z-10001 sm:max-w-md"
-        overlayClassName="z-[10001]"
-      >
+      <DialogContent className="z-[60] sm:max-w-md" overlayClassName="z-[60]">
         <DialogHeader>
           <DialogTitle>{t('settings.title')}</DialogTitle>
         </DialogHeader>

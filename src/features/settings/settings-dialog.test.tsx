@@ -111,7 +111,7 @@ describe('SettingsDialog', () => {
 
     render(<SettingsDialog open={true} onOpenChange={vi.fn()} />);
     const darkBtn = screen.getByText('深色').closest('button');
-    expect(darkBtn?.className).toContain('border-foreground');
+    expect(darkBtn?.className).toContain('border-primary/50');
   });
 
   it('API Key 标签显示已有 key', () => {

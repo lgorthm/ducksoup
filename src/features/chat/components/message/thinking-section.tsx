@@ -1,11 +1,12 @@
-import { memo, useState } from 'react';
+import { memo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
-import type { MessageNode } from '@/stores/models';
+import type { MessageNode, UrlCitation } from '@/stores/models';
 import {
   resolveActivity,
   toActivityView,
+  type ActivityViewItem,
 } from '@/features/chat/utils/web-search';
 import {
   BrowsePagesRow,
@@ -16,6 +17,50 @@ import {
 interface ThinkingSectionProps {
   message: MessageNode;
   isStreaming: boolean;
+}
+
+function activityViewRows(
+  view: ActivityViewItem[],
+  citations: UrlCitation[] | undefined,
+): ReactNode[] {
+  const rows: ReactNode[] = [];
+  let thinkingSeq = 0;
+  for (const item of view) {
+    if (item.type === 'thinking') {
+      rows.push(
+        <div
+          key={`t-${thinkingSeq++}`}
+          className="border-l-2 border-primary/30 pl-3 text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground"
+        >
+          {item.text}
+        </div>,
+      );
+      continue;
+    }
+    const callKey = item.calls.map((c) => c.id).join('-');
+    if (item.type === 'search') {
+      rows.push(
+        <SearchPagesRow
+          key={`s-${callKey}`}
+          calls={item.calls}
+          citations={citations}
+        />,
+      );
+      continue;
+    }
+    if (item.type === 'open_page') {
+      rows.push(
+        <BrowsePagesRow
+          key={`p-${callKey}`}
+          calls={item.calls}
+          citations={citations}
+        />,
+      );
+      continue;
+    }
+    rows.push(<FindInPageRow key={`f-${callKey}`} calls={item.calls} />);
+  }
+  return rows;
 }
 
 export const ThinkingSection = memo(function ThinkingSection({
@@ -63,52 +108,21 @@ export const ThinkingSection = memo(function ThinkingSection({
         <span data-testid="thinking-label" className="font-medium">
           {title}
         </span>
-        {isActive && (
+        {isActive ? (
           <span className="inline-block size-1.5 animate-pulse rounded-full bg-foreground/60" />
-        )}
+        ) : null}
       </button>
 
-      {expanded && (
+      {expanded ? (
         <div className="mt-2 space-y-2">
-          {view.map((item) => {
-            if (item.type === 'thinking') {
-              return (
-                <div
-                  key={`t-${item.text.length}-${item.text.slice(0, 24)}`}
-                  className="border-l-2 border-border/60 pl-3 text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground"
-                >
-                  {item.text}
-                </div>
-              );
-            }
-            const callKey = item.calls.map((c) => c.id).join('-');
-            if (item.type === 'search') {
-              return (
-                <SearchPagesRow
-                  key={`s-${callKey}`}
-                  calls={item.calls}
-                  citations={message.citations}
-                />
-              );
-            }
-            if (item.type === 'open_page') {
-              return (
-                <BrowsePagesRow
-                  key={`p-${callKey}`}
-                  calls={item.calls}
-                  citations={message.citations}
-                />
-              );
-            }
-            return <FindInPageRow key={`f-${callKey}`} calls={item.calls} />;
-          })}
-          {isActive && (
+          {activityViewRows(view, message.citations)}
+          {isActive ? (
             <span className="inline-block animate-pulse text-xs text-muted-foreground">
               ▊
             </span>
-          )}
+          ) : null}
         </div>
-      )}
+      ) : null}
     </div>
   );
 });

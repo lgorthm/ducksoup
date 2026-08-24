@@ -14,13 +14,23 @@ export function useConversationListState() {
   );
 }
 
+/**
+ * 只订阅当前会话的标题/模型等原始字段。
+ * 侧边栏其它会话的增删改不会让 ChatLayout 重渲染。
+ */
 export function useChatLayoutState() {
   return useStore(
-    useShallow((s) => ({
-      conversations: s.conversations,
-      currentConversationId: s.currentConversationId,
-      initialized: s.initialized,
-    })),
+    useShallow((s) => {
+      const current =
+        s.currentConversationId == null
+          ? undefined
+          : s.conversations.find((c) => c.id === s.currentConversationId);
+      return {
+        initialized: s.initialized,
+        title: current?.title,
+        model: current?.model,
+      };
+    }),
   );
 }
 
@@ -88,6 +98,58 @@ export function useMessageActionsState() {
 
 export function useHasContent() {
   return useStore((s) => s.activePath.length > 0);
+}
+
+/** 滚动导航栏用的用户消息摘要（虚拟列表索引 + 预览文本） */
+export interface ScrollNavUserMessage {
+  index: number;
+  content: string;
+}
+
+export function navUserMessagesEqual(
+  a: ScrollNavUserMessage[],
+  b: ScrollNavUserMessage[],
+): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].index !== b[i].index || a[i].content !== b[i].content) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * 滚动导航栏订阅。selector 必须返回原始值：在 selector 内 `pathNodes`
+ * 再返回新数组会让 React 19 的 useSyncExternalStore 判定 store 一直在变。
+ * 签名只含用户消息的 index/content，assistant 流式 token 不会触发重渲染。
+ */
+export function useScrollNavUserMessages(): ScrollNavUserMessage[] {
+  const signature = useStore((s) => {
+    const messages = pathNodes(s.messageNodes, s.activePath);
+    let sig = '';
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      if (msg.role === 'user') {
+        sig += `${i}:${msg.content}\0`;
+      }
+    }
+    return sig;
+  });
+  return useMemo(() => {
+    void signature;
+    const state = useStore.getState();
+    const messages = pathNodes(state.messageNodes, state.activePath);
+    const acc: ScrollNavUserMessage[] = [];
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      if (msg.role === 'user') {
+        acc.push({ index: i, content: msg.content });
+      }
+    }
+    return acc;
+  }, [signature]);
 }
 
 export function useInitialized() {

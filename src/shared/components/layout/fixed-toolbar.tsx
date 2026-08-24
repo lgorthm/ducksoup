@@ -22,7 +22,7 @@ export const FixedToolbar = memo(function FixedToolbar({
   return (
     <div
       data-testid="fixed-toolbar"
-      className="fixed top-0 left-0 z-10000 flex w-fit pt-2 pl-4"
+      className="fixed top-0 left-0 z-30 flex w-fit pt-2 pl-4"
       style={{
         ...TOOLBAR_TRANSITION,
         transform: isMobile ? 'translateX(-100%)' : 'translateX(0)',
@@ -31,7 +31,7 @@ export const FixedToolbar = memo(function FixedToolbar({
       }}
     >
       {DUCK_LOGO}
-      <div className="flex items-center gap-1 rounded-full border bg-background p-1 shadow-sm">
+      <div className="flex items-center gap-1 rounded-full border border-border/80 bg-card p-1 shadow-[inset_0_1px_0_color-mix(in_oklch,var(--foreground)_8%,transparent),0_8px_20px_-12px_color-mix(in_oklch,var(--foreground)_18%,transparent)]">
         <SidebarTrigger className="size-7" />
         {buttonGroup}
       </div>

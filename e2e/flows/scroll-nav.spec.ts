@@ -22,7 +22,7 @@ async function scrollAndSettle(page: Page, top: number) {
 async function activeBarIndex(page: Page): Promise<number> {
   const idx = await page
     .getByTestId('chat-scroll-nav')
-    .locator('button.bg-yellow-400')
+    .locator('button[data-active="true"]')
     .evaluateAll((els) =>
       els.map((el) =>
         Array.from(el.parentElement!.parentElement!.children).indexOf(
@@ -76,24 +76,24 @@ test.describe('scroll nav 激活精度', () => {
     await expect(bars).toHaveCount(20);
 
     // 初始贴底 → 最后一根横杠激活，且只有一根激活
-    await expect(bars.last()).toHaveClass(/bg-yellow-400/);
-    await expect(nav.locator('button.bg-yellow-400')).toHaveCount(1);
+    await expect(bars.last()).toHaveAttribute('data-active', 'true');
+    await expect(nav.locator('button[data-active="true"]')).toHaveCount(1);
 
     // 滚到顶部 → 第一根激活
     await scrollAndSettle(page, 0);
-    await expect(bars.first()).toHaveClass(/bg-yellow-400/);
-    await expect(nav.locator('button.bg-yellow-400')).toHaveCount(1);
+    await expect(bars.first()).toHaveAttribute('data-active', 'true');
+    await expect(nav.locator('button[data-active="true"]')).toHaveCount(1);
 
     // 把第 2 条用户消息（虚拟索引 2）滚到视口中心 → 第 2 根激活，第 3 根不激活
     await scrollMessageToCenter(page, 2);
-    await expect(bars.nth(1)).toHaveClass(/bg-yellow-400/);
-    await expect(bars.nth(2)).not.toHaveClass(/bg-yellow-400/);
+    await expect(bars.nth(1)).toHaveAttribute('data-active', 'true');
+    await expect(bars.nth(2)).not.toHaveAttribute('data-active', 'true');
 
     // 把它的回复（虚拟索引 3）滚到视口中心：第 3 条用户消息（索引 4）
     // 还在视口中心之下 → 仍激活第 2 根，不超前激活第 3 根
     await scrollMessageToCenter(page, 3);
-    await expect(bars.nth(1)).toHaveClass(/bg-yellow-400/);
-    await expect(bars.nth(2)).not.toHaveClass(/bg-yellow-400/);
+    await expect(bars.nth(1)).toHaveAttribute('data-active', 'true');
+    await expect(bars.nth(2)).not.toHaveAttribute('data-active', 'true');
   });
 
   test('从头滚到尾每根横杠依次激活且不回跳', async ({ page }) => {

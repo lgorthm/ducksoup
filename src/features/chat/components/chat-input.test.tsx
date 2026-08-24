@@ -138,11 +138,11 @@ describe('ChatInput', () => {
 
     setupInput({ deepThink: true });
     const deepThinkActive = screen.getByTestId('deep-think-button').className;
-    const amberClasses = deepThinkActive
+    const primaryClasses = deepThinkActive
       .split(/\s+/)
-      .filter((c) => c.includes('amber-400'));
-    expect(amberClasses.length).toBeGreaterThan(0);
-    for (const cls of amberClasses) {
+      .filter((c) => c.includes('primary'));
+    expect(primaryClasses.length).toBeGreaterThan(0);
+    for (const cls of primaryClasses) {
       expect(webSearchActive.split(/\s+/)).toContain(cls);
     }
   });

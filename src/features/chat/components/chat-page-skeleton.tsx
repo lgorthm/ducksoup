@@ -33,7 +33,7 @@ export function ChatPageSkeleton() {
         </div>
       </div>
       <div aria-hidden className="mx-auto w-full max-w-[776px] px-4">
-        <Skeleton className="h-24 w-full rounded-3xl" />
+        <Skeleton className="h-24 w-full rounded-[1.5rem]" />
         <Skeleton className="mx-auto my-2 h-3 w-56" />
       </div>
     </div>

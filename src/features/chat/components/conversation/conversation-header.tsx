@@ -2,6 +2,16 @@ import { cn } from '@/shared/lib/utils';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { useMinLoadingDisplay } from '@/shared/hooks/use-min-loading-display';
 
+const TITLE_SKELETON = (
+  <div
+    data-testid="conversation-title-skeleton"
+    className="flex min-w-0 flex-col gap-1"
+  >
+    <Skeleton className="h-4 w-32" />
+    <Skeleton className="h-3 w-20" />
+  </div>
+);
+
 interface ConversationHeaderProps {
   title?: string;
   loading?: boolean;
@@ -21,15 +31,7 @@ export function ConversationHeader({
   }
 
   if (!revealed) {
-    return (
-      <div
-        data-testid="conversation-title-skeleton"
-        className="flex min-w-0 flex-col gap-1"
-      >
-        <Skeleton className="h-4 w-32" />
-        <Skeleton className="h-3 w-20" />
-      </div>
-    );
+    return TITLE_SKELETON;
   }
 
   return (
@@ -39,7 +41,9 @@ export function ConversationHeader({
         wasLoading && 'animate-in fade-in-0 duration-300',
       )}
     >
-      <span className="truncate text-sm font-medium">{title}</span>
+      <span className="truncate text-sm font-medium tracking-tight">
+        {title}
+      </span>
       {modelName != null ? (
         <span className="truncate text-xs text-muted-foreground">
           {modelName}

@@ -4,6 +4,7 @@ import { TriangleAlertIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import * as Sentry from '@sentry/react';
 
+import duckSvg from '@/assets/duck.svg';
 import { Button } from '@/shared/components/ui/button';
 
 export function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
@@ -15,10 +16,13 @@ export function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
       role="alert"
       className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-background px-6 text-center text-foreground"
     >
+      <img src={duckSvg} alt="" className="h-12 w-auto opacity-80" />
       <div className="flex size-14 items-center justify-center rounded-full bg-destructive/10 text-destructive">
         <TriangleAlertIcon className="size-7" />
       </div>
-      <h1 className="text-lg font-semibold">{t('error.title')}</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">
+        {t('error.title')}
+      </h1>
       <p className="max-w-md text-sm text-muted-foreground">
         {t('error.description')}
       </p>

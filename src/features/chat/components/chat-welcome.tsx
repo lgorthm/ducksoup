@@ -31,22 +31,33 @@ export function ChatWelcome() {
       className="flex h-full flex-col items-center justify-center px-4"
     >
       <div className="flex w-full max-w-194 flex-col items-center gap-8">
-        <div className="flex items-center gap-2">
-          <img src={duckSvg} alt="Duck" className="h-10 w-auto" />
-          <span className="text-xl font-semibold">
+        <div className="animate-in fade-in-0 slide-in-from-bottom-2 flex flex-col items-center gap-3 duration-500">
+          <div className="relative">
+            <div
+              aria-hidden
+              className="absolute inset-0 -m-10 rounded-full bg-[radial-gradient(circle,oklch(0.85_0.12_90_/_0.38),transparent_70%)] dark:bg-[radial-gradient(circle,oklch(0.78_0.14_88_/_0.28),transparent_70%)]"
+            />
+            <img src={duckSvg} alt="Duck" className="relative h-12 w-auto" />
+          </div>
+          <h1 className="text-center text-3xl font-semibold tracking-tight text-balance">
             {t('chat.welcome.startChat', { model: currentLabel })}
-          </span>
+          </h1>
+          <p className="max-w-md text-center text-sm text-pretty text-muted-foreground">
+            {t('chat.welcome.subtitle')}
+          </p>
         </div>
 
         {showModelPicker ? (
-          <RadioGroupButton
-            options={MODEL_OPTIONS}
-            value={selectedModel}
-            onValueChange={setSelectedModel}
-          />
+          <div className="animate-in fade-in-0 slide-in-from-bottom-2 delay-100 duration-500 fill-mode-both">
+            <RadioGroupButton
+              options={MODEL_OPTIONS}
+              value={selectedModel}
+              onValueChange={setSelectedModel}
+            />
+          </div>
         ) : null}
 
-        <div className="w-full">
+        <div className="animate-in fade-in-0 slide-in-from-bottom-2 w-full delay-200 duration-500 fill-mode-both">
           <ChatComposer
             draftModel={selectedModel}
             onPendingImagesChange={setPendingCount}

@@ -44,7 +44,7 @@ export const ChatMessage = memo(
       !!message.reasoningContent ||
       (message.webSearchCalls?.length ?? 0) > 0 ||
       (message.activity?.length ?? 0) > 0;
-    const hasAttachments = (message.attachments?.length ?? 0) > 0;
+    const attachments = message.attachments;
     const canHover = useCanHover();
 
     // 单行气泡使用 rounded-full，多行回退到 rounded-lg（按实际渲染高度判断，含换行折行）
@@ -82,12 +82,9 @@ export const ChatMessage = memo(
           isUser ? 'items-end' : 'items-start',
         )}
       >
-        {isUser && hasAttachments && !isEditing ? (
+        {isUser && attachments && attachments.length > 0 && !isEditing ? (
           <div className="mb-2 max-w-[80%]" onClick={handleBubbleClick}>
-            <MessageImages
-              attachments={message.attachments ?? []}
-              className="justify-end"
-            />
+            <MessageImages attachments={attachments} className="justify-end" />
           </div>
         ) : null}
         {showUserBubble || !isUser ? (
@@ -99,10 +96,10 @@ export const ChatMessage = memo(
                 ? isEditing
                   ? 'w-[95%] p-0'
                   : cn(
-                      'max-w-[80%] bg-primary text-primary-foreground',
-                      !isSingleLine && 'rounded-lg',
+                      'max-w-[80%] bg-primary/80 text-primary-foreground',
+                      !isSingleLine && 'rounded-2xl',
                     )
-                : 'max-w-full bg-transparent text-foreground',
+                : 'max-w-full bg-transparent text-[15px] leading-7 text-foreground',
             )}
           >
             {isUser ? (
@@ -131,13 +128,13 @@ export const ChatMessage = memo(
             )}
           </div>
         ) : null}
-        {!isStreaming && !isEditing && (
+        {!isStreaming && !isEditing ? (
           <MessageActions
             message={message}
             branchInfo={branchInfo}
             isLast={isLast}
           />
-        )}
+        ) : null}
       </div>
     );
   },

@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { Paperclip } from 'lucide-react';
+import { Brain, Globe, Paperclip } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/lib/utils';
 import { generateId } from '@/stores/utils/ids';
@@ -21,7 +21,7 @@ import {
 } from '@/features/chat/utils/image-attachments';
 
 const activeToggleClass =
-  'border-amber-400 bg-amber-400/15 text-amber-400 hover:bg-amber-400/15 hover:text-amber-400 dark:border-amber-400 dark:bg-amber-400/15 dark:hover:bg-amber-400/15 dark:hover:text-amber-400';
+  'border-primary bg-primary/15 text-primary hover:bg-primary/15 hover:text-primary dark:border-primary dark:bg-primary/15 dark:hover:bg-primary/15 dark:hover:text-primary';
 
 interface ChatInputProps {
   onSend: (content: string, deepThink: boolean, images: PendingImage[]) => void;
@@ -187,7 +187,7 @@ export function ChatInput({
     <div
       data-testid="chat-input"
       className={cn(
-        'rounded-3xl border bg-background p-3 shadow-sm',
+        'surface-dock p-3',
         isDragging && canAttachImages && 'border-primary',
       )}
       onPaste={handlePaste}
@@ -247,7 +247,7 @@ export function ChatInput({
         disabled={inputDisabled}
         rows={1}
         className={cn(
-          'max-h-50 min-h-11 w-full resize-none overflow-y-auto bg-background px-0.5 py-0.5 text-base outline-none',
+          'max-h-50 min-h-11 w-full resize-none overflow-y-auto bg-transparent px-0.5 py-0.5 text-base outline-none',
           'placeholder:text-muted-foreground',
           inputDisabled && 'cursor-not-allowed opacity-50',
         )}
@@ -263,8 +263,12 @@ export function ChatInput({
             size="default"
             disabled={inputDisabled}
             onClick={onToggleDeepThink}
-            className={cn(deepThink && activeToggleClass, 'rounded-full')}
+            className={cn(
+              deepThink && activeToggleClass,
+              'rounded-full transition-transform duration-200 active:scale-[0.98]',
+            )}
           >
+            <Brain className="size-3.5" />
             {t('chat.input.deepThink')}
           </Button>
           <Button
@@ -273,8 +277,12 @@ export function ChatInput({
             size="default"
             disabled={inputDisabled}
             onClick={onToggleWebSearch}
-            className={cn(webSearch && activeToggleClass, 'rounded-full')}
+            className={cn(
+              webSearch && activeToggleClass,
+              'rounded-full transition-transform duration-200 active:scale-[0.98]',
+            )}
           >
+            <Globe className="size-3.5" />
             {t('chat.input.webSearch')}
           </Button>
         </div>
@@ -297,7 +305,7 @@ export function ChatInput({
               data-testid="stop-button"
               size="default"
               onClick={onCancel}
-              className="rounded-full"
+              className="rounded-full px-4 transition-transform duration-200 active:scale-[0.98]"
             >
               {t('chat.area.stop')}
             </Button>
@@ -307,7 +315,7 @@ export function ChatInput({
               size="default"
               disabled={disabled || isEmpty}
               onClick={handleSend}
-              className="rounded-full"
+              className="rounded-full px-4 transition-transform duration-200 active:scale-[0.98]"
             >
               {t('chat.input.send')}
             </Button>

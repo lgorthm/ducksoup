@@ -5,13 +5,19 @@ import {
   createInitialMessageState,
   initialConversationState,
   initialSettingsState,
+  type Conversation,
 } from '@/stores/models';
 import {
   appendChild,
   createRoot,
   rebuildActivePath,
 } from '@/stores/utils/tree';
-import { useMessageListState } from './index';
+import {
+  navUserMessagesEqual,
+  useChatLayoutState,
+  useMessageListState,
+  useScrollNavUserMessages,
+} from './index';
 
 beforeEach(() => {
   useStore.setState({
@@ -117,5 +123,145 @@ describe('useMessageListState', () => {
     expect(result.current.messages.find((m) => m.id === 'a2')?.content).toBe(
       '流式',
     );
+  });
+});
+
+function makeConv(overrides: Partial<Conversation> = {}): Conversation {
+  return {
+    id: 'c1',
+    title: '会话一',
+    createdAt: 1,
+    updatedAt: 1,
+    messageCount: 0,
+    rootId: 'root-c1',
+    activeLeafId: null,
+    model: 'deepseek-v4-flash-vision-exp',
+    ...overrides,
+  };
+}
+
+describe('useChatLayoutState', () => {
+  it('只暴露当前会话的 title/model，不因其它会话变更而换快照', () => {
+    const current = makeConv({ id: 'c1', title: '当前', rootId: 'root-c1' });
+    const other = makeConv({ id: 'c2', title: '其它', rootId: 'root-c2' });
+    useStore.setState({
+      conversations: [current, other],
+      currentConversationId: 'c1',
+      initialized: true,
+    });
+
+    const { result } = renderHook(() => useChatLayoutState());
+    const first = result.current;
+    expect(first).toEqual({
+      initialized: true,
+      title: '当前',
+      model: 'deepseek-v4-flash-vision-exp',
+    });
+
+    act(() => {
+      useStore.setState({
+        conversations: [current, { ...other, pinnedAt: 99, title: '已置顶' }],
+      });
+    });
+
+    expect(result.current).toBe(first);
+  });
+
+  it('当前会话标题变化时更新 title', () => {
+    const current = makeConv({ title: '旧标题' });
+    useStore.setState({
+      conversations: [current],
+      currentConversationId: 'c1',
+      initialized: true,
+    });
+
+    const { result } = renderHook(() => useChatLayoutState());
+
+    act(() => {
+      useStore.setState({
+        conversations: [{ ...current, title: '新标题' }],
+      });
+    });
+
+    expect(result.current.title).toBe('新标题');
+    expect(result.current.model).toBe(current.model);
+  });
+});
+
+describe('navUserMessagesEqual', () => {
+  it('比较 index 与 content，忽略对象引用', () => {
+    const a = [{ index: 0, content: 'hi' }];
+    const b = [{ index: 0, content: 'hi' }];
+    expect(navUserMessagesEqual(a, b)).toBe(true);
+    expect(navUserMessagesEqual(a, [{ index: 0, content: 'hey' }])).toBe(false);
+  });
+});
+
+describe('useScrollNavUserMessages', () => {
+  function seedQa() {
+    const map = new Map();
+    const root = createRoot('c1', 'root');
+    map.set(root.id, root);
+    appendChild(map, 'root', {
+      id: 'u1',
+      conversationId: 'c1',
+      role: 'user',
+      content: '问题1',
+      createdAt: 1,
+    });
+    appendChild(map, 'u1', {
+      id: 'a1',
+      conversationId: 'c1',
+      role: 'assistant',
+      content: '回答1',
+      createdAt: 2,
+    });
+    useStore.setState({
+      messageNodes: map,
+      rootId: 'root',
+      activePath: rebuildActivePath(map, 'root'),
+      activeLeafId: 'a1',
+    });
+  }
+
+  it('assistant 内容变化时不重渲染', () => {
+    seedQa();
+    let renders = 0;
+    const { result } = renderHook(() => {
+      renders += 1;
+      return useScrollNavUserMessages();
+    });
+    expect(result.current).toEqual([{ index: 0, content: '问题1' }]);
+    const afterMount = renders;
+
+    act(() => {
+      useStore.setState((state) => {
+        const node = state.messageNodes.get('a1');
+        if (node) node.content = '回答1 token';
+      });
+    });
+
+    expect(renders).toBe(afterMount);
+    expect(result.current).toEqual([{ index: 0, content: '问题1' }]);
+  });
+
+  it('user 内容变化时重渲染', () => {
+    seedQa();
+    let renders = 0;
+    const { result } = renderHook(() => {
+      renders += 1;
+      return useScrollNavUserMessages();
+    });
+    const afterMount = renders;
+
+    act(() => {
+      useStore.setState((state) => {
+        const node = state.messageNodes.get('u1');
+        if (node) node.content = '改写后的问题';
+      });
+    });
+
+    expect(renders).toBeGreaterThan(afterMount);
+    expect(result.current).toEqual([{ index: 0, content: '改写后的问题' }]);
   });
 });

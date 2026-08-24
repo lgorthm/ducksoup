@@ -57,20 +57,21 @@ export const EditForm = memo(function EditForm({ message }: EditFormProps) {
     const ta = textareaRef.current;
     if (!ta || isLoading) return;
     const value = ta.value.trim();
-    const added: ImageAttachment[] = [];
-    for (const item of pending) {
-      const blobKey = generateId();
-      await db.putBlob(blobKey, item.blob);
-      added.push({
-        id: generateId(),
-        mime: item.mime,
-        width: item.width,
-        height: item.height,
-        byteLength: item.blob.size,
-        blobKey,
-        filename: item.filename,
-      });
-    }
+    const added: ImageAttachment[] = await Promise.all(
+      pending.map(async (item) => {
+        const blobKey = generateId();
+        await db.putBlob(blobKey, item.blob);
+        return {
+          id: generateId(),
+          mime: item.mime,
+          width: item.width,
+          height: item.height,
+          byteLength: item.blob.size,
+          blobKey,
+          filename: item.filename,
+        };
+      }),
+    );
     const next = [...kept, ...added];
     if (!value && next.length === 0) return;
     for (const item of pending) URL.revokeObjectURL(item.previewUrl);
@@ -88,12 +89,7 @@ export const EditForm = memo(function EditForm({ message }: EditFormProps) {
   };
 
   return (
-    <div
-      className={cn(
-        'flex w-full flex-col rounded-3xl border border-border bg-background text-foreground transition-colors',
-        'focus-within:border-primary',
-      )}
-    >
+    <div className={cn('surface-dock flex w-full flex-col text-foreground')}>
       <div className="px-3 pt-2">
         <MessageImages
           attachments={kept}

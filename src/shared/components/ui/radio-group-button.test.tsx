@@ -66,7 +66,7 @@ describe('RadioGroupButton', () => {
   it('无 defaultValue 时默认选第一个', () => {
     render(<RadioGroupButton options={OPTIONS} />);
     // ring 元素应该可见（opacity: 1）
-    const ring = document.querySelector('.border-amber-400');
+    const ring = document.querySelector('.border-primary');
     expect(ring).toBeInTheDocument();
     expect(ring).toHaveStyle({ opacity: '1' });
   });
@@ -75,7 +75,7 @@ describe('RadioGroupButton', () => {
     const { rerender } = render(
       <RadioGroupButton options={OPTIONS} value="a" />,
     );
-    const ring = document.querySelector('.border-amber-400');
+    const ring = document.querySelector('.border-primary');
     expect(ring).toHaveStyle({ opacity: '1' });
 
     // 切换到 b
@@ -94,7 +94,7 @@ describe('RadioGroupButton', () => {
   it('空选项列表不崩溃', () => {
     render(<RadioGroupButton options={[]} />);
     // 不应崩溃，ring 不可见
-    const ring = document.querySelector('.border-amber-400');
+    const ring = document.querySelector('.border-primary');
     expect(ring).toHaveStyle({ opacity: '0' });
   });
 

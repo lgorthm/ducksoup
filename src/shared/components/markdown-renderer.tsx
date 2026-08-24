@@ -118,7 +118,7 @@ const CodeBlock = memo(function CodeBlock({
   // 流式传输期间跳过语法高亮，只显示纯文本
   if (isStreaming) {
     return (
-      <div className="my-4 overflow-hidden rounded-md border">
+      <div className="my-4 overflow-hidden rounded-xl border border-border/70">
         <div className="flex items-center justify-between bg-muted px-4 py-2 text-xs text-muted-foreground">
           <span>{language || 'text'}</span>
           <div className="flex items-center gap-0.5">
@@ -159,7 +159,7 @@ const CodeBlock = memo(function CodeBlock({
   const langClass = result ? `language-${result.id}` : 'language-text';
 
   return (
-    <div className="my-4 overflow-hidden rounded-md border">
+    <div className="my-4 overflow-hidden rounded-xl border border-border/70">
       {/* 工具栏 */}
       <div className="flex items-center justify-between bg-muted px-4 py-2 text-xs text-muted-foreground">
         <span>{language || 'text'}</span>

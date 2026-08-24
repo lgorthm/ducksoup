@@ -89,7 +89,7 @@ function RadioGroupButton<T extends string = string>({
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute z-20 rounded-full border border-amber-400 bg-amber-400/15 transition-transform duration-300 ease-out"
+        className="pointer-events-none absolute z-20 rounded-full border border-primary bg-primary/15 transition-transform duration-300 ease-out"
         style={ringStyle}
       />
       {options.map((option) => (
@@ -100,7 +100,7 @@ function RadioGroupButton<T extends string = string>({
           className={cn(
             'relative z-10 cursor-pointer rounded-full transition-[background-color] duration-300 ease-out hover:text-inherit active:not-aria-[haspopup]:translate-y-0',
             option.value === currentValue &&
-              'text-amber-400 hover:bg-white hover:text-amber-400',
+              'text-primary hover:bg-transparent hover:text-primary',
           )}
           onClick={() => handleClick(option.value)}
         >

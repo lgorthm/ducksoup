@@ -232,10 +232,9 @@ describe('ConversationList', () => {
       initialized: true,
     });
 
-    render(<ConversationList />);
-    // c2 是非当前会话，移动端应显示禁用按钮
-    const disabledButtons = screen.getAllByRole('button', { name: '' });
-    expect(disabledButtons.length).toBeGreaterThanOrEqual(1);
+    const { container } = render(<ConversationList />);
+    // c2 是非当前会话，移动端应显示禁用占位按钮
+    expect(container.querySelector('button[disabled]')).not.toBeNull();
   });
 
   it('按时间分组渲染标题，今天在昨天之上', () => {

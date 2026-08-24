@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/shared/lib/utils';
 import { FixedToolbar } from './fixed-toolbar';
 import {
@@ -59,6 +60,7 @@ function MainLayoutInner({
   toolbarActions,
   children,
 }: Omit<MainLayoutProps, 'defaultOpen'>) {
+  const { t } = useTranslation();
   const { isMobile, open } = useSidebar();
   const [prevIsOpen, setPrevIsOpen] = useState(open);
   useEffect(() => {
@@ -76,6 +78,9 @@ function MainLayoutInner({
 
   return (
     <>
+      <a href="#chat-main" className="skip-to-content">
+        {t('sidebar.skipToContent')}
+      </a>
       <Sidebar collapsible="offcanvas">
         <SidebarHeader className="flex flex-row items-center justify-between pl-4">
           {LOGO_IMG}
@@ -106,7 +111,10 @@ function MainLayoutInner({
           {header}
         </header>
         {/* 页面主内容地标由 SidebarInset 的 <main> 承担，这里用 div 避免嵌套 main */}
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div
+          id="chat-main"
+          className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        >
           {children}
         </div>
       </SidebarInset>

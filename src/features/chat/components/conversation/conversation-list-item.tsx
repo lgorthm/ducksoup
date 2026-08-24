@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MoreHorizontal, Pin, PinOff, Trash2 } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
@@ -20,34 +21,38 @@ interface ConversationListItemProps {
   onRequestDelete: (id: string) => void;
 }
 
-export function ConversationListItem({
+export const ConversationListItem = memo(function ConversationListItem({
   conversation,
   isActive,
   isMobile,
   onRequestDelete,
 }: ConversationListItemProps) {
   const { t } = useTranslation();
+  const isPinned = conversation.pinnedAt != null;
 
   return (
     <div
       data-testid="conversation-item"
       data-conv-id={conversation.id}
       className={cn(
-        'group/item flex cursor-pointer items-center rounded-lg px-2 py-1.5 text-sm transition-colors',
+        'group/item flex cursor-pointer items-center rounded-lg px-2 py-1.5 text-sm transition-colors duration-200',
+        '[content-visibility:auto] [contain-intrinsic-size:auto_36px]',
         isActive
-          ? 'bg-amber-400/15 text-sidebar-accent-foreground dark:bg-sidebar-accent'
+          ? 'bg-primary/15 font-medium text-sidebar-accent-foreground dark:bg-sidebar-accent'
           : 'hover:bg-sidebar-accent/50',
       )}
       onClick={() => switchConversation(conversation.id)}
     >
       <span className="min-w-0 flex-1 truncate">{conversation.title}</span>
-      {conversation.pinnedAt != null ? (
+      {isPinned ? (
         <Pin aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
       ) : null}
       {isMobile && !isActive ? (
         <button
           type="button"
           disabled
+          tabIndex={-1}
+          aria-hidden
           className="inline-flex size-6 shrink-0 items-center justify-center rounded-lg opacity-30"
           onClick={(e) => e.stopPropagation()}
         >
@@ -59,6 +64,7 @@ export function ConversationListItem({
             render={
               <button
                 type="button"
+                aria-label={t('conversation.itemMenu')}
                 className={cn(
                   'inline-flex size-6 shrink-0 items-center justify-center rounded-full hover:bg-sidebar-accent-foreground/15',
                   isMobile || isActive
@@ -78,16 +84,12 @@ export function ConversationListItem({
           >
             <DropdownMenuItem
               data-testid={
-                conversation.pinnedAt != null
-                  ? 'conversation-unpin-menu'
-                  : 'conversation-pin-menu'
+                isPinned ? 'conversation-unpin-menu' : 'conversation-pin-menu'
               }
               onClick={() => togglePinConversation(conversation.id)}
             >
-              {conversation.pinnedAt != null ? <PinOff /> : <Pin />}
-              {conversation.pinnedAt != null
-                ? t('conversation.unpin')
-                : t('conversation.pin')}
+              {isPinned ? <PinOff /> : <Pin />}
+              {isPinned ? t('conversation.unpin') : t('conversation.pin')}
             </DropdownMenuItem>
             <DropdownMenuItem
               variant="destructive"
@@ -102,4 +104,4 @@ export function ConversationListItem({
       )}
     </div>
   );
-}
+});

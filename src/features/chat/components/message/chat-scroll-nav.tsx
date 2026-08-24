@@ -1,19 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FocusEvent, MouseEvent, RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMediaQuery } from '@/shared/hooks/use-media-query';
 import { cn } from '@/shared/lib/utils';
-import { useStore } from '@/stores';
-import { pathNodes } from '@/stores/utils/tree';
+import { useScrollNavUserMessages } from '@/stores/selectors';
 import type { ChatListController } from '@/features/chat/hooks/use-chat-list-controller';
-
-/** 导航栏中每条用户消息的元数据 */
-export interface NavUserMessage {
-  /** 在 messages 数组中的索引（虚拟列表索引） */
-  index: number;
-  /** 消息内容（用于预览摘要） */
-  content: string;
-}
 
 interface ChatScrollNavProps {
   /** 虚拟列表控制器 ref */
@@ -58,26 +49,13 @@ interface PreviewState {
 export function ChatScrollNav({ controllerRef }: ChatScrollNavProps) {
   const { t } = useTranslation();
   const isWideScreen = useMediaQuery(`(min-width: ${MIN_VIEWPORT_WIDTH}px)`);
-  const activePath = useStore((s) => s.activePath);
-  const messageNodes = useStore((s) => s.messageNodes);
-  const messages = useMemo(
-    () => pathNodes(messageNodes, activePath),
-    [messageNodes, activePath],
-  );
+  const userMessages = useScrollNavUserMessages();
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [preview, setPreview] = useState<PreviewState | null>(null);
 
-  // 从消息列表中提取用户消息（用于导航栏横杠）
-  const userMessages = useMemo<NavUserMessage[]>(
-    () =>
-      messages.reduce<NavUserMessage[]>((acc, msg, index) => {
-        if (msg.role === 'user') {
-          acc.push({ index, content: msg.content });
-        }
-        return acc;
-      }, []),
-    [messages],
-  );
+  // 滚动监听不应随 userMessages 引用变化而重绑；通过 ref 读最新列表。
+  const userMessagesRef = useRef(userMessages);
+  userMessagesRef.current = userMessages;
 
   /**
    * 计算当前应激活的用户消息索引。
@@ -95,10 +73,11 @@ export function ChatScrollNav({ controllerRef }: ChatScrollNavProps) {
   const computeActiveIndex = useCallback((): number | null => {
     const controller = controllerRef.current;
     const container = controller?.scrollContainer;
-    if (!controller || !container || userMessages.length === 0) return null;
+    const msgs = userMessagesRef.current;
+    if (!controller || !container || msgs.length === 0) return null;
 
-    const first = userMessages[0];
-    const last = userMessages[userMessages.length - 1];
+    const first = msgs[0];
+    const last = msgs[msgs.length - 1];
 
     const maxScroll = container.scrollHeight - container.clientHeight;
     if (maxScroll <= 0) return last.index;
@@ -110,18 +89,19 @@ export function ChatScrollNav({ controllerRef }: ChatScrollNavProps) {
     // userMessages 按索引升序，其偏移同为升序：
     // 取最后一个偏移不超过锚线的消息（正在阅读的那组问答）
     let active = first;
-    for (const msg of userMessages) {
+    for (const msg of msgs) {
       const offset = controller.getItemOffset(msg.index);
       if (offset === null) return null;
       if (offset > anchor) break;
       active = msg;
     }
     return active.index;
-  }, [controllerRef, userMessages]);
+  }, [controllerRef]);
 
-  // 监听滚动并同步高亮；userMessages 变化时（computeActiveIndex 引用变化）重算一次。
-  // 统一的 cleanup 同时移除监听并取消未执行的 rAF。
+  // 监听滚动并同步高亮。handler 放在 ref 稳定的 computeActiveIndex 里，
+  // 避免 assistant 流式更新时反复卸装 scroll 监听。
   useEffect(() => {
+    if (!isWideScreen || userMessages.length <= 1) return;
     const container = controllerRef.current?.scrollContainer;
     if (!container) return;
 
@@ -143,7 +123,7 @@ export function ChatScrollNav({ controllerRef }: ChatScrollNavProps) {
       container.removeEventListener('scroll', scheduleUpdate);
       cancelAnimationFrame(rafId);
     };
-  }, [controllerRef, computeActiveIndex]);
+  }, [controllerRef, computeActiveIndex, isWideScreen, userMessages.length]);
 
   if (!isWideScreen || userMessages.length <= 1) return null;
 
@@ -172,7 +152,7 @@ export function ChatScrollNav({ controllerRef }: ChatScrollNavProps) {
   return (
     <>
       {/* 预览框：fixed 定位，脱离 overflow 容器，避免被裁剪 */}
-      {preview && previewMessage && (
+      {preview && previewMessage ? (
         <div
           data-testid="scroll-nav-preview"
           role="tooltip"
@@ -184,7 +164,7 @@ export function ChatScrollNav({ controllerRef }: ChatScrollNavProps) {
             {previewMessage.content.length > PREVIEW_MAX_CHARS ? '…' : ''}
           </p>
         </div>
-      )}
+      ) : null}
       <nav
         aria-label={t('chat.scrollNav.label')}
         data-testid="chat-scroll-nav"
@@ -207,10 +187,11 @@ export function ChatScrollNav({ controllerRef }: ChatScrollNavProps) {
                 aria-label={t('chat.scrollNav.jumpTo', {
                   position: position + 1,
                 })}
+                data-active={activeIndex === msg.index ? 'true' : undefined}
                 className={cn(
-                  'block h-1.5 w-5 cursor-pointer rounded-full transition-colors',
+                  'block h-1.5 w-5 cursor-pointer rounded-full transition-colors duration-200',
                   activeIndex === msg.index
-                    ? 'bg-yellow-400'
+                    ? 'bg-primary'
                     : 'bg-muted-foreground/30 hover:bg-muted-foreground/50',
                 )}
               />

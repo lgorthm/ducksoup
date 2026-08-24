@@ -9,24 +9,15 @@ import { MODEL_LABELS } from '@/stores/models';
 import { useChatLayoutState } from '@/stores/selectors';
 
 export function ChatLayout() {
-  const { conversations, currentConversationId, initialized } =
-    useChatLayoutState();
-
-  const currentConversation = conversations.find(
-    (c) => c.id === currentConversationId,
-  );
+  const { initialized, title, model } = useChatLayoutState();
 
   return (
     <MainLayout
       header={
         <ConversationHeader
-          title={currentConversation?.title}
+          title={title}
           loading={!initialized}
-          modelName={
-            currentConversation
-              ? MODEL_LABELS[currentConversation.model]
-              : undefined
-          }
+          modelName={model != null ? MODEL_LABELS[model] : undefined}
         />
       }
       sidebarContent={<ConversationList />}

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { SquarePen } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/components/ui/button';
 import { useIsMobile } from '@/shared/hooks/use-media-query';
@@ -14,6 +15,14 @@ import {
 import { ConversationListItem } from './conversation-list-item';
 import { ConversationGroupHeader } from './conversation-group-header';
 import { DeleteConversationDialog } from './delete-conversation-dialog';
+
+const LIST_LOADING_SKELETON = (
+  <div data-testid="conversation-list-loading" className="flex flex-col gap-1">
+    <Skeleton className="h-7 rounded-lg" />
+    <Skeleton className="h-7 rounded-lg" />
+    <Skeleton className="h-7 rounded-lg" />
+  </div>
+);
 
 export function ConversationList() {
   const { t } = useTranslation();
@@ -42,24 +51,18 @@ export function ConversationList() {
     <div data-testid="conversation-list" className="flex flex-col gap-1 p-2">
       <Button
         data-testid="new-conversation"
-        className="mb-2 w-full rounded-3xl transition-transform hover:-translate-y-px hover:shadow-md"
+        className="mb-2 w-full rounded-3xl transition-transform duration-200 hover:-translate-y-px hover:shadow-[0_8px_20px_-10px_oklch(0.55_0.12_88_/_0.55)] active:scale-[0.98]"
         onClick={startNewConversation}
       >
+        <SquarePen className="size-3.5" />
         {t('conversation.startNew')}
       </Button>
       {!revealed ? (
-        <div
-          data-testid="conversation-list-loading"
-          className="flex flex-col gap-1"
-        >
-          <Skeleton className="h-7 rounded-lg" />
-          <Skeleton className="h-7 rounded-lg" />
-          <Skeleton className="h-7 rounded-lg" />
-        </div>
+        LIST_LOADING_SKELETON
       ) : conversations.length === 0 ? (
         <div
           className={cn(
-            'px-2 py-4 text-center text-xs text-muted-foreground',
+            'px-2 py-4 text-center text-xs tracking-wide text-muted-foreground',
             showedSkeleton && 'animate-in fade-in-0 duration-300',
           )}
         >
