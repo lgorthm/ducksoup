@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-} from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import type { ReactNode, RefObject } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChatMessage } from './chat-message';
@@ -12,6 +6,12 @@ import {
   useChatListController,
   type ChatListController,
 } from '@/features/chat/hooks/use-chat-list-controller';
+import {
+  STICK_TO_BOTTOM_THRESHOLD,
+  shouldAdjustScrollOnItemSizeChange,
+  useStickToBottom,
+  type StickVirtualizer,
+} from '@/features/chat/hooks/use-stick-to-bottom';
 import { useMessageListState } from '@/stores/selectors';
 
 interface ChatMessageListProps {
@@ -25,6 +25,11 @@ export function ChatMessageList({
   controllerRef,
 }: ChatMessageListProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const virtualizerRef = useRef<StickVirtualizer | null>(null);
+  const { stuck, stuckRef, reStick } = useStickToBottom(
+    scrollContainerRef,
+    virtualizerRef,
+  );
   const { messages, editingMessageId, streamingMessageId, branchInfoMap } =
     useMessageListState();
 
@@ -49,14 +54,14 @@ export function ChatMessageList({
     getScrollElement: useCallback(() => scrollContainerRef.current, []),
     estimateSize: useCallback(() => 80, []),
     overscan: 0,
-    // 端锚定：专为聊天/日志场景设计。prepend 历史时保持视口稳定；
-    // 末尾项增长（流式 token 累积）时由 virtualizer 内部尺寸补偿
-    // 自动保持贴底，无需手写 scroll 监听 + isAtBottom ref。
+    // 端锚定：prepend 历史时保持视口稳定。末尾项增长是否跟随，由
+    // scrollEndThreshold + shouldAdjustScrollPositionOnItemSizeChange
+    // 与 useStickToBottom 的 stuck 状态共同决定。
     anchorTo: 'end',
     // 视口已贴底时，追加新 item 自动跟随到底部；用户上滚时不打断。
     followOnAppend: 'auto',
-    // 贴底判定阈值：距末尾 50px 内视为"贴底"，对齐原 bottomThreshold。
-    scrollEndThreshold: 50,
+    // 取消贴底后阈值归零，避免 wasAtEnd 在 50px 内把用户粘回底部。
+    scrollEndThreshold: stuck ? STICK_TO_BOTTOM_THRESHOLD : 0,
     // 位置与容器高度由 virtualizer 在 onChange 中直接写 DOM（同帧生效），
     // 不再等 React 重渲染——消除 resize 时"文字已重排但条目位置慢一帧"
     // 导致的重叠/跳动。开启后条目不得再在 JSX 中设置 transform，
@@ -65,51 +70,33 @@ export function ChatMessageList({
     // 绘制前执行，延迟到 rAF 反而会让修正晚一帧。
     directDomUpdates: true,
   });
+  virtualizerRef.current = virtualizer;
+  virtualizer.shouldAdjustScrollPositionOnItemSizeChange = (
+    item,
+    _delta,
+    instance,
+  ) => shouldAdjustScrollOnItemSizeChange(stuckRef.current, item, instance);
 
   useLayoutEffect(() => {
     virtualizer.scrollToEnd();
   }, [virtualizer]);
 
-  // 窗口 resize 期间保持贴底。virtualizer 的滚动补偿依赖异步 scroll 事件
-  // 更新的 scrollOffset，连续 resize 时补偿滞后，且距底超过 scrollEndThreshold
-  // 后 wasAtEnd 锁死为 false，内容会持续下滑直到 resize 结束才回弹（"字乱跳"）。
-  // 这里以 DOM 真实 scrollHeight 为准：scroll 事件持续跟踪贴底状态，
-  // 容器或内容尺寸变化时若处于贴底则当帧钉底。
-  const isAtBottomRef = useRef(true);
-  useEffect(() => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    const THRESHOLD = 50; // 对齐 virtualizer 的 scrollEndThreshold
-    const updateIsAtBottom = () => {
-      isAtBottomRef.current =
-        el.scrollHeight - el.clientHeight - el.scrollTop <= THRESHOLD;
-    };
-    const pinToBottom = () => {
-      if (isAtBottomRef.current) {
-        el.scrollTop = el.scrollHeight - el.clientHeight;
-      }
-    };
-    const ro = new ResizeObserver(() => {
-      // 尺寸变化 → 文本当帧重排：立即钉底；下一帧（virtualizer 重测、
-      // totalSize 更新后）再钉一次
-      pinToBottom();
-      requestAnimationFrame(pinToBottom);
-    });
-    ro.observe(el);
-    if (el.firstElementChild) ro.observe(el.firstElementChild);
-    el.addEventListener('scroll', updateIsAtBottom, { passive: true });
-    updateIsAtBottom();
-    return () => {
-      ro.disconnect();
-      el.removeEventListener('scroll', updateIsAtBottom);
-    };
-  }, []);
+  // 新一轮流式开始时重新贴底。同一条 streaming id 的后续 token 不打断上滑。
+  const prevStreamingIdRef = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    const prev = prevStreamingIdRef.current;
+    prevStreamingIdRef.current = streamingMessageId;
+    if (streamingMessageId != null && streamingMessageId !== prev) {
+      reStick();
+      virtualizer.scrollToEnd();
+    }
+  }, [reStick, streamingMessageId, virtualizer]);
 
-  // 填充外部控制器（供滚动导航栏使用）
   useChatListController({
     scrollContainerRef,
     virtualizer,
     controllerRef,
+    onScrollToEnd: reStick,
   });
 
   const virtualItems = virtualizer.getVirtualItems();

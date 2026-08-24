@@ -20,6 +20,8 @@ interface SSEMockOptions {
   content?: string[];
   usage?: { input_tokens: number; output_tokens: number };
   delayMs?: number;
+  /** 相邻 SSE 事件之间的间隔。用于测试流式增高过程中的滚动，不改变 delayMs 挂起语义。 */
+  chunkDelayMs?: number;
   status?: number;
   errorMessage?: string;
   webSearch?: SSEMockWebSearchCall[];
@@ -43,11 +45,15 @@ function sseEvent(
   })}\n\n`;
 }
 
+type SseBodyOptions = Required<
+  Omit<
+    SSEMockOptions,
+    'status' | 'errorMessage' | 'webSearch' | 'citations' | 'chunkDelayMs'
+  >
+>;
+
 function buildSSEBody(
-  options: Required<
-    Omit<SSEMockOptions, 'status' | 'errorMessage' | 'webSearch' | 'citations'>
-  > &
-    Pick<SSEMockOptions, 'webSearch' | 'citations'>,
+  options: SseBodyOptions & Pick<SSEMockOptions, 'webSearch' | 'citations'>,
 ): string {
   const { thinking, content, usage, webSearch = [], citations = [] } = options;
   let seq = 1;
@@ -119,11 +125,7 @@ const SSE_HEADERS = {
   Connection: 'keep-alive',
 };
 
-function buildChatCompletionsSSEBody(
-  options: Required<
-    Omit<SSEMockOptions, 'status' | 'errorMessage' | 'webSearch' | 'citations'>
-  >,
-): string {
+function buildChatCompletionsSSEBody(options: SseBodyOptions): string {
   const { thinking, content } = options;
   const chunks: string[] = [];
   for (const delta of thinking) {
@@ -203,12 +205,78 @@ async function hangSseInPage(
   );
 }
 
+/** 按事件间隔推送 SSE，用于流式过程中的交互（上滑、停止等）。 */
+async function streamSseInPage(
+  page: Page,
+  urlPattern: string,
+  body: string,
+  chunkDelayMs: number,
+): Promise<void> {
+  const parts = body
+    .split('\n\n')
+    .filter(Boolean)
+    .map((part) => `${part}\n\n`);
+  await page.evaluate(
+    ({ urlPattern, parts, chunkDelayMs }) => {
+      const orig = window.fetch.bind(window);
+      const re = new RegExp(urlPattern);
+      window.fetch = async (input, init) => {
+        const url =
+          typeof input === 'string'
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+        if (!re.test(url)) return orig(input, init);
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream<Uint8Array>({
+          async start(controller) {
+            const onAbort = () => {
+              try {
+                controller.close();
+              } catch {
+                // already closed
+              }
+            };
+            if (init?.signal?.aborted) {
+              onAbort();
+              return;
+            }
+            init?.signal?.addEventListener('abort', onAbort, { once: true });
+            for (const part of parts) {
+              if (init?.signal?.aborted) break;
+              controller.enqueue(encoder.encode(part));
+              await new Promise<void>((resolve) => {
+                setTimeout(resolve, chunkDelayMs);
+              });
+            }
+            onAbort();
+          },
+        });
+        return new Response(stream, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+          },
+        });
+      };
+    },
+    { urlPattern, parts, chunkDelayMs },
+  );
+}
+
 async function fulfillSse(
   page: Page,
   url: RegExp,
   body: string,
   delayMs: number,
+  chunkDelayMs = 0,
 ): Promise<void> {
+  if (chunkDelayMs > 0) {
+    await streamSseInPage(page, url.source, body, chunkDelayMs);
+    return;
+  }
   if (delayMs > 0) {
     await hangSseInPage(page, url.source, body);
     return;
@@ -231,6 +299,7 @@ export async function mockDeepSeekSSE(
     content = ['你好', '！我是', 'DeepSeek'],
     usage = { input_tokens: 10, output_tokens: 5 },
     delayMs = 0,
+    chunkDelayMs = 0,
     webSearch = [],
     citations = [],
   } = options;
@@ -243,7 +312,7 @@ export async function mockDeepSeekSSE(
     webSearch,
     citations,
   });
-  await fulfillSse(page, DEEPSEEK_API_URL, body, delayMs);
+  await fulfillSse(page, DEEPSEEK_API_URL, body, delayMs, chunkDelayMs);
 }
 
 export async function mockDeepSeekPrefixSSE(
